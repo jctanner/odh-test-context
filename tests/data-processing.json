@@ -1,0 +1,262 @@
+{
+  "repo": "data-processing",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:01:16Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "version": ">=0.1.0",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff format --check kubeflow-pipelines/common/*.py kubeflow-pipelines/docling-standard/*.py kubeflow-pipelines/docling-vlm/*.py",
+        "fix_command": "ruff format kubeflow-pipelines/common/*.py kubeflow-pipelines/docling-standard/*.py kubeflow-pipelines/docling-vlm/*.py",
+        "scope": "Python files in kubeflow-pipelines/ subdirectories",
+        "makefile_target": "make format-python-check"
+      },
+      {
+        "name": "nbstripout",
+        "version": ">=0.6.0",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "nbstripout --keep-id --verify notebooks/**/*.ipynb",
+        "fix_command": "nbstripout --keep-id notebooks/**/*.ipynb",
+        "scope": "Jupyter notebooks in notebooks/ directory",
+        "makefile_target": "make format-notebooks-check"
+      },
+      {
+        "name": "ruff-check",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff check kubeflow-pipelines/",
+        "fix_command": "ruff check --fix kubeflow-pipelines/",
+        "scope": "Python files in kubeflow-pipelines/",
+        "notes": "Configured in pyproject.toml but NOT enforced in CI - only format checking is gating"
+      }
+    ],
+    "notes": "CI only enforces ruff format checking, not ruff check (linting). Pre-commit hooks configured for ruff-format and nbstripout."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "pytest tests/ -v --tb=short",
+    "run_single_file": "pytest {file} -v",
+    "run_single_test": "pytest {file}::{test_name} -v",
+    "setup_required": [
+      "pip install -r requirements-dev.txt"
+    ],
+    "env_vars": [],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Uses pytest fixtures and papermill for notebook execution",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "test_types": {
+      "notebook_parameters": {
+        "command": "pytest tests/test_notebook_parameters.py -v",
+        "makefile_target": "make test-notebook-parameters",
+        "description": "Validates notebooks have required 'parameters' cell tag for papermill",
+        "infrastructure": "None - pure Python validation",
+        "validated": true
+      },
+      "notebook_execution": {
+        "command": "pytest tests/test_notebook_execution.py -v",
+        "makefile_target": "make test-notebook-execution",
+        "description": "Executes notebooks with papermill to verify they run without errors",
+        "infrastructure": "GPU, CUDA 12.4, large ML dependencies (docling, transformers, milvus)",
+        "validated": false,
+        "notes": "Requires GPU and heavy dependencies - runs on AWS EC2 g6e.xlarge in CI"
+      }
+    },
+    "notes": "Notebook parameter validation works in standard container. Notebook execution requires GPU infrastructure and ML dependencies. Test files use pathlib and papermill for execution."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/validate-python.yml",
+      ".github/workflows/validate-notebooks.yml",
+      ".github/workflows/compile-kfp.yml",
+      ".github/workflows/execute-kfp-localrunners.yml",
+      ".github/workflows/execute-all-notebooks.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Python Formatting Validation",
+        "workflow": "validate-python.yml",
+        "trigger": "pull_request (when .py files change)",
+        "command": "make format-python-check",
+        "python_version": "3.12",
+        "required": true
+      },
+      {
+        "name": "Validate Notebooks - Formatting",
+        "workflow": "validate-notebooks.yml",
+        "trigger": "pull_request (when .ipynb files change)",
+        "command": "make format-notebooks-check",
+        "python_version": "3.12",
+        "required": true
+      },
+      {
+        "name": "Validate Notebooks - Parameters",
+        "workflow": "validate-notebooks.yml",
+        "trigger": "pull_request (when .ipynb files change)",
+        "command": "make test-notebook-parameters",
+        "python_version": "3.12",
+        "required": true
+      },
+      {
+        "name": "Compile KFP pipelines",
+        "workflow": "compile-kfp.yml",
+        "trigger": "pull_request (when kubeflow-pipelines/ files change)",
+        "commands": [
+          "pip install -r kubeflow-pipelines/docling-standard/requirements.txt",
+          "cd kubeflow-pipelines/docling-standard && python standard_convert_pipeline.py",
+          "diff standard_convert_pipeline_compiled.yaml (committed vs generated)"
+        ],
+        "python_version": "3.12",
+        "required": true,
+        "notes": "Ensures pipeline code changes are accompanied by regenerated compiled YAML"
+      },
+      {
+        "name": "Test Local Pipeline Runners",
+        "workflow": "execute-kfp-localrunners.yml",
+        "trigger": "pull_request (when kubeflow-pipelines/ files change)",
+        "infrastructure": "AWS EC2 g6e.xlarge GPU instance",
+        "required": true,
+        "notes": "Only runs on upstream repo (opendatahub-io/data-processing), not forks"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Execute All Notebooks",
+        "workflow": "execute-all-notebooks.yml",
+        "trigger": "push to main (not PRs)",
+        "infrastructure": "AWS EC2 g6e.xlarge GPU instance",
+        "required": false,
+        "notes": "Full notebook execution post-merge, requires GPU and CUDA 12.4"
+      }
+    ],
+    "notes": "Most checks are lightweight and run on ubuntu-latest. GPU-intensive checks (notebook execution, KFP local runners) require AWS EC2 instances and only run on the upstream repository. Forks get a PR check notification but GPU tests are skipped."
+  },
+  "build": {
+    "system": "make + pip",
+    "install_command": "pip install -r requirements-dev.txt",
+    "build_command": null,
+    "additional_installs": {
+      "kfp_standard": "pip install -r kubeflow-pipelines/docling-standard/requirements.txt",
+      "kfp_vlm": "pip install -r kubeflow-pipelines/docling-vlm/requirements.txt",
+      "notebook_execution": "pip install -r tests/requirements-gpu.txt (requires CUDA)",
+      "subset_selection": "pip install -r scripts/subset_selection/requirements.txt"
+    },
+    "notes": "No build step for notebooks. KFP pipeline compilation requires installing heavy dependencies (docling, tesserocr). Notebook execution requires GPU-specific packages."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/test_*.py",
+    "test_naming": "pytest convention - test_* functions, test_* files",
+    "notebook_naming": "Descriptive kebab-case (e.g., document-conversion-standard.ipynb)",
+    "import_style": "Standard Python imports, ruff configured for import sorting (I001)",
+    "python_version": "3.12",
+    "line_length": 88,
+    "notebook_requirements": "All notebooks must have a code cell tagged with 'parameters' for papermill execution",
+    "notes": "Notebooks are organized into use-cases/ and tutorials/. Python code is in kubeflow-pipelines/ subdirectories."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install -r requirements-dev.txt"
+    ],
+    "lint_commands": [
+      {
+        "command": "make format-python-check",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "9 files checked, all formatted correctly"
+      },
+      {
+        "command": "make format-notebooks-check",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "6 notebooks checked, all passed nbstripout verification"
+      },
+      {
+        "command": "ruff check kubeflow-pipelines/",
+        "validated": true,
+        "exit_code": 1,
+        "notes": "Found 3 lint violations (I001, UP015, UP017) - but this is NOT enforced in CI"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test-notebook-parameters",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "7 tests passed in 1.02s - validates notebooks have parameters cells"
+      },
+      {
+        "command": "pytest tests/test_notebook_execution.py -v",
+        "validated": false,
+        "notes": "Requires GPU, CUDA, and heavy ML dependencies (docling, transformers, milvus) - cannot validate in standard container"
+      }
+    ],
+    "test_single_file": "pytest {file} -v",
+    "test_single_test": "pytest {file}::{test_name} -v",
+    "env_vars": [],
+    "notes": "Standard Python container sufficient for format/lint checks and parameter validation. Notebook execution and KFP compilation require GPU infrastructure and specialized dependencies."
+  },
+  "validation": {
+    "container_name": "test-context-data-processing",
+    "base_image_used": "python:3.12",
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install -r requirements-dev.txt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed ruff-0.15.7 nbstripout-0.9.1 pytest-9.0.2 nbformat-5.10.4 papermill-2.7.0 ipykernel-7.2.0 jupyter-1.1.1 (plus dependencies)",
+        "notes": "Clean install, all development dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "make format-python-check",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ruff format --check ...\n9 files already formatted\nruff format check passed :)",
+        "notes": "All Python files properly formatted"
+      },
+      {
+        "step": "lint",
+        "command": "make format-notebooks-check",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "nbstripout --keep-id --verify ...\nnbstripout check passed :)",
+        "notes": "All notebooks have outputs stripped correctly"
+      },
+      {
+        "step": "test",
+        "command": "make test-notebook-parameters",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================= test session starts ==============================\n...\ntests/test_notebook_parameters.py::test_notebook_has_parameters_cell[notebook_path0] PASSED [ 14%]\n...\n============================== 7 passed in 1.02s ===============================",
+        "notes": "All 6 notebooks have required parameters cell, validator test also passed"
+      },
+      {
+        "step": "lint-optional",
+        "command": "ruff check kubeflow-pipelines/",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "I001 [*] Import block is un-sorted or un-formatted\nUP015 [*] Unnecessary mode argument\nUP017 [*] Use `datetime.UTC` alias\nFound 3 errors.\n[*] 3 fixable with the `--fix` option.",
+        "notes": "Ruff linting finds violations but is NOT enforced in CI - only format checking is gating"
+      }
+    ],
+    "summary": "Install OK, format checks OK (Python + notebooks), parameter tests OK (7 passed). Notebook execution tests not run (require GPU/ML dependencies). KFP compilation not tested (requires docling, tesserocr)."
+  },
+  "gaps": [
+    "Notebook execution tests require GPU (CUDA 12.4) and heavy ML dependencies (docling, transformers, milvus) - cannot be validated in standard container",
+    "KFP pipeline compilation requires system dependencies (tesserocr needs libtesseract) and heavy ML libraries - not tested in validation",
+    "Ruff linting (ruff check) is configured but not enforced in CI - only format checking runs",
+    "No unit tests for Python code in kubeflow-pipelines/ - only notebook validation",
+    "Full integration testing requires AWS infrastructure (EC2 GPU instances, secrets) - only available to upstream repo",
+    "Forks cannot run GPU-dependent CI checks - they only get basic validation"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high",
+  "agent_readiness_explanation": "Format checking and notebook structure validation work perfectly in a standard Python 3.12 container. An agent can validate formatting (ruff, nbstripout) and notebook parameters with 100% reliability. However, actual notebook execution and KFP pipeline testing require GPU infrastructure and heavy ML dependencies (docling, transformers, milvus) that are only available in specialized CI environments. An agent can do partial validation (format + structure) but not full execution testing."
+}

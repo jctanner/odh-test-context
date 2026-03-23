@@ -1,0 +1,152 @@
+{
+  "repo": "modelcar-base-image",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:21:00Z",
+  "languages": ["Go", "Python"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting tools configured. No .golangci.yml, .flake8, ruff config, or other linter configurations found in the repository."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "python/tests",
+    "run_command": "cd python && uv run pytest -x -s -v",
+    "run_single_file": "cd python && uv run pytest {file} -v",
+    "run_single_test": "cd python && uv run pytest {file}::{test_name} -v",
+    "setup_required": [
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=/root/.local/bin:$PATH",
+      "cd python && uv sync --all-extras"
+    ],
+    "env_vars": [],
+    "fixtures_location": "python/tests/__init__.py",
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Python tests use pytest with 3 test functions. Tests check embedded OCI layout and constants. Go code has no tests (no *_test.go files found). The Makefile provides convenient targets: 'make sync' for dependencies, 'make test' for running tests."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/build.yaml",
+      ".github/workflows/e2e.yaml",
+      ".github/workflows/publish.yaml",
+      ".github/workflows/publish-python.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Build Container Image",
+        "command": "docker build -f Containerfile -t modelcar-base-image .",
+        "required": true
+      },
+      {
+        "name": "E2E Python Tests",
+        "command": "cd python && make sync test",
+        "required": true
+      },
+      {
+        "name": "E2E KServe Integration",
+        "command": "Full KServe deployment with kubectl (requires Kind cluster)",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Two workflows trigger on pull_request: build.yaml (container build) and e2e.yaml (E2E tests including Python unit tests and KServe integration). The e2e-python job is the core gating check for Python code changes. The e2e-kserve job requires a Kubernetes cluster and tests full KServe integration."
+  },
+  "build": {
+    "system": "make, uv, docker/podman",
+    "install_command": "cd python && uv sync --all-extras",
+    "build_command": "cd python && make build (requires skopeo)",
+    "notes": "Python package uses uv for dependency management. Full build requires 'skopeo' tool to copy container images to OCI layout. The 'prepare' step (uv run python src/modelcar_base_image/prepare.py) downloads the base container image. Go code builds via multi-stage Containerfile using ubi8/go-toolset:1.22 builder image."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py, *_test.py",
+    "test_naming": "Python: test_* functions in Test* classes or standalone",
+    "import_style": "Absolute imports from modelcar_base_image package",
+    "notes": "Python tests configured in pyproject.toml under [tool.pytest.ini_options]. Go uses single-file main package with no external dependencies."
+  },
+  "container_recipe": {
+    "base_image": "python:3.9",
+    "system_deps": ["make", "git", "curl"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y make git curl",
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=/root/.local/bin:$PATH",
+      "cd /app/python && uv sync --all-extras"
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {
+        "command": "cd /app/python && uv run pytest -x -s -v",
+        "validated": true,
+        "notes": "3 tests passed in 0.02s"
+      }
+    ],
+    "test_single_file": "cd /app/python && uv run pytest {file} -v",
+    "test_single_test": "cd /app/python && uv run pytest {file}::{test_name} -v",
+    "env_vars": ["PATH=/root/.local/bin:$PATH"],
+    "notes": "The Python package builds and tests successfully. The full 'make build' requires skopeo to copy container images, but this is not needed for test validation. Tests only require uv and Python dependencies."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install_uv",
+        "command": "curl -LsSf https://astral.sh/uv/install.sh | sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "downloading uv 0.10.12 x86_64-unknown-linux-gnu\ninstalling to /root/.local/bin\neverything's installed!",
+        "notes": "UV package manager installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "cd /app/python && uv sync --all-extras",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Using CPython 3.9.25 interpreter at: /usr/local/bin/python3\nCreating virtual environment at: .venv\nResolved 12 packages in 1ms\nInstalled 9 packages in 28ms",
+        "notes": "Dependencies installed: pytest, pluggy, iniconfig, packaging, etc. Warning about hardlink (degraded performance) is cosmetic."
+      },
+      {
+        "step": "test",
+        "command": "cd /app/python && uv run pytest -x -s -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================= test session starts ==============================\nplatform linux -- Python 3.9.25, pytest-8.4.2, pluggy-1.6.0\ntests/embedded_oci_layout_test.py::test_check_embedded_oci_layout PASSED\ntests/test_constants.py::test_odh_modelcar_base_image_constant PASSED\ntests/test_constants.py::test_embedded_oci_layout_dir_constant PASSED\n============================== 3 passed in 0.02s",
+        "notes": "All 3 tests passed successfully"
+      },
+      {
+        "step": "test_single_file",
+        "command": "cd /app/python && uv run pytest tests/test_constants.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "collected 2 items\ntests/test_constants.py::test_odh_modelcar_base_image_constant PASSED    [ 50%]\ntests/test_constants.py::test_embedded_oci_layout_dir_constant PASSED    [100%]\n============================== 2 passed in 0.01s",
+        "notes": "Single file test execution works correctly"
+      },
+      {
+        "step": "test_single_test",
+        "command": "cd /app/python && uv run pytest tests/test_constants.py::test_odh_modelcar_base_image_constant -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "collected 1 item\ntests/test_constants.py::test_odh_modelcar_base_image_constant PASSED    [100%]\n============================== 1 passed in 0.00s",
+        "notes": "Single test function execution works correctly"
+      },
+      {
+        "step": "build",
+        "command": "cd /app/python && make build",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "uv run python src/modelcar_base_image/prepare.py\nTraceback (most recent call last):\n  File \"/app/python/src/modelcar_base_image/prepare.py\", line 19\nFileNotFoundError: [Errno 2] No such file or directory: 'skopeo'",
+        "notes": "Build requires 'skopeo' tool to copy container images. This is not needed for test validation; CI handles builds separately. The prepare step pulls the base container image into an OCI layout."
+      }
+    ],
+    "summary": "install OK (uv + deps), tests OK (3/3 passed), build requires skopeo (not needed for validation)"
+  },
+  "gaps": [
+    "No linting configuration found (no ruff, flake8, pylint, golangci-lint, etc.)",
+    "Go code has no unit tests (no *_test.go files)",
+    "Full Python build requires 'skopeo' tool (not available in standard Python container, but not needed for test validation)",
+    "No test coverage measurement configured",
+    "E2E KServe tests require Kubernetes cluster (Kind) and cannot be validated in isolated container"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

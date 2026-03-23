@@ -1,0 +1,298 @@
+{
+  "repo": "model-registry-bf4-kf",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T19:22:30-04:00",
+  "languages": ["Go", "Python", "Robot Framework"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v1.54.2",
+        "config_file": null,
+        "run_command": "make lint",
+        "fix_command": null,
+        "scope": "full project",
+        "notes": "Runs on main.go, cmd/, internal/, pkg/. Uses golangci-lint defaults (no custom config file)."
+      },
+      {
+        "name": "ruff",
+        "version": "^0.1.6",
+        "config_file": "clients/python/pyproject.toml",
+        "run_command": "cd clients/python && nox --session lint",
+        "fix_command": "cd clients/python && ruff check --fix .",
+        "scope": "Python client only (clients/python/)",
+        "notes": "Configured in [tool.ruff] section of pyproject.toml. Includes pyflakes, pycodestyle, mccabe, bugbear, bandit, comprehensions, pydocstyle, isort, pytest, and more."
+      },
+      {
+        "name": "mypy",
+        "version": "^1.7.0",
+        "config_file": "clients/python/pyproject.toml",
+        "run_command": "cd clients/python && nox --session mypy",
+        "fix_command": null,
+        "scope": "Python client only (clients/python/src)",
+        "notes": "Type checking for Python code. Run via nox session."
+      },
+      {
+        "name": "yamlfmt",
+        "version": "v0.10.0",
+        "config_file": null,
+        "run_command": "pre-commit run yamlfmt --all-files",
+        "fix_command": null,
+        "scope": "YAML files",
+        "notes": "Part of pre-commit hooks, formats YAML files."
+      }
+    ],
+    "notes": "Pre-commit hooks configured in .pre-commit-config.yaml with multiple linters. Go lint uses defaults. Python uses comprehensive ruff configuration."
+  },
+  "testing": {
+    "frameworks": [
+      {
+        "name": "Go testing",
+        "test_directory": "internal/, pkg/",
+        "run_command": "make test",
+        "run_single_file": "go test {file}",
+        "run_single_test": "go test {package} -run {TestName}",
+        "setup_required": ["make deps", "make gen"],
+        "env_vars": [],
+        "fixtures_location": "internal/testutils/",
+        "mock_patterns": null,
+        "coverage_command": "make test-cover",
+        "coverage_threshold": null,
+        "notes": "Tests use standard Go testing. Integration tests require Docker (testcontainers-go). Unit tests in converter and mapper packages work without infrastructure. Full test suite requires ml-metadata container."
+      },
+      {
+        "name": "pytest",
+        "test_directory": "clients/python/tests/",
+        "run_command": "cd clients/python && nox --session tests",
+        "run_single_file": "cd clients/python && pytest {file}",
+        "run_single_test": "cd clients/python && pytest {file}::{test_name}",
+        "setup_required": ["pip install --constraint=.github/workflows/constraints.txt poetry nox nox-poetry"],
+        "env_vars": [],
+        "fixtures_location": "clients/python/tests/conftest.py",
+        "mock_patterns": "Uses pytest fixtures for test setup",
+        "coverage_command": "cd clients/python && nox --session tests -- --cov-report=xml",
+        "coverage_threshold": null,
+        "notes": "Python tests managed via nox. Most tests require Docker (testcontainers). Type mapping tests (9 tests) work without infrastructure. Full test suite requires ml-metadata container."
+      },
+      {
+        "name": "Robot Framework",
+        "test_directory": "test/robot/",
+        "run_command": "robot test/robot",
+        "run_single_file": "robot {file}",
+        "run_single_test": "robot -t '{test_name}' {file}",
+        "setup_required": [
+          "pip install -r test/robot/requirements.txt",
+          "pip install -e clients/python",
+          "docker compose -f docker-compose-local.yaml up --detach"
+        ],
+        "env_vars": ["TEST_MODE=Python (optional, defaults to REST)"],
+        "fixtures_location": null,
+        "mock_patterns": null,
+        "coverage_command": null,
+        "coverage_threshold": null,
+        "notes": "Integration tests that require running model-registry service via docker-compose. Tests both REST and Python client modes."
+      }
+    ],
+    "notes": "Multi-language test suite. Go and Python have unit tests that work standalone, but integration tests require Docker infrastructure."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/build.yml",
+      ".github/workflows/python-tests.yml",
+      ".github/workflows/run-robot-tests.yaml",
+      ".github/workflows/build-and-push-image.yml",
+      ".github/workflows/build-image-pr.yml",
+      ".github/workflows/python-release.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "build",
+        "workflow": "build.yml",
+        "commands": [
+          "make deps",
+          "make clean",
+          "make build",
+          "make test-cover"
+        ],
+        "required": true,
+        "notes": "Runs on pull_request for Go code. Requires Go 1.19, protoc 24.3, Python 3.9, nodejs/npm. Uploads coverage to Codecov."
+      },
+      {
+        "name": "python-tests (lint)",
+        "workflow": "python-tests.yml",
+        "commands": ["cd clients/python && nox --session lint"],
+        "required": true,
+        "notes": "Python linting with ruff. Matrix builds Python 3.10."
+      },
+      {
+        "name": "python-tests (tests)",
+        "workflow": "python-tests.yml",
+        "commands": ["cd clients/python && nox --session tests -- --cov-report=xml"],
+        "required": true,
+        "notes": "Python tests with pytest. Matrix builds Python 3.9 and 3.10. Uploads coverage to Codecov."
+      },
+      {
+        "name": "python-tests (mypy)",
+        "workflow": "python-tests.yml",
+        "commands": ["cd clients/python && nox --session mypy"],
+        "required": true,
+        "notes": "Type checking with mypy. Failure creates error annotation but may not fail CI."
+      },
+      {
+        "name": "python-tests (docs-build)",
+        "workflow": "python-tests.yml",
+        "commands": ["cd clients/python && nox --session docs-build"],
+        "required": true,
+        "notes": "Builds Sphinx documentation. Uploads docs as artifact."
+      },
+      {
+        "name": "run-robot-tests",
+        "workflow": "run-robot-tests.yaml",
+        "commands": [
+          "pip install -r test/robot/requirements.txt",
+          "pip install -e clients/python",
+          "docker compose -f docker-compose-local.yaml up --detach",
+          "robot test/robot",
+          "TEST_MODE=Python robot test/robot/MRandLogicalModel.robot",
+          "docker compose -f docker-compose-local.yaml down"
+        ],
+        "required": true,
+        "notes": "Integration tests using Robot Framework. Builds and runs model-registry in Docker."
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "All workflows are gating on pull_request. Build workflow ignores docs and metadata changes. Python and Robot tests run on all PRs."
+  },
+  "build": {
+    "system": "Make",
+    "install_command": "go mod download && make deps",
+    "build_command": "make build",
+    "build_steps": [
+      "make gen (generates protobuf, OpenAPI client/server, converters)",
+      "go vet ./...",
+      "make lint",
+      "go build"
+    ],
+    "notes": "Build requires protoc 24.3, nodejs/npm for openapi-generator-cli, java-11 for openapi-generator. Code generation downloads ml-metadata protos v1.14.0 and generates Go code. Python client uses Poetry for dependency management."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go for Go, test_*.py for Python, *.robot for Robot Framework",
+    "test_naming": "TestFunctionName for Go, test_function_name for Python",
+    "import_style": "Go: standard library, external, internal. Python: managed by ruff isort.",
+    "notes": "Go tests use table-driven tests pattern. Python tests use pytest fixtures defined in conftest.py."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.19",
+    "system_deps": ["make", "git", "wget", "unzip", "curl", "nodejs", "npm", "default-jre", "protobuf-compiler"],
+    "setup_commands": [
+      "cd /app && go mod download",
+      "cd /app && make deps"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd /app && make lint",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Runs golangci-lint on main.go, cmd/, internal/, pkg/. No issues found."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd /app && go test ./internal/converter ./internal/mapper -v",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Unit tests pass (95 tests). These don't require Docker."
+      },
+      {
+        "command": "cd /app && make test",
+        "validated": false,
+        "exit_code": 1,
+        "notes": "Full test suite requires Docker for testcontainers. Fails with 'Cannot connect to the Docker daemon'. Unit tests work, integration tests need infrastructure."
+      }
+    ],
+    "test_single_file": "cd /app && go test {file}",
+    "test_single_test": "cd /app && go test {package} -run {TestName}",
+    "env_vars": [],
+    "notes": "Go build and lint work in standard container. Tests are split: unit tests (converter, mapper) work standalone, integration tests (core) require Docker-in-Docker or external ml-metadata service. For Python: use python:3.10 base, install poetry/nox, run 'cd /app/clients/python && nox --session lint' (validated, passes) and 'nox --session tests' (9/43 tests pass without Docker)."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install-go",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "Go dependencies downloaded successfully"
+      },
+      {
+        "step": "build-deps-go",
+        "command": "make deps",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Installing go-enum, protoc-gen-go, golangci-lint, goverter, openapi-generator-cli. Some npm warnings about Node version (has 18, wants 20) but tools installed.",
+        "notes": "All build tools installed. npm warnings are non-fatal."
+      },
+      {
+        "step": "lint-go",
+        "command": "make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "/app/bin/golangci-lint run main.go\n/app/bin/golangci-lint run cmd/... internal/... ./pkg/...",
+        "notes": "Linting passed with no issues"
+      },
+      {
+        "step": "test-go-unit",
+        "command": "go test ./internal/converter ./internal/mapper -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "=== RUN   TestStringToInt64\n--- PASS: TestStringToInt64 (0.00s)\n[...95 tests total...]\nPASS\nok  \tgithub.com/opendatahub-io/model-registry/internal/converter\t0.005s\nPASS\nok  \tgithub.com/opendatahub-io/model-registry/internal/mapper\t0.003s",
+        "notes": "95 unit tests passed in converter and mapper packages"
+      },
+      {
+        "step": "test-go-full",
+        "command": "make test",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "FAIL: TestRunCoreTestSuite (0.00s)\n    test_container_utils.go:102: error setting up mlmd grpc container: Cannot connect to the Docker daemon",
+        "notes": "Integration tests require Docker daemon. Unit tests work, integration tests need infrastructure."
+      },
+      {
+        "step": "install-python",
+        "command": "pip install --constraint=.github/workflows/constraints.txt nox nox-poetry poetry",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed nox-2023.4.22 nox-poetry-1.0.2 poetry-1.6.1",
+        "notes": "Python build tools installed"
+      },
+      {
+        "step": "lint-python",
+        "command": "cd clients/python && nox --session lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "nox > ruff check .\nnox > Session lint-3.10 was successful.",
+        "notes": "Python linting passed with no issues"
+      },
+      {
+        "step": "test-python",
+        "command": "cd clients/python && nox --session tests-3.10",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "========================= 9 passed, 34 errors in 5.88s =========================\nERROR tests/test_client.py::test_register_new - docker.errors.DockerException",
+        "notes": "9 unit tests passed (type mapping tests). 34 tests failed due to missing Docker daemon. Coverage shows 48% on non-infrastructure code."
+      }
+    ],
+    "summary": "Go: lint OK, unit tests OK (95 passed), integration tests require Docker. Python: lint OK, unit tests OK (9 passed), integration tests require Docker. Total validated: lint 100%, unit tests 100%, integration tests require infrastructure."
+  },
+  "gaps": [
+    "Integration tests (both Go and Python) require Docker/testcontainers and cannot run in basic container without Docker-in-Docker or external services",
+    "Robot Framework tests require full docker-compose stack with model-registry service running",
+    "No golangci-lint configuration file - uses defaults (may accept code that could be more strictly linted)",
+    "Python tests have 48% coverage on code that doesn't require infrastructure, indicating many tests are integration-only",
+    "Tests require ml-metadata v1.14.0 service running which is not trivial to set up",
+    "Build process has warnings about Node.js version (has 18, wants 20) though it still works"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

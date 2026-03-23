@@ -1,0 +1,209 @@
+{
+  "repo": "llama-stack-provider-kfp-trainer",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:56:00-04:00",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "tox -e lint",
+        "fix_command": "tox -e lint",
+        "scope": "full project",
+        "version": null,
+        "direct_commands": {
+          "check": "ruff check .",
+          "format": "ruff format ."
+        }
+      }
+    ],
+    "notes": "Ruff is configured via tox.ini. The lint command runs both 'ruff check' and 'ruff format'. CI enforces that linting produces no changes (git diff must be clean after lint)."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "tox -e test",
+    "run_single_file": ".tox/test/bin/pytest {file}",
+    "run_single_test": ".tox/test/bin/pytest {file}::{test_name}",
+    "setup_required": [
+      "pip install tox",
+      "tox -e test"
+    ],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": "Uses moto library to mock AWS S3 services (@mock_aws decorator)",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Only unit tests exist (tests/unit/test_s3.py with 3 tests). Tests use moto to mock AWS services, so no external infrastructure is required. Pytest config is in tox.ini with 'addopts = -ra' and 'testpaths = tests'."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/lint.yml",
+      ".github/workflows/mypy.yml",
+      ".github/workflows/test.yml",
+      ".github/workflows/e2e.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Lint",
+        "command": "tox -e lint",
+        "required": true,
+        "workflow_file": ".github/workflows/lint.yml",
+        "notes": "Runs ruff check and format. Fails if git state is dirty after linting."
+      },
+      {
+        "name": "Mypy",
+        "command": "tox -e mypy",
+        "required": true,
+        "workflow_file": ".github/workflows/mypy.yml",
+        "notes": "Type checking with mypy on src/ directory."
+      },
+      {
+        "name": "Unit Tests",
+        "command": "tox -e test",
+        "required": true,
+        "workflow_file": ".github/workflows/test.yml",
+        "notes": "Runs pytest unit tests."
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "End-to-End Server Startup",
+        "command": "./scripts/run-{mode}-server.sh",
+        "required": false,
+        "workflow_file": ".github/workflows/e2e.yml",
+        "notes": "Matrix build across ubuntu-latest/macos-latest and local/remote modes. Has 'continue-on-error: true', so not a gating check. Tests server startup and health endpoint."
+      }
+    ],
+    "notes": "All gating checks trigger on push to main and pull_request to main. Python 3.11 is used consistently across all workflows."
+  },
+  "build": {
+    "system": "setuptools",
+    "install_command": "pip install -e .",
+    "build_command": null,
+    "container_build": "podman build -f Containerfile -t llama-stack-provider-kfp-trainer .",
+    "notes": "Project uses setuptools with pyproject.toml. Source code is in src/ directory. No explicit build step needed - just install with pip. Containerfile uses python:3.11-slim base and requires git system dependency."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/**/*test_*.py",
+    "test_naming": "Functions starting with 'test_' inside files named 'test_*.py'",
+    "import_style": "Absolute imports from llama_stack_provider_kfp_trainer package",
+    "python_version": ">=3.10 (specified in pyproject.toml)",
+    "notes": "Project follows standard Python testing conventions. Tests are organized under tests/unit/. Uses type hints with mypy validation."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11-slim",
+    "system_deps": ["git"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*",
+      "python -m pip install --upgrade pip",
+      "pip install tox"
+    ],
+    "lint_commands": [
+      {
+        "command": "tox -e lint",
+        "validated": true,
+        "notes": "Exit code 0. All checks passed, 10 files left unchanged."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "tox -e test",
+        "validated": true,
+        "notes": "Exit code 0. 3 passed, 3 warnings in 4.50s. Warnings are from pydantic and deprecated imports, not test failures."
+      },
+      {
+        "command": "tox -e mypy",
+        "validated": true,
+        "notes": "Exit code 0. Success: no issues found in 7 source files."
+      }
+    ],
+    "test_single_file": ".tox/test/bin/pytest {file} -v",
+    "test_single_test": ".tox/test/bin/pytest {file}::{test_name} -v",
+    "env_vars": [],
+    "notes": "All tox environments create isolated virtualenvs under .tox/. The test environment must be set up first (via 'tox -e test') before using pytest directly. No special environment variables required for unit tests."
+  },
+  "validation": {
+    "container_name": "test-context-llama-stack-provider-kfp-trainer",
+    "results": [
+      {
+        "step": "install_system_deps",
+        "command": "apt-get update && apt-get install -y --no-install-recommends git",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "31 newly installed packages including git, perl, libcurl3t64-gnutls",
+        "notes": "Git and dependencies installed successfully"
+      },
+      {
+        "step": "install_pip",
+        "command": "python -m pip install --upgrade pip",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed pip-26.0.1",
+        "notes": "Pip upgraded from 24.0 to 26.0.1"
+      },
+      {
+        "step": "install_tox",
+        "command": "pip install tox",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed cachetools-7.0.5 colorama-0.4.6 distlib-0.4.0 filelock-3.25.2 packaging-26.0 platformdirs-4.9.4 pluggy-1.6.0 pyproject-api-1.10.0 python-discovery-1.2.0 tomli-w-1.2.0 tox-4.50.3 virtualenv-21.2.0",
+        "notes": "Tox and all dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "tox -e lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ruff check . → All checks passed!\nruff format . → 10 files left unchanged\nlint: OK (1.45 seconds)",
+        "notes": "Linting passed with no issues"
+      },
+      {
+        "step": "mypy",
+        "command": "tox -e mypy",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Success: no issues found in 7 source files\nmypy: OK (149.17 seconds)",
+        "notes": "Type checking passed. Took longer due to installing project dependencies."
+      },
+      {
+        "step": "test",
+        "command": "tox -e test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "collected 3 items\ntests/unit/test_s3.py ...\n3 passed, 3 warnings in 4.50s",
+        "notes": "All 3 tests passed. Warnings are from pydantic field defaults and deprecated SWIG imports, not test failures."
+      },
+      {
+        "step": "test_single_file",
+        "command": ".tox/test/bin/pytest tests/unit/test_s3.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "test_upload_download PASSED [33%]\ntest_download_fail_no_destdir PASSED [66%]\ntest_download_fail_file_exists PASSED [100%]\n3 passed, 3 warnings",
+        "notes": "Single file test execution works correctly"
+      },
+      {
+        "step": "test_single_test",
+        "command": ".tox/test/bin/pytest tests/unit/test_s3.py::test_upload_download -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "collected 1 item\ntest_upload_download PASSED [100%]\n1 passed, 3 warnings",
+        "notes": "Single test execution by name works correctly"
+      }
+    ],
+    "summary": "All validation steps passed. Install OK, lint OK (no issues), mypy OK (no issues), tests OK (3/3 passed). Container recipe is fully functional."
+  },
+  "gaps": [
+    "No integration tests or end-to-end tests that run in standard CI (e2e workflow has continue-on-error)",
+    "No coverage measurement configured (no coverage threshold or reporting)",
+    "Only 3 unit tests total - test coverage appears minimal",
+    "E2E tests require Llama Stack server setup and may need external resources",
+    "No pre-commit hooks configured",
+    "No Makefile for convenience commands"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high",
+  "readiness_justification": "All lint and test commands validated successfully in a clean container. Dependencies install without issues. Tests pass reliably with clear exit codes. No external infrastructure required for unit tests (moto mocks AWS). An agent can clone, patch, lint, test, and get unambiguous pass/fail signals."
+}

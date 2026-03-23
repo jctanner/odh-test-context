@@ -1,0 +1,186 @@
+{
+  "repo": "ai-helpers",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T17:31:00-04:00",
+  "languages": ["Python", "Shell", "YAML"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": ".ruff.toml",
+        "run_command": "ruff check .",
+        "fix_command": "ruff check --fix .",
+        "scope": "full project"
+      },
+      {
+        "name": "ruff (formatter)",
+        "config_file": ".ruff.toml",
+        "run_command": "ruff format --check --diff .",
+        "fix_command": "ruff format .",
+        "scope": "full project"
+      },
+      {
+        "name": "shellcheck",
+        "config_file": null,
+        "run_command": "find . -name '*.sh' -type f -exec shellcheck {} +",
+        "fix_command": null,
+        "scope": "all .sh files"
+      },
+      {
+        "name": "claudelint",
+        "config_file": ".claudelint.yaml",
+        "run_command": "podman run --rm -v $(pwd):/workspace:Z ghcr.io/stbenjam/claudelint:main -v --strict",
+        "fix_command": null,
+        "scope": "plugin structure validation"
+      }
+    ],
+    "notes": "Ruff enforces line length of 100, rules F (pyflakes), E (pycodestyle errors), W (warnings), I (isort), N (naming). Claudelint validates Claude plugin structure with custom rules in .claudelint-custom.py."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No automated tests exist. This repository contains AI helper plugins/scripts that are validated through linting only. The 'make update' target verifies that helper scripts (update_claude_settings.py, build-website.py) run successfully but does not test their correctness."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/lint.yml",
+      ".github/workflows/build.yml",
+      ".github/workflows/deploy.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "lint-plugins",
+        "command": "make lint",
+        "required": true
+      },
+      {
+        "name": "build-container (claude)",
+        "command": "docker build -f ./images/claude/Containerfile .",
+        "required": true
+      },
+      {
+        "name": "build-container (cursor)",
+        "command": "docker build -f ./images/cursor/Containerfile .",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "The lint workflow runs on all pushes and PRs to main. The build workflow runs on pushes/PRs to main when images/** or the workflow file changes, and also runs nightly at 2 AM UTC. Build workflow builds multi-platform (linux/amd64, linux/arm64) images and pushes to ghcr.io. The make lint target includes: claudelint, ruff check, ruff format check, shellcheck, and validates that 'make update' doesn't generate uncommitted changes."
+  },
+  "build": {
+    "system": "make",
+    "install_command": "pip install ruff PyYAML",
+    "build_command": "make build",
+    "notes": "Build system uses Makefile. 'make build' builds both Claude and Cursor container images. System dependencies required: make, shellcheck, podman/docker. The 'make update' target regenerates Claude settings and website data using Python scripts."
+  },
+  "conventions": {
+    "test_file_pattern": "N/A - no tests",
+    "test_naming": "N/A - no tests",
+    "import_style": "Standard Python imports, organized with isort (enforced by ruff)",
+    "notes": "Python scripts located in scripts/ and helpers/skills/*/scripts/. Shell scripts use .sh extension. Plugins organized under helpers/ with subdirectories: agents/, commands/, gems/, skills/. Categories defined in categories.yaml."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["make", "shellcheck", "git"],
+    "setup_commands": [
+      "pip install --upgrade pip",
+      "pip install ruff PyYAML"
+    ],
+    "lint_commands": [
+      {
+        "command": "ruff check .",
+        "validated": true,
+        "notes": "PASSED: All checks passed! (exit code 0)"
+      },
+      {
+        "command": "ruff format --check --diff .",
+        "validated": true,
+        "notes": "PASSED: 14 files already formatted (exit code 0)"
+      },
+      {
+        "command": "find . -name '*.sh' -type f -exec shellcheck {} +",
+        "validated": true,
+        "notes": "PASSED: No issues found (exit code 0)"
+      }
+    ],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "Claudelint requires podman-in-podman setup which is complex in containers. For full validation including claudelint, use the host's podman directly: podman run --rm -v $(pwd):/workspace:Z ghcr.io/stbenjam/claudelint:main -v --strict"
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install --upgrade pip && pip install ruff PyYAML",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed PyYAML-6.0.3 ruff-0.15.7",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "ruff check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "No linting issues found"
+      },
+      {
+        "step": "lint",
+        "command": "ruff format --check --diff .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "14 files already formatted",
+        "notes": "All Python files properly formatted"
+      },
+      {
+        "step": "lint",
+        "command": "find . -name '*.sh' -type f -exec shellcheck {} +",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "No shellcheck issues found"
+      },
+      {
+        "step": "build",
+        "command": "python3 scripts/update_claude_settings.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "✓ Claude settings and marketplace updated successfully!",
+        "notes": "Settings update script runs successfully"
+      },
+      {
+        "step": "build",
+        "command": "python3 scripts/build-website.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Website data written to /app/docs/data.json\nTotal tools: 34",
+        "notes": "Website build script runs successfully"
+      }
+    ],
+    "summary": "All validated commands passed: install OK, ruff check OK, ruff format OK, shellcheck OK, scripts OK (no tests)"
+  },
+  "gaps": [
+    "No automated tests - this repository has no test suite",
+    "No test framework configured",
+    "Plugin functionality is not validated automatically",
+    "Scripts run successfully but their correctness is not tested",
+    "Claudelint validation requires podman which adds complexity in containerized environments",
+    "No integration tests for container images",
+    "No validation that plugins actually work with Claude Code/OpenCode.ai/Cursor/Gemini"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

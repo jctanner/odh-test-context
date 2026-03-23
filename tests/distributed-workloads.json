@@ -1,0 +1,196 @@
+{
+  "repo": "distributed-workloads",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:59:52Z",
+  "languages": [
+    "Go",
+    "Python"
+  ],
+  "linting": {
+    "tools": [
+      {
+        "name": "openshift-goimports",
+        "config_file": "hack/verify-imports.sh",
+        "run_command": "make verify-imports",
+        "fix_command": "make imports",
+        "scope": "full project - Go files only"
+      },
+      {
+        "name": "black",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run black --all-files",
+        "fix_command": "black .",
+        "scope": "Python files"
+      },
+      {
+        "name": "isort",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run isort --all-files",
+        "fix_command": "isort --profile black .",
+        "scope": "Python files"
+      },
+      {
+        "name": "flake8",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run flake8 --all-files",
+        "fix_command": null,
+        "scope": "Python files with args: --ignore=E203,W503 --max-line-length=88"
+      },
+      {
+        "name": "semgrep",
+        "config_file": "semgrep.yaml",
+        "run_command": "semgrep --config semgrep.yaml .",
+        "fix_command": null,
+        "scope": "Security scanning - Go, Python, YAML, TypeScript"
+      }
+    ],
+    "notes": "Primary linting is Go import organization. Python linting via pre-commit hooks for examples and training scripts. Semgrep provides security scanning across all languages."
+  },
+  "testing": {
+    "framework": "Go testing with gomega assertions",
+    "test_directory": "tests/",
+    "run_command": "go test -timeout 60m ./tests/...",
+    "run_single_file": "go test -timeout 60m {file}",
+    "run_single_test": "go test -timeout 60m -run {test_name} ./tests/...",
+    "setup_required": [
+      "go mod download"
+    ],
+    "env_vars": [
+      "TEST_OUTPUT_DIR - Output directory for test logs",
+      "TEST_TIMEOUT_SHORT - Timeout for short tasks",
+      "TEST_TIMEOUT_MEDIUM - Timeout for medium tasks",
+      "TEST_TIMEOUT_LONG - Timeout for long tasks",
+      "TEST_RAY_IMAGE - Optional Ray image for RayCluster",
+      "TEST_TIER - Test tier filter (Smoke, Sanity, Tier1, Tier2, Tier3, Pre-Upgrade, Post-Upgrade)",
+      "KUBECONFIG - Kubernetes cluster access (required for integration tests)",
+      "ODH_NAMESPACE - Namespace where ODH components are installed",
+      "FMS_HF_TUNING_IMAGE - Image tag for PyTorchJob model training",
+      "HF_TOKEN - HuggingFace token for restricted models",
+      "AWS_DEFAULT_ENDPOINT, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET - S3 storage for datasets/models"
+    ],
+    "fixtures_location": "tests/*/resources/ directories contain Python training scripts, MNIST downloads, etc.",
+    "mock_patterns": "Uses gomega matchers and test namespaces. Tests create Kubernetes resources via client-go.",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are primarily integration tests requiring a Kubernetes cluster (OpenShift/OCP/CRC) with OpenDataHub or RHOAI installed. Unit tests in tests/common/support/ can run without cluster access. Tests can be compiled with 'go test -c' for distribution. Test image uses gotestsum runner."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/verify_generated_files.yml",
+      ".github/workflows/build-and-push-test-images.yml",
+      ".github/workflows/odh-release.yml",
+      ".tekton/*.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "verify-imports",
+        "command": "make verify-imports",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "build-and-push-test-images",
+        "command": "make build-test-image && make push-test-image",
+        "required": false
+      }
+    ],
+    "notes": "GitHub Actions verify-imports workflow gates on PR/push for Go file changes. Extensive Tekton pipelines build training runtime images (CUDA, ROCm variants) with security scanning. ODH release workflow compiles tests into binaries for distribution. No tests are executed in GitHub Actions CI - tests run in dedicated test environments with cluster access."
+  },
+  "build": {
+    "system": "Go + Make + Podman",
+    "install_command": "go mod download",
+    "build_command": "go test -c -o compiled-tests/{name} ./tests/{name}",
+    "notes": "This is a test suite repository, not a service. Build outputs are compiled test binaries and container images. Training runtime images built via Tekton use Python with PyTorch/CUDA/ROCm."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Go tests use Test* prefix. Tests tagged with Tags(t, Sanity, MultiNode(3)) for tier filtering.",
+    "import_style": "Go imports organized via openshift-goimports (groups standard, external, k8s.io, internal). Python uses isort with black profile.",
+    "notes": "Test organization: tests/common (shared utilities), tests/kfto (KubeFlow Training Operator), tests/fms (Foundation Model Stack), tests/odh (OpenDataHub), tests/trainer (Trainer v2). Resources in tests/*/resources/ subdirectories."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.24",
+    "system_deps": [
+      "make",
+      "git"
+    ],
+    "setup_commands": [
+      "go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "make verify-imports",
+        "validated": true,
+        "notes": "Passed - Go imports are properly organized"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "go test -timeout 30s ./tests/common/support/...",
+        "validated": true,
+        "notes": "Passed - 30 unit tests passed in 0.020s. These tests mock Kubernetes resources and don't require cluster access."
+      },
+      {
+        "command": "go test -c -o compiled-tests/kfto ./tests/kfto",
+        "validated": true,
+        "notes": "Passed - Test compilation successful, 79MB binary created"
+      }
+    ],
+    "test_single_file": "go test -timeout 60m {file}",
+    "test_single_test": "go test -timeout 60m -run {test_name} ./tests/...",
+    "env_vars": [
+      "KUBECONFIG=/path/to/kubeconfig - Required for integration tests",
+      "TEST_OUTPUT_DIR=/tmp/test-output - Optional test output directory"
+    ],
+    "notes": "Python linting requires separate Python environment with pre-commit, black, isort, flake8 installed. Full integration tests require access to Kubernetes cluster with ODH/RHOAI. Unit tests in tests/common/support work without cluster. Test image (images/tests/Dockerfile) uses golang:1.24 with oc CLI and gotestsum."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y make git && go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "System deps installed successfully\n(go mod download completed silently)",
+        "notes": "Dependencies installed cleanly"
+      },
+      {
+        "step": "lint",
+        "command": "make verify-imports",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "./hack/verify-imports.sh /app/bin/openshift-goimports\n",
+        "notes": "Go imports properly organized, no violations found"
+      },
+      {
+        "step": "test",
+        "command": "go test -timeout 30s ./tests/common/support/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "=== RUN   TestGetJob\n--- PASS: TestGetJob (0.00s)\n=== RUN   TestGetPods\n--- PASS: TestGetPods (0.00s)\n...\nPASS\nok  \tgithub.com/opendatahub-io/distributed-workloads/tests/common/support\t0.020s",
+        "notes": "30 unit tests passed. These tests use mocked Kubernetes clients and don't require cluster access."
+      },
+      {
+        "step": "build",
+        "command": "go test -c -o /tmp/compiled-kfto ./tests/kfto",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "-rwxr-xr-x. 1 root root 79M Mar 22 21:59 /tmp/compiled-kfto",
+        "notes": "Test compilation successful as done in odh-release workflow"
+      }
+    ],
+    "summary": "install OK, lint OK (0 violations), unit tests OK (30 passed in 0.020s), test compilation OK (79MB binary)"
+  },
+  "gaps": [
+    "No golangci-lint configuration found - only import organization is checked",
+    "Python linting requires separate Python environment - not validated in Go container",
+    "Most tests are integration tests requiring Kubernetes cluster with ODH/RHOAI - cannot be validated locally without cluster access",
+    "No unit tests for training Python scripts - Python files in tests/*/resources/ are integration test fixtures",
+    "No coverage measurement configured",
+    "Tests require external dependencies: S3 storage, HuggingFace tokens, pre-trained models, GPU nodes for CUDA/ROCm tests"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

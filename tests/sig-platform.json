@@ -1,0 +1,68 @@
+{
+  "repo": "sig-platform",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:51:00Z",
+  "languages": [],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. This is a documentation-only repository."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No tests exist. This repository contains only documentation and governance files."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows, .tekton, or other CI infrastructure."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system. This is a documentation-only repository."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Repository contains 4 files: README.md, Docs/charter.md, OWNERS, LICENSE. This is a template repository for Open Data Hub Special Interest Groups focused on governance and documentation."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "Container validation not applicable - repository contains no code to validate."
+  },
+  "validation": {
+    "results": [],
+    "summary": "No validation performed - repository contains only documentation files (README.md, charter.md, OWNERS, LICENSE)"
+  },
+  "gaps": [
+    "Repository contains no source code",
+    "No test infrastructure exists",
+    "No linting configuration exists",
+    "No CI/CD pipelines configured",
+    "No build system present",
+    "This is a governance/documentation repository, not a code repository"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

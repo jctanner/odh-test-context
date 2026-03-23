@@ -1,0 +1,177 @@
+{
+  "repo": "llama-stack-provider-kft",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:52:38Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "version": "0.9.4",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff check .",
+        "fix_command": "uv run ruff check --fix .",
+        "scope": "full project"
+      },
+      {
+        "name": "ruff-format",
+        "version": "0.9.4",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff format --check .",
+        "fix_command": "uv run ruff format .",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Linting is enforced via pre-commit hooks. The .pre-commit-config.yaml configures ruff (with --fix), ruff-format, and several other checks (merge conflicts, trailing whitespace, large files, end-of-file, toml syntax, uv-lock, uv-export). Excludes .ipynb files from ruff checks."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "NO UNIT TESTS EXIST. The repository has no test files, no pytest configuration, and no testing framework. Only an integration test in CI (test-external-providers.yml) that verifies the llama-stack server starts and loads the InstructLab KFT provider."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/pre-commit.yml",
+      ".github/workflows/build-and-publish-image.yml",
+      ".github/workflows/test-external-providers.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Pre-commit",
+        "command": "pre-commit run --all-files",
+        "required": true
+      },
+      {
+        "name": "Docker Build",
+        "command": "docker build -t llama-stack-provider-kft .",
+        "required": true
+      },
+      {
+        "name": "Integration Test - Server Startup",
+        "command": "uv sync && uv pip install -e . && uv run llama stack run run.yaml --image-type venv",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "All three workflows run on pull_request and push to main. Pre-commit workflow uses Python 3.11. Test workflow uses Python 3.10 and uv package manager. Build workflow builds multi-arch images (amd64, arm64) and publishes to quay.io on push to main. The integration test waits for server health endpoint and validates provider loading via log grep."
+  },
+  "build": {
+    "system": "uv + setuptools",
+    "install_command": "uv sync && uv pip install -e .",
+    "build_command": "python -m build --wheel",
+    "notes": "Uses uv as the package manager (modern Python package tool). Dockerfile uses multi-stage build with UBI9 Python 3.11, building a wheel in the builder stage and installing it in the runtime stage. The project requires Python >=3.10 and has optional dependencies under 'utils' for CLI tooling (click, instructlab-training)."
+  },
+  "conventions": {
+    "test_file_pattern": "N/A - no tests exist",
+    "test_naming": "N/A - no tests exist",
+    "import_style": "Standard Python imports",
+    "notes": "Source code is in src/llama_stack_provider_kft/. Main modules are kft_adapter.py (15KB, core adapter logic), provider.py, config.py, and __init__.py. Utility scripts in utils/ include ilab_kft.py CLI, data_upload.py, and cluster_setup.py. Pre-commit hooks enforce code style (ruff), trailing whitespace removal, end-of-file fixing, and uv.lock consistency."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["git", "curl", "make"],
+    "setup_commands": [
+      "pip install --no-cache-dir uv",
+      "uv sync",
+      "uv pip install -e .",
+      "uv pip install pre-commit ruff"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run ruff check .",
+        "validated": true,
+        "notes": "All checks passed"
+      },
+      {
+        "command": "uv run ruff format --check .",
+        "validated": true,
+        "notes": "9 files already formatted"
+      },
+      {
+        "command": ".venv/bin/pre-commit run --all-files",
+        "validated": true,
+        "notes": "All hooks passed: check-merge-conflict, trailing-whitespace, check-added-large-files, end-of-file-fixer, check-toml, ruff, ruff-format, uv-lock, uv-export"
+      }
+    ],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "Container starts successfully with repo mounted at /app. Dependencies install cleanly with uv. Linting works perfectly. NO TESTS to run. The llama-stack server can be started for integration testing but requires Kubernetes cluster access for actual training operations."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "uv sync",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Resolved 133 packages in 0.47ms\nChecked 99 packages in 0.59ms",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "uv pip install -e .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Built llama-stack-provider-kft @ file:///app\nInstalled 1 package in 1ms",
+        "notes": "Editable install successful"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "No linting issues found"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff format --check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "9 files already formatted",
+        "notes": "Code is properly formatted"
+      },
+      {
+        "step": "lint",
+        "command": ".venv/bin/pre-commit run --all-files",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "check for merge conflicts................................................Passed\ntrim trailing whitespace.................................................Passed\ncheck for added large files..............................................Passed\nfix end of files.........................................................Passed\ncheck toml...............................................................Passed\nruff.....................................................................Passed\nruff-format..............................................................Passed\nuv-lock..................................................................Passed\nuv-export................................................................Passed",
+        "notes": "All pre-commit hooks passed"
+      },
+      {
+        "step": "integration",
+        "command": "uv run llama stack run run.yaml --image-type venv",
+        "exit_code": 124,
+        "success": true,
+        "output_snippet": "INFO Using config file: run.yaml\nINFO Run configuration:\napis:\n- post_training\nproviders:\n  post_training:\n  - config:\n      base_image: registry.redhat.io/rhelai1/instructlab-nvidia-rhel9",
+        "notes": "Server starts successfully and loads configuration (timed out after 10s as expected)"
+      }
+    ],
+    "summary": "install OK, lint OK (no issues), format OK, pre-commit OK, server starts OK. NO UNIT TESTS."
+  },
+  "gaps": [
+    "No unit tests - the repository has zero test files and no testing framework configured",
+    "No pytest or other test runner",
+    "No test coverage measurement",
+    "No code coverage thresholds enforced",
+    "Only integration test validates server startup, not actual training functionality",
+    "Integration tests require Kubernetes cluster infrastructure to test real training jobs",
+    "No mock tests for Kubernetes API interactions",
+    "No documentation on how to run local development testing"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

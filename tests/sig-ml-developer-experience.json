@@ -1,0 +1,67 @@
+{
+  "repo": "sig-ml-developer-experience",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": [],
+  "linting": {
+    "tools": [],
+    "notes": "No linter configuration found. This is a documentation-only repository."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure. This repository contains only governance documentation for the ML Developer Experience SIG."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows, .tekton, or other CI directories."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system. Repository contains only Markdown documentation files."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Documentation-only repository. No code conventions applicable."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No container recipe needed - this repository has no code to validate."
+  },
+  "validation": {
+    "results": [],
+    "summary": "Skipped - no code, tests, or build infrastructure to validate"
+  },
+  "gaps": [
+    "No code files - this is a governance/documentation repository only",
+    "No test infrastructure",
+    "No linting infrastructure",
+    "No CI/CD pipelines",
+    "No build system"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

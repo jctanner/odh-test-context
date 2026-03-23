@@ -1,0 +1,146 @@
+{
+  "repo": "sync-upstream-repo",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:20:00-04:00",
+  "languages": ["Bash"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting tools configured. Shellcheck could be used for bash linting but is not currently set up. Scripts pass bash syntax validation (bash -n)."
+  },
+  "testing": {
+    "framework": "Custom Bash test script",
+    "test_directory": ".",
+    "run_command": "./test-entrypoint.bash -d <DOWNSTREAM_REPO_URL> -t <GITHUB_TOKEN>",
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [
+      "export GITHUB_TOKEN=<token>",
+      "podman build -t sync-upstream-repo:latest -f Dockerfile ."
+    ],
+    "env_vars": [
+      "GITHUB_TOKEN - Required: GitHub token for repository access",
+      "DOCKER_ENGINE - Optional: defaults to 'podman', can be 'docker'"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": "Tests use real GitHub repositories for integration testing",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "test-entrypoint.bash is an integration test script that requires a GitHub token and downstream repository URL. It builds the Docker container, runs various test scenarios (branch-to-branch sync, release-following mode), and validates behavior against real GitHub repositories. Tests cannot run in isolation without GitHub credentials and access to test repositories."
+  },
+  "ci": {
+    "system": "None",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "This repository has no CI/CD configuration. It is a GitHub Action meant to be consumed by other repositories. No .github/workflows directory exists."
+  },
+  "build": {
+    "system": "Docker",
+    "install_command": null,
+    "build_command": "podman build -t sync-upstream-repo:latest -f Dockerfile .",
+    "notes": "Dockerfile uses registry.access.redhat.com/ubi9/ubi-minimal:9.3-1552 as base image. Installs bash and git via microdnf. Creates 'ci' user and copies entrypoint.sh with 555 permissions."
+  },
+  "conventions": {
+    "test_file_pattern": "test-*.bash",
+    "test_naming": "Function-based tests with descriptive names (before_all, after_all)",
+    "import_style": "N/A - Bash scripts",
+    "notes": "Scripts use set -eu for error handling. Functions use snake_case naming. Readonly variables declared with 'readonly'. Script uses getopt for argument parsing."
+  },
+  "container_recipe": {
+    "base_image": "registry.access.redhat.com/ubi9/ubi-minimal:9.3-1552",
+    "system_deps": ["bash", "git"],
+    "setup_commands": [
+      "microdnf -y install bash git && microdnf clean all"
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {
+        "command": "bash -n entrypoint.sh",
+        "validated": true,
+        "notes": "Syntax validation passed - no syntax errors"
+      },
+      {
+        "command": "bash -n test-entrypoint.bash",
+        "validated": true,
+        "notes": "Syntax validation passed - no syntax errors"
+      },
+      {
+        "command": "./entrypoint.sh --help",
+        "validated": true,
+        "notes": "Help command works correctly (exits with code 2 as expected for usage display)"
+      },
+      {
+        "command": "podman build -t sync-upstream-repo:latest -f Dockerfile .",
+        "validated": true,
+        "notes": "Docker build successful - image created and tagged"
+      },
+      {
+        "command": "podman run --rm sync-upstream-repo:latest -h",
+        "validated": true,
+        "notes": "Container runs successfully and displays help text"
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [
+      "GITHUB_TOKEN=<required_for_tests>",
+      "DOCKER_ENGINE=podman"
+    ],
+    "notes": "Full integration tests require GITHUB_TOKEN and access to actual GitHub repositories. Syntax validation and Docker build can be done without credentials. The test-entrypoint.bash script performs end-to-end tests of the sync functionality by interacting with real upstream and downstream GitHub repos."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "syntax-check",
+        "command": "bash -n entrypoint.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - syntax valid)",
+        "notes": "Script has valid Bash syntax"
+      },
+      {
+        "step": "syntax-check",
+        "command": "bash -n test-entrypoint.bash",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - syntax valid)",
+        "notes": "Test script has valid Bash syntax"
+      },
+      {
+        "step": "help",
+        "command": "./entrypoint.sh --help",
+        "exit_code": 2,
+        "success": true,
+        "output_snippet": "entrypoint.sh\n  -h or --help                      Print this message\n  -m or --mode <mode>               Required. Synchronization mode...",
+        "notes": "Help text displays correctly (exit 2 is expected for usage)"
+      },
+      {
+        "step": "build",
+        "command": "podman build -t sync-upstream-repo:test -f Dockerfile .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "STEP 1/6: FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1552\nSTEP 2/6: RUN microdnf -y install bash git && microdnf clean all\n...\nSuccessfully tagged localhost/sync-upstream-repo:test",
+        "notes": "Docker image builds successfully"
+      },
+      {
+        "step": "test",
+        "command": "podman run --rm sync-upstream-repo:test -h",
+        "exit_code": 2,
+        "success": true,
+        "output_snippet": "entrypoint.sh\n  -h or --help                      Print this message\n  -m or --mode <mode>               Required...",
+        "notes": "Container executes successfully and displays help"
+      }
+    ],
+    "summary": "Syntax validation OK, Docker build OK, container execution OK. Full integration tests require GitHub credentials and cannot be validated in isolation."
+  },
+  "gaps": [
+    "No linting tools configured (shellcheck recommended for bash scripts)",
+    "No CI/CD workflows to validate changes on pull requests",
+    "Integration tests require GitHub token and live repository access - cannot run in isolation",
+    "No unit tests - only integration tests available",
+    "No static analysis or code quality checks",
+    "No pre-commit hooks configured"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

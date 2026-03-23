@@ -1,0 +1,224 @@
+{
+  "repo": "mlflow-operator",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:15:59Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.5.0",
+        "config_file": ".golangci.yml",
+        "run_command": "make lint",
+        "fix_command": "make lint-fix",
+        "scope": "full project",
+        "direct_command": "./bin/golangci-lint run",
+        "direct_fix_command": "./bin/golangci-lint run --fix"
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "golangci-lint is configured with multiple linters enabled including copyloopvar, dupl, errcheck, ginkgolinter, govet, ineffassign, lll, misspell, nakedret, prealloc, revive, staticcheck, unconvert, unparam, and unused. Formatters gofmt and goimports are also enabled."
+  },
+  "testing": {
+    "framework": "Ginkgo v2 (BDD) + Gomega (assertions)",
+    "test_directory": "internal/controller/*_test.go, test/e2e/*_test.go",
+    "run_command": "KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.34 --bin-dir ./bin -p path)\" go test $(go list ./... | grep -v /e2e) -coverprofile cover.out",
+    "run_command_simple": "make test",
+    "run_single_file": "KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.34 --bin-dir ./bin -p path)\" go test {package_path}",
+    "run_single_test": "KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.34 --bin-dir ./bin -p path)\" go test {package_path} -run {test_name}",
+    "setup_required": [
+      "make controller-gen",
+      "make manifests",
+      "make generate",
+      "go fmt ./...",
+      "go vet ./...",
+      "make setup-envtest"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS - path to envtest binaries (etcd, kube-apiserver, kubectl)"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": "Uses envtest to provide a real (not mocked) Kubernetes API server for controller testing",
+    "coverage_command": "KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.34 --bin-dir ./bin -p path)\" go test $(go list ./... | grep -v /e2e) -coverprofile cover.out",
+    "coverage_threshold": null,
+    "notes": "Unit tests use Kubernetes controller-runtime envtest which requires etcd and kube-apiserver binaries. E2E tests require a Kind cluster and are excluded from the standard test run. Tests achieved 62.0% coverage in validation. The project uses Ginkgo BDD-style tests with table-driven test patterns."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/lint.yml",
+      ".github/workflows/test.yml",
+      ".github/workflows/verify-codegen.yml",
+      ".github/workflows/verify-kustomize.yml",
+      ".github/workflows/validate-samples.yaml",
+      ".github/workflows/test-e2e.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Lint",
+        "command": "golangci-lint run (via golangci/golangci-lint-action@v8)",
+        "required": true,
+        "workflow": ".github/workflows/lint.yml"
+      },
+      {
+        "name": "Tests",
+        "command": "go mod tidy && make test",
+        "required": true,
+        "workflow": ".github/workflows/test.yml"
+      },
+      {
+        "name": "Verify Generated Code",
+        "command": "make manifests && make generate && git diff --exit-code",
+        "required": true,
+        "workflow": ".github/workflows/verify-codegen.yml"
+      },
+      {
+        "name": "Verify Manifest Builds",
+        "command": "make verify-manifests",
+        "required": true,
+        "workflow": ".github/workflows/verify-kustomize.yml"
+      },
+      {
+        "name": "Validate Sample CRs",
+        "command": "make manifests && make validate-samples",
+        "required": true,
+        "workflow": ".github/workflows/validate-samples.yaml",
+        "infrastructure": "Requires Kind cluster"
+      },
+      {
+        "name": "E2E Tests",
+        "command": "make docker-build && kind load docker-image && go mod tidy && make test-e2e",
+        "required": true,
+        "workflow": ".github/workflows/test-e2e.yml",
+        "infrastructure": "Requires Kind cluster"
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "All workflows trigger on pull_request with path filters. E2E tests and sample validation require Kind cluster infrastructure. The project also has Tekton pipelines in .tekton/ directory for alternative CI systems."
+  },
+  "build": {
+    "system": "Go modules + Makefile",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "build_command_direct": "go build -o bin/manager cmd/main.go",
+    "docker_build_command": "make docker-build",
+    "notes": "The project is a Kubernetes operator built with kubebuilder. Build requires running 'make manifests' and 'make generate' first to generate CRDs and deepcopy methods. Container build uses UBI9 base images with Go 1.24 toolset and supports FIPS-compliant builds."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Ginkgo BDD style: Describe/Context/It blocks, table-driven tests with Entry(), regular Go test functions with Test* prefix",
+    "import_style": "Standard Go import grouping (stdlib, external, internal)",
+    "package_structure": "Kubernetes operator structure: api/ for CRD definitions, internal/controller for reconciliation logic, config/ for kustomize manifests, test/e2e for end-to-end tests",
+    "notes": "Follows kubebuilder project structure conventions. Uses controller-runtime patterns for Kubernetes operators. Helm charts are embedded in the operator binary at charts/mlflow/."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.24",
+    "system_deps": ["make", "git"],
+    "setup_commands": [
+      "go mod download",
+      "make controller-gen",
+      "make manifests",
+      "make generate",
+      "go fmt ./...",
+      "go vet ./...",
+      "make setup-envtest",
+      "make golangci-lint"
+    ],
+    "lint_commands": [
+      {
+        "command": "./bin/golangci-lint run",
+        "validated": true,
+        "notes": "Passed with 0 issues"
+      },
+      {
+        "command": "go fmt ./...",
+        "validated": true,
+        "notes": "Passed, no formatting issues"
+      },
+      {
+        "command": "go vet ./...",
+        "validated": true,
+        "notes": "Passed, no vet warnings"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "KUBEBUILDER_ASSETS=\"/app/bin/k8s/1.34.1-linux-amd64\" go test $(go list ./... | grep -v /e2e) -coverprofile cover.out",
+        "validated": true,
+        "notes": "Passed, 62.0% coverage. Note: absolute path required for KUBEBUILDER_ASSETS in container."
+      }
+    ],
+    "test_single_file": "KUBEBUILDER_ASSETS=\"/app/bin/k8s/1.34.1-linux-amd64\" go test {package_path} -v",
+    "test_single_test": "KUBEBUILDER_ASSETS=\"/app/bin/k8s/1.34.1-linux-amd64\" go test {package_path} -run {test_name} -v",
+    "env_vars": [
+      "KUBEBUILDER_ASSETS=/app/bin/k8s/1.34.1-linux-amd64"
+    ],
+    "notes": "The envtest binaries (etcd, kube-apiserver, kubectl) must be downloaded via setup-envtest. Use absolute paths for KUBEBUILDER_ASSETS in containers. E2E tests are excluded from standard test runs as they require a Kind cluster."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "go build -o bin/manager cmd/main.go",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "Build completed successfully"
+      },
+      {
+        "step": "codegen",
+        "command": "make manifests && make generate",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Generated CRDs and deepcopy methods",
+        "notes": "Code generation completed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "./bin/golangci-lint run",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 issues.",
+        "notes": "Linting passed with no issues"
+      },
+      {
+        "step": "test",
+        "command": "KUBEBUILDER_ASSETS=\"/app/bin/k8s/1.34.1-linux-amd64\" go test $(go list ./... | grep -v /e2e) -coverprofile cover.out",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  	github.com/opendatahub-io/mlflow-operator/internal/controller	5.702s	coverage: 62.0% of statements",
+        "notes": "All tests passed, 62.0% coverage achieved"
+      }
+    ],
+    "summary": "All validation steps passed: deps OK, build OK, codegen OK, lint OK (0 issues), tests OK (62.0% coverage)"
+  },
+  "gaps": [
+    "E2E tests require Kind cluster and cannot be validated in basic container",
+    "Sample validation requires Kubernetes cluster access",
+    "Manifest verification requires Helm installation",
+    "Some CI checks require external infrastructure (Kind cluster) not available in isolated container validation"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

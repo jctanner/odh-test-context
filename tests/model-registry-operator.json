@@ -1,0 +1,186 @@
+{
+  "repo": "model-registry-operator",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:22:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "make fmt",
+        "fix_command": "make fmt",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "make vet",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "govulncheck",
+        "config_file": null,
+        "run_command": "make govulncheck",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "semgrep",
+        "config_file": "semgrep.yaml",
+        "run_command": "semgrep --config semgrep.yaml .",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "No golangci-lint configuration found. Linting is done via standard Go tools (fmt, vet) and govulncheck for vulnerability scanning. Semgrep config exists for security scanning but is not run in CI."
+  },
+  "testing": {
+    "framework": "Ginkgo/Gomega (BDD-style) with envtest",
+    "test_directory": "Multiple: api/v1alpha1, api/v1beta1, internal/controller, internal/migration, internal/utils",
+    "run_command": "make test",
+    "run_single_file": "Not applicable - Go tests require full package context",
+    "run_single_test": "KUBEBUILDER_ASSETS=\"$(bin/setup-envtest use 1.34 --bin-dir bin -p path)\" go test ./{package} -run {TestName}",
+    "setup_required": [
+      "go mod download",
+      "make manifests",
+      "make generate"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS - set automatically by make test to envtest binaries path"
+    ],
+    "fixtures_location": "internal/controller/testdata/crd",
+    "mock_patterns": "Uses envtest for Kubernetes API mocking",
+    "coverage_command": "make test",
+    "coverage_threshold": null,
+    "notes": "Tests use envtest which downloads Kubernetes control plane binaries. The 'make test' target handles all setup including manifests generation, code generation, and envtest setup. Tests cannot be run file-by-file due to package dependencies."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/build.yml",
+      ".github/workflows/build-image-pr.yml",
+      ".github/workflows/build-and-push-image.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Build operator binary",
+        "command": "make build",
+        "required": true
+      },
+      {
+        "name": "Check uncommitted changes",
+        "command": "git status --porcelain",
+        "required": true
+      },
+      {
+        "name": "Controller tests",
+        "command": "make test",
+        "required": true
+      },
+      {
+        "name": "Validate kustomize build",
+        "command": "kustomize build config/overlays/odh/",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Build and test container image",
+        "command": "make docker-build && kind load docker-image && make deploy",
+        "required": false
+      }
+    ],
+    "notes": "The main gating workflow is build.yml which runs on pull_request. It requires Go 1.25.7. The uncommitted changes check ensures all generated code (manifests, deepcopy, conversion) is committed. The build-image-pr.yml workflow tests container image building and deployment to a Kind cluster but is integration-level testing."
+  },
+  "build": {
+    "system": "make (Makefile) + Go modules",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "notes": "Build process includes: sync-images (update image refs), manifests generation (CRDs, RBAC), code generation (deepcopy, conversion), fmt, vet, then go build. The operator binary is output to bin/manager."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Ginkgo BDD style: Describe/Context/It blocks. Suite files: *suite_test.go. TestXxx functions for Ginkgo suite entry points.",
+    "import_style": "Absolute imports using github.com/opendatahub-io/model-registry-operator prefix. Grouped imports: stdlib, third-party, local packages.",
+    "notes": "Uses kubebuilder project layout: api/ for CRDs, internal/controller for controllers, cmd/ for entrypoint. Code generation markers (//+kubebuilder:...) in Go files. Generated code marked with zz_generated.* prefix."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25",
+    "system_deps": ["make", "git", "curl", "wget"],
+    "setup_commands": [
+      "go mod download",
+      "make manifests",
+      "make generate"
+    ],
+    "lint_commands": [
+      {"command": "make fmt", "validated": true, "notes": "Passed with exit 0"},
+      {"command": "make vet", "validated": true, "notes": "Passed with exit 0"},
+      {"command": "make govulncheck", "validated": true, "notes": "No vulnerabilities found"}
+    ],
+    "test_commands": [
+      {"command": "make test", "validated": true, "notes": "All tests passed. Coverage: 20-74% across packages. 61 specs in controller suite."}
+    ],
+    "test_single_file": "Not supported - use package-level: go test ./{package}",
+    "test_single_test": "KUBEBUILDER_ASSETS=\"$(bin/setup-envtest use 1.34 --bin-dir bin -p path)\" go test ./{package} -run {TestName}",
+    "env_vars": [],
+    "notes": "The golang:1.25 image includes make and git by default. Tests download envtest binaries (etcd, kube-apiserver) on first run to bin/k8s/. The conversion-gen tool doesn't support --version flag which causes a harmless warning in make output. Build generates a ~90MB binary at bin/manager."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - silent success)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go build -o bin/manager cmd/main.go\n-rwxr-xr-x. 1 root root 90430477 Mar 22 23:21 bin/manager",
+        "notes": "Build succeeded, produced 90MB binary"
+      },
+      {
+        "step": "lint",
+        "command": "make fmt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go fmt ./...",
+        "notes": "Formatting check passed"
+      },
+      {
+        "step": "lint",
+        "command": "make vet",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go vet ./...",
+        "notes": "Static analysis passed"
+      },
+      {
+        "step": "lint",
+        "command": "make govulncheck",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "No vulnerabilities found.",
+        "notes": "Vulnerability scan passed"
+      },
+      {
+        "step": "test",
+        "command": "make test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/opendatahub-io/model-registry-operator/api/v1alpha1\t6.473s\tcoverage: 23.5% of statements\nok  \tgithub.com/opendatahub-io/model-registry-operator/api/v1beta1\t6.668s\tcoverage: 42.9% of statements\nok  \tgithub.com/opendatahub-io/model-registry-operator/internal/controller\t29.546s\tcoverage: 61.8% of statements\nok  \tgithub.com/opendatahub-io/model-registry-operator/internal/controller/config\t5.608s\tcoverage: 74.0% of statements\nok  \tgithub.com/opendatahub-io/model-registry-operator/internal/migration\t6.248s\tcoverage: 38.7% of statements\nok  \tgithub.com/opendatahub-io/model-registry-operator/internal/utils\t(cached)\tcoverage: 20.0% of statements",
+        "notes": "All tests passed. Total of 8 test packages, 61 specs in controller suite. Coverage ranges from 20% to 74%."
+      }
+    ],
+    "summary": "install OK, build OK (90MB binary), lint OK (fmt/vet/govulncheck all passed), tests OK (all 61 specs passed, coverage 20-74%)"
+  },
+  "gaps": [],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

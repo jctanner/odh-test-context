@@ -1,0 +1,229 @@
+{
+  "repo": "openvino_tokenizers",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-23T00:05:00Z",
+  "languages": ["Python", "C++", "JavaScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff check python",
+        "fix_command": "ruff check --fix python",
+        "scope": "python directory only"
+      },
+      {
+        "name": "bandit",
+        "config_file": "pyproject.toml",
+        "run_command": "bandit -c pyproject.toml -r python",
+        "fix_command": null,
+        "scope": "python directory (security linter)"
+      }
+    ],
+    "notes": "Ruff is configured in pyproject.toml but NOT executed in CI workflows (gap). Bandit runs in sdl.yml workflow as a gating check."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "pytest tests",
+    "run_single_file": "pytest {file}",
+    "run_single_test": "pytest {file}::{test_name}",
+    "setup_required": [
+      "pip install 'openvino~=2026.0.0.dev' --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly",
+      "pip install 'transformers[sentencepiece]>=4.36.0' 'tiktoken>=0.3.0'",
+      "pip install 'pytest>=7.0.0' 'pytest-xdist>=3.4.0'",
+      "Build C++ extension (requires OpenVINO developer package and CMake)"
+    ],
+    "env_vars": [],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Uses parametrized tests with HuggingFace tokenizer models",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests require the C++ extension to be built (BUILD_CPP_EXTENSION=ON). CI builds the extension using OpenVINO developer package. Many tests will fail/skip without the C++ extension. Uses pytest-xdist for parallel execution in CI. Some tests also validate against TensorFlow layer tests from the OpenVINO repo."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/linux.yml",
+      ".github/workflows/mac.yml",
+      ".github/workflows/windows.yml",
+      ".github/workflows/sdl.yml",
+      ".github/workflows/coverity.yml",
+      "Jenkinsfile"
+    ],
+    "gating_checks": [
+      {
+        "name": "Linux tests (Ubuntu 22.04, Python 3.11)",
+        "command": "poetry run pytest tests",
+        "required": true
+      },
+      {
+        "name": "Mac tests (macOS 13, Python 3.11)",
+        "command": "poetry run pytest tests/tokenizers_test.py",
+        "required": true
+      },
+      {
+        "name": "Windows tests (Python 3.11)",
+        "command": "poetry run pytest tests",
+        "required": true
+      },
+      {
+        "name": "SDL/Security tests (bandit)",
+        "command": "bandit -c pyproject.toml -r python",
+        "required": true
+      },
+      {
+        "name": "TensorFlow layer tests",
+        "command": "poetry run pytest $OPENVINO_REPO/tests/layer_tests/tensorflow_tests/ -n logical -m precommit",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Trivy vulnerability scanner",
+        "command": "trivy scan",
+        "required": false
+      },
+      {
+        "name": "Dependency Review",
+        "command": "GitHub Action",
+        "required": false
+      },
+      {
+        "name": "Coverity static analysis",
+        "command": "Coverity scan (scheduled)",
+        "required": false
+      }
+    ],
+    "notes": "CI workflow is complex: downloads prebuilt OpenVINO packages from artifacts, builds C++ extension with CMake, builds Python wheel, then runs tests. Uses Poetry for dependency management. Tests run on ubuntu-22.04 runners (not in containers for test stage). Build stages use custom Docker images from openvinogithubactions.azurecr.io."
+  },
+  "build": {
+    "system": "py-build-cmake (Python wrapper for CMake)",
+    "install_command": "pip install 'openvino~=2026.0.0.dev' --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly",
+    "build_command": "pip install -e . --no-build-isolation",
+    "notes": "Hybrid Python/C++ project. Uses py-build-cmake to build C++ extension via CMake. Requires OpenVINO (runtime and developer package). C++ extension is optional (BUILD_CPP_EXTENSION=ON/OFF). For development without C++ extension: pip install -e . works but tests will fail. Full build requires: cmake, OpenVINO developer package, and system build tools (gcc/clang)."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/*.py",
+    "test_naming": "test_* functions in test files",
+    "import_style": "Absolute imports with 2 lines after imports (isort configured in ruff)",
+    "notes": "Python code in python/openvino_tokenizers/. Tests in tests/. C++ source in src/. JavaScript in js/. Ruff configured with line-length=119, ignores=['C901', 'E501', 'E741', 'W605']."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["git", "cmake", "build-essential", "curl"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y git cmake build-essential curl",
+      "curl -sSL https://install.python-poetry.org | python3 -",
+      "export PATH=/root/.local/bin:$PATH",
+      "pip install --upgrade pip",
+      "pip install 'openvino~=2026.0.0.dev' --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly",
+      "pip install 'transformers[sentencepiece]>=4.36.0' 'tiktoken>=0.3.0' 'pytest>=7.0.0' 'pytest-xdist>=3.4.0' 'ruff>=0.1.0' 'bandit>=1.7.0'",
+      "pip install 'py-build-cmake==0.4.3' 'cmake~=3.14'",
+      "pip install -e . --no-build-isolation"
+    ],
+    "lint_commands": [
+      {
+        "command": "ruff check python",
+        "validated": true,
+        "notes": "PASS - All checks passed (0 errors, 0 warnings)"
+      },
+      {
+        "command": "bandit -c pyproject.toml -r python",
+        "validated": true,
+        "notes": "PASS - No security issues identified (3430 lines scanned)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "pytest tests",
+        "validated": false,
+        "notes": "PARTIAL - Tests run but many fail/skip without C++ extension. Framework works correctly. 17343 tests collected, but most require the compiled C++ extension to pass."
+      }
+    ],
+    "test_single_file": "pytest {file}",
+    "test_single_test": "pytest {file}::{test_name}",
+    "env_vars": [],
+    "notes": "Linting fully validated and works. Tests require the C++ extension to be built with OpenVINO developer package, which is complex to set up. The CI downloads prebuilt OpenVINO artifacts. For full test validation, would need to either: (1) download OpenVINO developer package tarball and build C++ extension, or (2) use CI-built wheel artifacts."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install_system_deps",
+        "command": "apt-get update && apt-get install -y git cmake build-essential curl",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Setting up cmake (3.31.6-2) ...\nProcessing triggers for libc-bin (2.41-12+deb13u2) ...",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "install_poetry",
+        "command": "curl -sSL https://install.python-poetry.org | python3 -",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Poetry (version 2.3.2)",
+        "notes": "Poetry installed successfully"
+      },
+      {
+        "step": "install_openvino",
+        "command": "pip install 'openvino~=2026.0.0.dev' --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed openvino-2026.0.0 openvino-telemetry-2025.2.0",
+        "notes": "OpenVINO nightly (53.4 MB) installed successfully"
+      },
+      {
+        "step": "install_dev_deps",
+        "command": "pip install 'transformers[sentencepiece]>=4.36.0' 'tiktoken>=0.3.0' 'pytest>=7.0.0' 'pytest-xdist>=3.4.0' 'ruff>=0.1.0' 'bandit>=1.7.0'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed 40+ packages including transformers-5.3.0, pytest-9.0.2, ruff-0.15.7, bandit-1.9.4",
+        "notes": "All development and test dependencies installed"
+      },
+      {
+        "step": "build_package",
+        "command": "pip install -e . --no-build-isolation",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully built openvino-tokenizers\nSuccessfully installed openvino-tokenizers-2026.0.0.0",
+        "notes": "Package built and installed in editable mode (without C++ extension)"
+      },
+      {
+        "step": "lint_ruff",
+        "command": "ruff check python",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Ruff linting: PASS - 0 errors, 0 warnings"
+      },
+      {
+        "step": "lint_bandit",
+        "command": "bandit -c pyproject.toml -r python",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "No issues identified.\nTotal lines of code: 3430",
+        "notes": "Bandit security scan: PASS - No security issues"
+      },
+      {
+        "step": "test",
+        "command": "pytest tests",
+        "exit_code": null,
+        "success": false,
+        "output_snippet": "17343 tests collected, many failures (F) and skips (s) due to missing C++ extension",
+        "notes": "Tests framework works but requires C++ extension for most tests to pass"
+      }
+    ],
+    "summary": "install OK, openvino OK, deps OK, build OK (Python-only), lint OK (ruff + bandit), tests PARTIAL (need C++ extension)"
+  },
+  "gaps": [
+    "Ruff is configured in pyproject.toml but is NOT run in any CI workflow (linting gap)",
+    "Tests require C++ extension which needs OpenVINO developer package - complex to build locally",
+    "No Makefile with convenience targets for local development",
+    "Poetry config has minor format issue (license field) that prevents 'poetry install' from working",
+    "README documents 'pytest .' but CI actually uses 'poetry run pytest tests'",
+    "JavaScript tests (js/tests/*.test.js) exist but are not validated in main CI workflows",
+    "No coverage reporting configured or run in CI"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

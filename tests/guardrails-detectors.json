@@ -1,0 +1,189 @@
+{
+  "repo": "guardrails-detectors",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:18:50Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "pre-commit",
+        "config_file": null,
+        "run_command": null,
+        "fix_command": null,
+        "scope": "No pre-commit config found in repository",
+        "notes": "CI workflows reference pre-commit but no .pre-commit-config.yaml exists. The test-setup action attempts to run pre-commit if config exists but continues on error. No active linting enforcement."
+      }
+    ],
+    "notes": "No linter configuration found. Repository relies on manual code review. Pre-commit is installed as a dev dependency but not configured."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "pytest tests/ --cov=detectors --cov-report=term-missing",
+    "run_single_file": "pytest {file} --cov=detectors --cov-report=term-missing -v",
+    "run_single_test": "pytest {file}::{test_name} -v",
+    "setup_required": [
+      "pip install --upgrade pip",
+      "pip install pytest pytest-cov torch",
+      "pip install -r detectors/common/requirements.txt -r detectors/common/requirements-dev.txt -r detectors/built_in/requirements.txt -r detectors/huggingface/requirements.txt -r detectors/llm_judge/requirements.txt"
+    ],
+    "env_vars": [
+      "PYTHONPATH=/app/detectors/huggingface:/app/detectors/llm_judge:/app/detectors:/app",
+      "HF_HOME=/tmp/huggingface (for huggingface tests)",
+      "TRANSFORMERS_CACHE=/tmp/transformers_cache (for huggingface tests)",
+      "TOKENIZERS_PARALLELISM=false (for huggingface tests)",
+      "PROMETHEUS_MULTIPROC_DIR=<tmpdir> (auto-created by conftest.py fixture)"
+    ],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Tests use dummy models in tests/dummy_models/ for huggingface detector tests. Custom fixtures for prometheus multiproc cleanup.",
+    "coverage_command": "pytest tests/ --cov=detectors --cov-report=term-missing --cov-report=html",
+    "coverage_threshold": null,
+    "notes": "Tests are organized by detector type (builtIn, huggingface, llm_judge). CI runs each detector's tests separately with component-specific requirements. Running all tests together causes pytest collection errors due to duplicate test file names (test_metrics.py exists in multiple subdirectories). Tests should be run by component directory. Built-in: 92 tests, Huggingface: 36 tests, LLM Judge: 26 tests. Total: 154 tests."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/test-builtin-detectors.yaml",
+      ".github/workflows/test-huggingface-runtime.yaml",
+      ".github/workflows/test-llm-judge.yaml",
+      ".github/workflows/security-scan.yaml",
+      ".github/actions/test-setup/action.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Tier 1 - Built-in detectors unit tests",
+        "command": "pytest tests/detectors/builtIn/ --cov=detectors.built_in --cov-report=term-missing -v",
+        "required": true,
+        "trigger": "pull_request on main/incubation/stable (paths: detectors/built_in/**, detectors/common/**, tests/detectors/builtIn/**)"
+      },
+      {
+        "name": "Tier 1 - Hugging Face Runtime unit tests",
+        "command": "pytest tests/detectors/huggingface/ --cov=detectors.huggingface --cov-report=term-missing -v --tb=short",
+        "required": true,
+        "trigger": "pull_request on main/incubation/stable (paths: detectors/huggingface/**, detectors/common/**, tests/detectors/huggingface/**)",
+        "timeout": "20 minutes",
+        "env_vars": ["HF_HOME=/tmp/huggingface", "TRANSFORMERS_CACHE=/tmp/transformers_cache", "TOKENIZERS_PARALLELISM=false"]
+      },
+      {
+        "name": "Tier 1 - LLM Judge unit tests",
+        "command": "pytest tests/detectors/llm_judge/ --cov=detectors.llm_judge --cov-report=term-missing -v --tb=short",
+        "required": true,
+        "trigger": "pull_request on main/incubation/stable (paths: detectors/llm_judge/**, detectors/common/**, tests/detectors/llm_judge/**)",
+        "timeout": "15 minutes"
+      },
+      {
+        "name": "Tier 1 - Security scan",
+        "command": "trivy scan (filesystem and config)",
+        "required": true,
+        "trigger": "pull_request on main/incubation/stable (paths: detectors/**, requirements*.txt, *.py)"
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI uses a shared test-setup composite action that installs Python 3.11, caches pip dependencies, installs system deps (build-essential, wget for huggingface/llm_judge), and attempts pre-commit if config exists. Each detector type has isolated test workflow. Security scans run with Trivy on all components and repository-wide."
+  },
+  "build": {
+    "system": "pip",
+    "install_command": "pip install -r detectors/common/requirements.txt -r detectors/common/requirements-dev.txt -r detectors/built_in/requirements.txt -r detectors/huggingface/requirements.txt -r detectors/llm_judge/requirements.txt",
+    "build_command": null,
+    "container_images": {
+      "builtin": "podman build -t $TAG -f detectors/Dockerfile.builtIn detectors",
+      "huggingface": "podman build -t $TAG -f detectors/Dockerfile.hf detectors",
+      "llm_judge": "podman build -t $TAG -f detectors/Dockerfile.judge detectors"
+    },
+    "notes": "This is a Python library project for detector algorithms. No build step required for development. Production deployment uses container images. Each detector type has its own Dockerfile."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py",
+    "test_naming": "Test classes: Test*, test functions: test_* (pytest default conventions)",
+    "import_style": "Absolute imports from detectors package. PYTHONPATH manipulation in conftest.py adds detectors submodules to path.",
+    "detector_structure": "Each detector type (built_in, huggingface, llm_judge, common) has its own subdirectory with app.py, detector logic, requirements.txt, and corresponding test directory.",
+    "notes": "Python 3.11 is the target version. Tests use pytest fixtures defined in tests/conftest.py for path setup and prometheus cleanup. Code follows standard Python conventions but no linter is enforced."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["build-essential", "wget", "git"],
+    "setup_commands": [
+      "python -m pip install --upgrade pip setuptools wheel",
+      "pip install pytest pytest-cov",
+      "pip install torch",
+      "pip install -r detectors/common/requirements.txt -r detectors/common/requirements-dev.txt -r detectors/built_in/requirements.txt",
+      "pip install -r detectors/huggingface/requirements.txt",
+      "pip install -r detectors/llm_judge/requirements.txt"
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {
+        "command": "pytest tests/detectors/builtIn/ --cov=detectors.built_in --cov-report=term-missing -v",
+        "validated": true,
+        "notes": "92 tests passed in 5.05s. Coverage: 84% of detectors/built_in/app.py"
+      },
+      {
+        "command": "pytest tests/detectors/huggingface/ --cov=detectors.huggingface --cov-report=term-missing -v --tb=short",
+        "validated": true,
+        "notes": "36 tests passed in 5.55s. Coverage: 65% total (78% of detector.py). Requires HF_HOME, TRANSFORMERS_CACHE, TOKENIZERS_PARALLELISM env vars."
+      },
+      {
+        "command": "pytest tests/detectors/llm_judge/ --cov=detectors.llm_judge --cov-report=term-missing -v --tb=short",
+        "validated": true,
+        "notes": "26 tests passed in 0.98s. Coverage: 63% total (98% of detector.py)"
+      }
+    ],
+    "test_single_file": "export PYTHONPATH=/app/detectors/huggingface:/app/detectors/llm_judge:/app/detectors:/app && pytest {file} -v",
+    "test_single_test": "export PYTHONPATH=/app/detectors/huggingface:/app/detectors/llm_judge:/app/detectors:/app && pytest {file}::{test_name} -v",
+    "env_vars": [
+      "PYTHONPATH=/app/detectors/huggingface:/app/detectors/llm_judge:/app/detectors:/app",
+      "HF_HOME=/tmp/huggingface",
+      "TRANSFORMERS_CACHE=/tmp/transformers_cache",
+      "TOKENIZERS_PARALLELISM=false"
+    ],
+    "notes": "Dependency conflict: pytest-cov 7.1.0 requires coverage>=7.10.6 but requirements-dev.txt pins coverage==7.6.1. Tests still pass but this should be fixed. Running all tests together causes pytest collection error due to duplicate test_metrics.py files in builtIn and huggingface directories. Tests must be run by component directory."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install pytest pytest-cov torch && pip install -r detectors/common/requirements.txt -r detectors/common/requirements-dev.txt -r detectors/built_in/requirements.txt -r detectors/huggingface/requirements.txt -r detectors/llm_judge/requirements.txt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed all dependencies with dependency conflict warning: pytest-cov 7.1.0 requires coverage[toml]>=7.10.6, but you have coverage 7.6.1 which is incompatible.",
+        "notes": "Dependencies install but version conflict between pytest-cov and coverage pinned version"
+      },
+      {
+        "step": "test",
+        "command": "pytest tests/detectors/builtIn/ --cov=detectors.built_in --cov-report=term-missing -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "92 passed, 33 warnings in 5.05s. Coverage: 84%",
+        "notes": "All built-in detector tests pass"
+      },
+      {
+        "step": "test",
+        "command": "pytest tests/detectors/huggingface/ --cov=detectors.huggingface --cov-report=term-missing -v --tb=short",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "36 passed, 32 warnings in 5.55s. Coverage: 65%",
+        "notes": "All huggingface detector tests pass with dummy models"
+      },
+      {
+        "step": "test",
+        "command": "pytest tests/detectors/llm_judge/ --cov=detectors.llm_judge --cov-report=term-missing -v --tb=short",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "26 passed, 32 warnings in 0.98s. Coverage: 63%",
+        "notes": "All LLM judge detector tests pass"
+      }
+    ],
+    "summary": "Install OK (with coverage version conflict), Built-in tests OK (92 passed), Huggingface tests OK (36 passed), LLM Judge tests OK (26 passed). Total 154 tests passing."
+  },
+  "gaps": [
+    "No linting configuration - pre-commit is referenced in CI but .pre-commit-config.yaml does not exist",
+    "Dependency version conflict: pytest-cov requires coverage>=7.10.6 but requirements-dev.txt pins coverage==7.6.1",
+    "Running all tests together fails due to pytest collection error (duplicate test_metrics.py in builtIn and huggingface)",
+    "No coverage threshold enforcement",
+    "Pydantic deprecation warnings throughout codebase (using deprecated 'example' parameter in Field definitions)",
+    "Some test files have deprecation warnings for invalid escape sequences in regex patterns"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high",
+  "notes": "Repository has well-structured tests with good coverage. All tests pass in containerized environment. Tests must be run by component directory (as CI does) rather than all at once. No linting means code style cannot be validated automatically, but test infrastructure is solid. An agent can successfully validate patches by running component-specific test suites."
+}

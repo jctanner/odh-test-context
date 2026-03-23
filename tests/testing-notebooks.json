@@ -1,0 +1,181 @@
+{
+  "repo": "testing-notebooks",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:22:51-04:00",
+  "languages": ["Python (Jupyter Notebooks)"],
+  "linting": {
+    "tools": [
+      {
+        "name": "nbqa + ruff",
+        "config_file": null,
+        "run_command": "nbqa ruff *.ipynb",
+        "fix_command": "nbqa ruff --fix *.ipynb",
+        "scope": "all notebooks",
+        "notes": "Not configured in repo, but can be used for notebook code quality. All notebooks currently pass."
+      },
+      {
+        "name": "python json.tool",
+        "config_file": null,
+        "run_command": "python -m json.tool <notebook>.ipynb > /dev/null",
+        "fix_command": null,
+        "scope": "JSON structure validation",
+        "notes": "Validates notebook JSON structure. All notebooks are valid JSON."
+      }
+    ],
+    "notes": "No native linting configuration in repository. This is a test fixture repo, not a development repo. Notebooks can be linted with standard tools like nbqa+ruff, but no configuration exists."
+  },
+  "testing": {
+    "framework": "None (test fixture repository)",
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "This repository contains Jupyter notebooks that are used as TEST FIXTURES by external tests in https://github.com/opendatahub-io/odh-manifests/tree/master/tests. The notebooks themselves are not tests - they are consumed by JupyterHub integration tests in OpenShift CI. There is no test infrastructure in this repository."
+  },
+  "ci": {
+    "system": "None",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration exists in this repository. Testing of these notebooks happens externally in the odh-manifests repository's OpenShift CI pipelines."
+  },
+  "build": {
+    "system": "None",
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system. This is a simple collection of Jupyter notebooks with no package structure or dependencies file."
+  },
+  "conventions": {
+    "test_file_pattern": "*.ipynb",
+    "test_naming": "Notebooks end with a cell printing 'End Of Notebook' as a completion marker",
+    "import_style": "Standard Python imports",
+    "notes": "All notebooks include 'End Of Notebook' print statement in the final cell, likely used by external tests to verify complete execution."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11-slim",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install nbconvert ipykernel",
+      "pip install nbqa ruff",
+      "pip install pyspark",
+      "pip install tensorflow"
+    ],
+    "lint_commands": [
+      {
+        "command": "python -m json.tool basic.ipynb > /dev/null",
+        "validated": true,
+        "notes": "JSON validation: PASS"
+      },
+      {
+        "command": "python -m json.tool spark.ipynb > /dev/null",
+        "validated": true,
+        "notes": "JSON validation: PASS"
+      },
+      {
+        "command": "python -m json.tool tensorflow.ipynb > /dev/null",
+        "validated": true,
+        "notes": "JSON validation: PASS"
+      },
+      {
+        "command": "nbqa ruff *.ipynb",
+        "validated": true,
+        "notes": "Ruff linting: PASS (all checks passed)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "jupyter nbconvert --to notebook --execute basic.ipynb --output /tmp/basic_executed.ipynb",
+        "validated": true,
+        "notes": "Execution: SUCCESS - basic notebook runs without errors"
+      },
+      {
+        "command": "jupyter nbconvert --to notebook --execute spark.ipynb --output /tmp/spark_executed.ipynb",
+        "validated": false,
+        "notes": "Execution: FAILED - requires SPARK_CLUSTER environment variable pointing to external Spark cluster (KeyError: 'SPARK_CLUSTER')"
+      },
+      {
+        "command": "jupyter nbconvert --to notebook --execute tensorflow.ipynb --output /tmp/tensorflow_executed.ipynb",
+        "validated": false,
+        "notes": "Execution: FAILED - uses TensorFlow 1.x API (tf.Session) incompatible with TensorFlow 2.x (AttributeError: module 'tensorflow' has no attribute 'Session')"
+      }
+    ],
+    "test_single_file": "jupyter nbconvert --to notebook --execute {file} --output /tmp/executed.ipynb",
+    "test_single_test": "N/A",
+    "env_vars": [
+      "SPARK_CLUSTER=<hostname> (required for spark.ipynb execution)"
+    ],
+    "notes": "Only basic.ipynb can be executed standalone. spark.ipynb requires a live Spark cluster. tensorflow.ipynb requires TensorFlow 1.x (deprecated). These notebooks are designed to be executed in JupyterHub environments with appropriate infrastructure, not in isolation."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install nbconvert ipykernel",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Dependencies installed successfully",
+        "notes": "Notebook execution dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "python -m json.tool basic.ipynb > /dev/null",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "basic.ipynb: valid JSON",
+        "notes": "All notebooks are valid JSON"
+      },
+      {
+        "step": "lint",
+        "command": "nbqa ruff *.ipynb",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "No linting violations found in any notebook"
+      },
+      {
+        "step": "test",
+        "command": "jupyter nbconvert --to notebook --execute basic.ipynb --output /tmp/basic_executed.ipynb",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "[NbConvertApp] Converting notebook basic.ipynb to notebook\n[NbConvertApp] Writing 1972 bytes to /tmp/basic_executed.ipynb",
+        "notes": "basic.ipynb executes successfully"
+      },
+      {
+        "step": "test",
+        "command": "jupyter nbconvert --to notebook --execute spark.ipynb --output /tmp/spark_executed.ipynb",
+        "exit_code": 0,
+        "success": false,
+        "output_snippet": "KeyError: 'SPARK_CLUSTER'",
+        "notes": "Requires external Spark cluster infrastructure - cannot validate in isolation"
+      },
+      {
+        "step": "test",
+        "command": "jupyter nbconvert --to notebook --execute tensorflow.ipynb --output /tmp/tensorflow_executed.ipynb",
+        "exit_code": 0,
+        "success": false,
+        "output_snippet": "AttributeError: module 'tensorflow' has no attribute 'Session'",
+        "notes": "Uses deprecated TensorFlow 1.x API - incompatible with modern TensorFlow"
+      }
+    ],
+    "summary": "JSON validation: 3/3 pass, Linting: pass, Execution: 1/3 pass (basic.ipynb works, spark requires cluster, tensorflow requires TF 1.x)"
+  },
+  "gaps": [
+    "No linting configuration in repository",
+    "No test infrastructure - notebooks are test fixtures, not tests themselves",
+    "No CI/CD pipelines in this repository",
+    "No requirements.txt or dependency management",
+    "No documentation on how to execute or validate notebooks",
+    "spark.ipynb requires external Spark cluster infrastructure",
+    "tensorflow.ipynb uses deprecated TensorFlow 1.x API incompatible with TensorFlow 2.x",
+    "No way to validate patches against actual test suite (tests exist in external repo)",
+    "Only basic.ipynb can be executed in a standard Python environment"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

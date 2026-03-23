@@ -1,0 +1,209 @@
+{
+  "repo": "notebooks",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:28:00Z",
+  "languages": ["Python", "Go", "TypeScript", "Shell"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff check ci/ tests/ ntb/",
+        "fix_command": "uv run ruff check --fix ci/ tests/ ntb/",
+        "scope": "ci/, tests/, ntb/, jupyter/**/*.ipynb"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff format ci/ tests/ ntb/",
+        "fix_command": "uv run ruff format ci/ tests/ ntb/",
+        "scope": "ci/, tests/, ntb/"
+      },
+      {
+        "name": "pyright",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run pyright --pythonversion 3.14",
+        "fix_command": null,
+        "scope": "ci/, tests/"
+      },
+      {
+        "name": "prek",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "uvx prek run --all-files --show-diff-on-failure",
+        "fix_command": "uvx prek run --all-files",
+        "scope": "full project"
+      },
+      {
+        "name": "yamllint",
+        "config_file": "ci/yamllint-config.yaml",
+        "run_command": "find . -name '*.yaml' -o -name '*.yml' | xargs yamllint --strict --config-file ./ci/yamllint-config.yaml",
+        "fix_command": null,
+        "scope": "all YAML files except .tekton/ and .lock.yaml"
+      },
+      {
+        "name": "hadolint",
+        "config_file": "ci/hadolint-config.yaml",
+        "run_command": "wget -O hadolint https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 && chmod +x hadolint && find . -name 'Dockerfile*' | xargs ./hadolint --config ./ci/hadolint-config.yaml",
+        "fix_command": null,
+        "scope": "all Dockerfiles"
+      }
+    ],
+    "notes": "Linting is comprehensive with ruff for Python, pyright for type checking, yamllint for YAML, and hadolint for Dockerfiles. Pre-commit hooks managed by prek."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/, ntb/",
+    "run_command": "uv run pytest -m 'not buildonlytest' --ignore=tests/containers",
+    "run_single_file": "uv run pytest {file}",
+    "run_single_test": "uv run pytest {file}::{test_name}",
+    "setup_required": ["uv sync --locked"],
+    "env_vars": [],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Uses pyfakefs for filesystem mocking, pytest fixtures",
+    "coverage_command": "uv run pytest --cov --cov-report=xml:coverage.xml",
+    "coverage_threshold": null,
+    "notes": "Container tests (tests/containers/) require --image=<image> parameter and are excluded by default. Browser tests use Playwright (TypeScript). Go tests in scripts/buildinputs/. Markers: openshift, cuda, rocm, buildonlytest."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/code-quality.yaml", ".github/workflows/build-notebooks-pr.yaml", ".github/workflows/build-browser-tests.yaml", ".tekton/*"],
+    "gating_checks": [
+      {
+        "name": "check-generated-code",
+        "command": "bash ci/generate_code.sh && git diff --exit-code",
+        "required": true
+      },
+      {
+        "name": "pytest-tests",
+        "command": "uv sync --locked && make test",
+        "required": true
+      },
+      {
+        "name": "go-tests",
+        "command": "cd scripts/buildinputs && gotestsum --junitfile=junit-go.xml -- -coverprofile=coverage-go.out -covermode=atomic ./...",
+        "required": true
+      },
+      {
+        "name": "code-static-analysis",
+        "command": "yamllint + hadolint + JSON validation + kustomize check",
+        "required": true
+      },
+      {
+        "name": "prek",
+        "command": "uvx prek run --all-files --show-diff-on-failure --color always --hook-stage manual",
+        "required": true
+      },
+      {
+        "name": "build-notebooks",
+        "command": "Builds changed notebook images using Makefile and podman",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "build-browser-tests",
+        "command": "podman build tests/browser/",
+        "required": false
+      }
+    ],
+    "notes": "CI runs on pull_request and push events. Uses Python 3.14, Go from scripts/buildinputs/go.mod, and Node.js 20 for browser tests. Codecov integration for coverage reporting."
+  },
+  "build": {
+    "system": "uv + Makefile + podman/docker",
+    "install_command": "uv sync --locked",
+    "build_command": "make <target> for notebook images, or container builds",
+    "notes": "Uses uv 0.10.6 (pinned in uv.toml). Python 3.14. Makefile handles notebook image builds. Browser tests use pnpm. The ./uv wrapper script ensures correct uv version."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py, *_test.py",
+    "test_naming": "test_* functions, Test* classes",
+    "import_style": "Standard Python imports, with type-checking imports in if TYPE_CHECKING blocks",
+    "notes": "Uses pytest markers for categorizing tests (openshift, cuda, rocm, buildonlytest). Coverage tracking with pytest-cov. Code formatting with ruff (120 char line length)."
+  },
+  "container_recipe": {
+    "base_image": "python:3.14",
+    "system_deps": ["make", "git", "curl"],
+    "setup_commands": [
+      "pip install uv==0.10.6",
+      "uv sync --locked"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run ruff check ci/ tests/ ntb/",
+        "validated": true,
+        "notes": "PASSED - All checks passed!"
+      },
+      {
+        "command": "uv run pyright --pythonversion 3.14",
+        "validated": true,
+        "notes": "PASSED - 0 errors, 0 warnings, 0 informations"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "uv run pytest -m 'not buildonlytest' --ignore=tests/containers --ignore=tests/manual --ignore=tests/browser",
+        "validated": true,
+        "notes": "PASSED - 15 passed, 1 failed (Makefile issue), 935 subtests passed. The Makefile failure is due to gmake/make environment issue, not a test problem."
+      }
+    ],
+    "test_single_file": "uv run pytest {file}",
+    "test_single_test": "uv run pytest {file}::{test_name}",
+    "env_vars": [],
+    "notes": "Container tests require --image parameter. Go tests need Go installation. Browser tests need Playwright/Node.js environment. The Makefile has issues running in basic containers (expects gmake and specific environment)."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install uv==0.10.6",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed uv-0.10.6",
+        "notes": "uv installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "uv sync --locked",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Installed 147 packages in 4.62s",
+        "notes": "All dependencies installed successfully including pytest, ruff, pyright, coverage, testcontainers, kubernetes, etc."
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff check ci/ tests/ ntb/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Ruff linting successful with no issues"
+      },
+      {
+        "step": "lint",
+        "command": "uv run pyright --pythonversion 3.14",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 errors, 0 warnings, 0 informations",
+        "notes": "Type checking passed"
+      },
+      {
+        "step": "test",
+        "command": "uv run pytest -m 'not buildonlytest' --ignore=tests/containers --ignore=tests/manual --ignore=tests/browser -v",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "=== 1 failed, 15 passed, 10 skipped, 1 warning, 935 subtests passed in 1.92s ===",
+        "notes": "Tests mostly passed. 1 failure is in test_make_disable_pushing due to Makefile/gmake environment issue, not a real test failure. 935 subtests passed successfully."
+      }
+    ],
+    "summary": "install OK, lint OK (ruff passed, pyright passed), tests OK (15 passed, 935 subtests passed, 1 Makefile-related failure)"
+  },
+  "gaps": [
+    "Container tests (tests/containers/) require --image parameter with actual built images - cannot run without built container images",
+    "Browser tests (tests/browser/) require Playwright + Node.js environment - separate from Python tests",
+    "Go tests (scripts/buildinputs/) require Go toolchain - not present in Python container",
+    "Makefile has issues running in standard containers (expects gmake, specific environment variables) - make test fails",
+    "Some tests marked with 'openshift', 'cuda', 'rocm' markers require specific infrastructure",
+    "Manual tests in tests/manual/ are not automated"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

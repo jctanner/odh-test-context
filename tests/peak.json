@@ -1,0 +1,161 @@
+{
+  "repo": "peak",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:06:11-05:00",
+  "languages": ["bash"],
+  "linting": {
+    "tools": [
+      {
+        "name": "shellcheck",
+        "config_file": null,
+        "run_command": "shellcheck run.sh setup.sh util operator-tests/common",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "bash syntax check",
+        "config_file": null,
+        "run_command": "bash -n run.sh && bash -n setup.sh && bash -n util && bash -n operator-tests/common",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "No linting is configured in the repository. Shellcheck can be used to check bash style and find issues. Validation shows style warnings (legacy backticks, missing quotes) but no critical errors. All scripts pass bash syntax validation."
+  },
+  "testing": {
+    "framework": "bash (openshift-test-kit)",
+    "test_directory": "operator-tests/",
+    "run_command": "./run.sh",
+    "run_single_file": "./run.sh {file_path_pattern}",
+    "run_single_test": null,
+    "setup_required": [
+      "git submodule update --init",
+      "./setup.sh operator-list"
+    ],
+    "env_vars": [
+      "TEST_DIR - points to operator-tests subdirectory (set by run.sh)",
+      "MY_SCRIPT - name of currently running test script (set by common)",
+      "RESOURCE_DIR - path for temporary files (set by common)",
+      "OCP - indicates OpenShift login status (set by util)"
+    ],
+    "fixtures_location": "operator-tests/*/resources/",
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "This repo is a test framework, not a project with tests. Tests are cloned from external git repos specified in operator-list. The framework requires an active OpenShift cluster login (oc CLI) to run. Without cluster access, only git repository cloning works. The test submodule (openshift-test-kit) must be initialized before running tests. Individual test repos contain .sh files that are executed in alphabetical order."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No GitHub Actions, Tekton, Jenkins, or other CI workflows exist in this repository."
+  },
+  "build": {
+    "system": "bash",
+    "install_command": "git submodule update --init",
+    "build_command": null,
+    "notes": "No build process required. This is a pure bash script framework. The only setup needed is initializing the git submodule for the test library (openshift-test-kit)."
+  },
+  "conventions": {
+    "test_file_pattern": "operator-tests/*/*.sh",
+    "test_naming": "Test files are .sh bash scripts in subdirectories under operator-tests/. Files are executed in alphabetical order. All test scripts should source $TEST_DIR/common at the top.",
+    "import_style": "Scripts use 'source' to load common libraries and utilities. Common pattern: source $TEST_DIR/common",
+    "notes": "Test subdirectories are named after operators and created/populated by setup.sh. Each subdirectory can contain multiple .sh test files. Tests use bash test functions from openshift-test-kit library (os::test::* functions)."
+  },
+  "container_recipe": {
+    "base_image": "bash:5.2",
+    "system_deps": ["shellcheck"],
+    "setup_commands": [
+      "apk add --no-cache shellcheck"
+    ],
+    "lint_commands": [
+      {
+        "command": "bash -n run.sh && bash -n setup.sh && bash -n util && bash -n operator-tests/common",
+        "validated": true,
+        "notes": "All scripts passed syntax check"
+      },
+      {
+        "command": "shellcheck run.sh setup.sh util operator-tests/common",
+        "validated": true,
+        "notes": "Found style issues (SC2006 legacy backticks, SC2086 missing quotes, SC2181 $? usage) but no critical errors"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "./run.sh",
+        "validated": false,
+        "notes": "Cannot run - requires OpenShift cluster with 'oc' CLI and active login. Requires git submodule initialization and external test repositories."
+      }
+    ],
+    "test_single_file": "./run.sh {pattern}",
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "This repository is a test framework for OpenShift operators, not a testable project. It requires: (1) OpenShift cluster access, (2) oc CLI installed, (3) Active cluster login, (4) Initialized git submodule, (5) Cloned test repositories. Without these dependencies, only syntax/style validation is possible. The framework itself has no unit tests."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apk add --no-cache shellcheck",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz\nfetch https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/APKINDEX.tar.gz\n(1/3) Installing libffi (3.4.8-r0)\n(2/3) Installing gmp (6.3.0-r3)\n(3/3) Installing shellcheck (0.10.0-r2)\nExecuting busybox-1.37.0-r20.trigger\nOK: 26 MiB in 22 packages",
+        "notes": "Shellcheck installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "bash -n run.sh && bash -n setup.sh && bash -n util && bash -n operator-tests/common",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All scripts passed syntax check",
+        "notes": "All bash scripts have valid syntax"
+      },
+      {
+        "step": "lint",
+        "command": "shellcheck run.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "SC2046: Quote this to prevent word splitting\nSC2006: Use $(...) notation instead of legacy backticks\nSC2086: Double quote to prevent globbing and word splitting\nSC1091: Not following source files\nSC2004: $/${} is unnecessary on arithmetic variables",
+        "notes": "Shellcheck found style/info issues but no critical errors"
+      },
+      {
+        "step": "lint",
+        "command": "shellcheck setup.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "SC2006: Use $(...) notation instead of legacy backticks\nSC2086: Double quote to prevent globbing and word splitting\nSC2181: Check exit code directly with e.g. 'if mycmd;'",
+        "notes": "Shellcheck found style/info issues but no critical errors"
+      },
+      {
+        "step": "lint",
+        "command": "shellcheck util",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "SC2181: Check exit code with if ! mycmd; not $?\nSC2086: Double quote to prevent globbing\nSC2046: Quote to prevent word splitting\nSC2002: Useless cat\nSC2018: Use [:lower:] for portability",
+        "notes": "Shellcheck found style/info issues but no critical errors"
+      },
+      {
+        "step": "test",
+        "command": "./run.sh",
+        "exit_code": null,
+        "success": false,
+        "output_snippet": null,
+        "notes": "Cannot run tests - requires OpenShift cluster, oc CLI, cluster login, initialized submodule, and cloned test repositories. This is a test framework, not a testable project."
+      }
+    ],
+    "summary": "Syntax validation OK, shellcheck found style issues (warnings/info only), tests cannot run without OpenShift cluster infrastructure"
+  },
+  "gaps": [
+    "No CI/CD configuration - no automated testing on pull requests",
+    "No linting configured - shellcheck should be added to CI",
+    "No unit tests for the framework itself - only runs external tests",
+    "Requires OpenShift cluster access to run - cannot be validated in standard containers",
+    "Git submodule (openshift-test-kit) not automatically initialized",
+    "No documentation of required OpenShift permissions or cluster setup",
+    "No version pinning for operators or test repositories",
+    "Shellcheck issues should be fixed: legacy backticks, missing quotes, direct exit code checks"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

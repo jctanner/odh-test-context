@@ -1,0 +1,102 @@
+{
+  "repo": "s2i-lab-elyra",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:19:00-04:00",
+  "languages": [
+    "Shell",
+    "Python (runtime only)"
+  ],
+  "linting": {
+    "tools": [],
+    "notes": "No linter configuration found. Repository contains only shell scripts and a Dockerfile. No Python source code to lint. Shellcheck could be used but is not configured."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure exists. This is a container image repository with no application code or tests."
+  },
+  "ci": {
+    "system": "AICoE CI (Thoth Station)",
+    "config_files": [
+      ".aicoe-ci.yaml",
+      ".thoth.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "thoth-build",
+        "command": "Container build via AICoE CI - builds Dockerfile and pushes to quay.io/thoth-station/s2i-lab-elyra",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "No GitHub Actions workflows. CI is handled entirely by AICoE CI system (Thoth Station). The only check is building the container image. Repository is archived/read-only."
+  },
+  "build": {
+    "system": "Docker/Podman",
+    "install_command": "python3 -m pip install -r requirements.txt",
+    "build_command": "podman build -t s2i-lab-elyra:latest . OR docker build -t s2i-lab-elyra:latest .",
+    "notes": "Container-only build. Base image: quay.io/thoth-station/s2i-minimal-py38-notebook:v0.5.0. Installs elyra[kfp-tekton]==3.12.0. No application build step beyond container creation."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "No code conventions applicable - repository contains only configuration files and shell scripts for container initialization."
+  },
+  "container_recipe": {
+    "base_image": "python:3.8-slim",
+    "system_deps": [],
+    "setup_commands": [
+      "# No setup needed - repository has no tests or linting to run",
+      "# The only validation possible is syntax checking shell scripts"
+    ],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "This repository has no lint or test infrastructure. Container validation attempted only basic syntax checks. Shell scripts validated with 'bash -n' successfully. Requirements.txt is syntactically valid. Full container build not attempted as it requires Thoth Station base image."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "shell_syntax",
+        "command": "bash -n setup-elyra.sh && bash -n start-notebook.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Shell syntax: PASS",
+        "notes": "Both shell scripts have valid bash syntax"
+      },
+      {
+        "step": "requirements_parse",
+        "command": "python3 -c \"with open('requirements.txt') as f: f.read()\"",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "File readable: OK",
+        "notes": "requirements.txt is readable and contains: elyra[kfp-tekton]==3.12.0"
+      }
+    ],
+    "summary": "No tests or linting configured. Only validated shell script syntax (PASS) and requirements.txt parsing (OK). Repository is archived and contains no application code."
+  },
+  "gaps": [
+    "Repository is archived/read-only - no active development",
+    "No test infrastructure - zero tests",
+    "No linting configuration",
+    "No GitHub Actions workflows",
+    "No application code - only Dockerfile and shell scripts",
+    "No CI beyond container build",
+    "Cannot validate patches - only container build success/failure",
+    "Full container build requires Thoth Station base image access"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

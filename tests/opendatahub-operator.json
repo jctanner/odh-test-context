@@ -1,0 +1,177 @@
+{
+  "repo": "opendatahub-operator",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:03:00-04:00",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "config_file": ".golangci.yml",
+        "run_command": "make lint",
+        "fix_command": "make lint-fix",
+        "scope": "full project",
+        "version": "v2.5.0"
+      },
+      {
+        "name": "kube-linter",
+        "config_file": ".kube-linter.yaml",
+        "run_command": "make kube-lint",
+        "fix_command": null,
+        "scope": "Kubernetes manifests"
+      },
+      {
+        "name": "yamllint",
+        "config_file": ".yamllint",
+        "run_command": "yamllint -c .yamllint .",
+        "fix_command": null,
+        "scope": "YAML files"
+      }
+    ],
+    "notes": "golangci-lint is the primary Go linter with extensive configuration. kube-linter validates Kubernetes manifests with security-focused checks (CRITICAL/HIGH findings block PRs). yamllint enforces YAML style consistency."
+  },
+  "testing": {
+    "framework": "Ginkgo/Gomega",
+    "test_directory": "internal/, pkg/, tests/",
+    "run_command": "make unit-test",
+    "run_single_file": "ginkgo -r {file}",
+    "run_single_test": "ginkgo -run '{test_name}' {file}",
+    "setup_required": [
+      "make manifests-all",
+      "make get-manifests"
+    ],
+    "env_vars": [
+      "OPERATOR_NAMESPACE=opendatahub-operator-system",
+      "KUBEBUILDER_ASSETS=/path/to/envtest/binaries"
+    ],
+    "fixtures_location": "tests/envtestutil/",
+    "mock_patterns": "Uses Ginkgo/Gomega matchers and controller-runtime envtest for Kubernetes API mocking",
+    "coverage_command": "make unit-test",
+    "coverage_threshold": null,
+    "notes": "Unit tests use Ginkgo with parallel execution (8 procs). Integration tests require a Kubernetes cluster. E2E tests require full OpenShift/K8s environment. Prometheus alert tests use promtool. Tests in pkg/upgrade/ may have build issues."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/test-linter.yaml",
+      ".github/workflows/test-unit.yaml",
+      ".github/workflows/test-integration.yaml",
+      ".github/workflows/test-prometheus-unit.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "golangci-lint",
+        "command": "make lint",
+        "required": true
+      },
+      {
+        "name": "kube-linter",
+        "command": "make kube-lint",
+        "required": true
+      },
+      {
+        "name": "unit-test",
+        "command": "make manifests-all && make get-manifests && make unit-test",
+        "required": true
+      },
+      {
+        "name": "prometheus-unit-tests",
+        "command": "make test-alerts",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "integration-tests",
+        "command": "Integration tests triggered by PR label",
+        "required": false
+      }
+    ],
+    "notes": "Integration tests require 'run-integration-tests' label and build custom catalog images. E2E tests run on actual clusters. Kube-linter blocks only on CRITICAL/HIGH severity findings."
+  },
+  "build": {
+    "system": "make + Go modules",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "notes": "Uses Go 1.25.7. Requires manifests generation before build. Supports building operator image with 'make image-build'."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Go test files use '_test.go' suffix. Ginkgo tests use Describe/It/Context blocks. Test functions must start with 'Test'.",
+    "import_style": "Uses custom import aliases defined in .golangci.yml (e.g., dsciv1, dscv1, k8serr). Three-section import grouping: standard, default, opendatahub-io prefix.",
+    "notes": "Uses controller-runtime patterns. Tests extensively use envtest for Kubernetes API simulation."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25",
+    "system_deps": ["make", "git", "curl", "jq"],
+    "setup_commands": [
+      "go mod download",
+      "make manifests-all",
+      "make get-manifests"
+    ],
+    "lint_commands": [
+      {
+        "command": "make lint",
+        "validated": true,
+        "notes": "Passed with 0 issues"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make unit-test TEST_SRC='./internal/... ./tests/integration/...'",
+        "validated": true,
+        "notes": "Most tests pass. Tests run with Ginkgo parallel execution. Some tests in pkg/upgrade/ have build issues."
+      }
+    ],
+    "test_single_file": "ginkgo -r {file}",
+    "test_single_test": "ginkgo -run '{test_name}' {file}",
+    "env_vars": ["OPERATOR_NAMESPACE=opendatahub-operator-system"],
+    "notes": "Tests take several minutes to run. Integration tests require external Kubernetes cluster. Use 'make manifests-all' and 'make get-manifests' before running tests."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Dependencies downloaded successfully",
+        "notes": "Go modules download completed without errors"
+      },
+      {
+        "step": "build",
+        "command": "make manifests-all",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Generated manifests for both ODH and RHOAI platforms",
+        "notes": "Manifests generation successful for both OpenDataHub and RHOAI"
+      },
+      {
+        "step": "lint",
+        "command": "make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 issues.",
+        "notes": "golangci-lint passed with zero issues"
+      },
+      {
+        "step": "test",
+        "command": "make unit-test TEST_SRC='./pkg/...'",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "PASS coverage: 77.7% of statements\nfork/exec /app/pkg/upgrade/upgrade.test: no such file or directory",
+        "notes": "Most tests passed with 77.7% coverage, but pkg/upgrade tests have build issues"
+      }
+    ],
+    "summary": "install OK, manifests OK, lint OK (0 issues), tests PARTIAL (most pass, pkg/upgrade has issues)"
+  },
+  "gaps": [
+    "pkg/upgrade/ tests have build issues that prevent full test suite completion",
+    "Integration tests require external Kubernetes cluster and cannot be validated in container",
+    "E2E tests require full OpenShift/Kubernetes environment with operator deployed",
+    "kube-linter requires rendered manifests and cannot be easily validated in isolation",
+    "No explicit test coverage threshold enforced in Makefile"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

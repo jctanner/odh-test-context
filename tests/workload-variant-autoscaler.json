@@ -1,0 +1,188 @@
+{
+  "repo": "workload-variant-autoscaler",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:43:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.8.0",
+        "config_file": null,
+        "run_command": "make lint",
+        "fix_command": "make lint-fix",
+        "scope": "full project",
+        "notes": "No custom config file found - uses golangci-lint defaults. Installed automatically by Makefile target."
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "Linting is run as part of 'make build' and 'make test'. Pre-commit hooks also include shellcheck, hadolint, markdownlint, and yamllint for non-Go files."
+  },
+  "testing": {
+    "framework": "Ginkgo v2 + Gomega",
+    "test_directory": "Multiple: api/v1alpha1/*_test.go, internal/**/*_test.go, pkg/**/*_test.go, test/",
+    "run_command": "make test",
+    "run_single_file": "go test {file}",
+    "run_single_test": "go test -run '{TestName}' {package}",
+    "setup_required": [
+      "make setup-envtest",
+      "go mod download"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS - set automatically by make test to envtest binaries path"
+    ],
+    "fixtures_location": "test/e2e/fixtures/",
+    "mock_patterns": "Uses envtest for controller testing with fake Kubernetes API server",
+    "coverage_command": "make test (generates cover.out)",
+    "coverage_threshold": null,
+    "notes": "Unit tests exclude e2e tests. E2E tests (test/e2e/) require Kind cluster and llm-d infrastructure - not runnable in basic container. Unit tests use controller-runtime's envtest for Kubernetes controller testing."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci-pr-checks.yaml",
+      ".github/workflows/ci-e2e-openshift.yaml",
+      ".github/workflows/typo-checker.lock.yml",
+      ".github/workflows/ci-signed-commits.yaml",
+      ".github/workflows/ci-release.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "lint-and-test",
+        "command": "make build && make test",
+        "required": true,
+        "workflow": "ci-pr-checks.yaml",
+        "notes": "Runs on all PRs. Includes go fmt, go vet, golangci-lint, and unit tests."
+      },
+      {
+        "name": "e2e-tests (smoke)",
+        "command": "make test-e2e-smoke-with-setup",
+        "required": true,
+        "workflow": "ci-pr-checks.yaml",
+        "notes": "Runs smoke tests on Kind cluster for PRs with code changes. Full E2E suite runs on /trigger-e2e-full comment."
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "typo-checker",
+        "command": "AI-powered typo checking",
+        "required": false,
+        "workflow": "typo-checker.lock.yml"
+      },
+      {
+        "name": "signed-commits",
+        "command": "Verify commit signatures",
+        "required": false,
+        "workflow": "ci-signed-commits.yaml"
+      }
+    ],
+    "notes": "PR checks run lint+unit tests automatically. E2E tests run smoke suite by default, full suite via /trigger-e2e-full comment (requires write access). E2E tests build local Docker image and deploy to Kind cluster."
+  },
+  "build": {
+    "system": "make + Go",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "docker_build_command": "make docker-build IMG=<image>",
+    "notes": "Build includes code generation (controller-gen for CRDs/RBAC), go fmt, go vet, and compilation. Binary output: bin/manager"
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Ginkgo BDD style with Describe/Context/It blocks for controller tests, Test* functions for package tests",
+    "import_style": "Grouped imports: stdlib, third-party, local. Standard Go import ordering.",
+    "notes": "Controller tests use envtest suite pattern (suite_test.go files). E2E tests use Ginkgo labels (smoke, full, flaky) for selective execution."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.24.0",
+    "system_deps": ["make", "git"],
+    "setup_commands": [
+      "go mod download",
+      "make setup-envtest"
+    ],
+    "lint_commands": [
+      {
+        "command": "make lint",
+        "validated": true,
+        "notes": "Downloads golangci-lint v2.8.0 automatically, ran successfully with 0 issues"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test",
+        "validated": true,
+        "notes": "All unit tests passed (excludes e2e). Sets up envtest, runs controller tests with coverage."
+      }
+    ],
+    "test_single_file": "go test {file}",
+    "test_single_test": "go test -run '{TestName}' {package}",
+    "env_vars": [],
+    "notes": "Container validation successful for unit tests and linting. E2E tests require Kind cluster and cannot run in basic container. Use 'make test-e2e-smoke-with-setup' locally with Kind installed."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y make git",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "make is already the newest version\ngit upgraded successfully",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "dependencies",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "No output - silent success",
+        "notes": "All Go module dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "/app/bin/controller-gen rbac:roleName=manager-role crd webhook paths=\"./...\" output:crd:artifacts:config=config/crd/bases\n/app/bin/controller-gen object:headerFile=\"hack/boilerplate.go.txt\" paths=\"./...\"\ngo fmt ./...\ngo vet ./...\ngo build -o bin/manager cmd/main.go",
+        "notes": "Build includes CRD generation, formatting, vetting, and compilation. Completed successfully."
+      },
+      {
+        "step": "lint",
+        "command": "make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Downloading golangci-lint v2.8.0\ngolangci/golangci-lint info installed /app/bin/golangci-lint\n/app/bin/golangci-lint run\n0 issues.",
+        "notes": "Linter installed automatically and found no issues"
+      },
+      {
+        "step": "test",
+        "command": "make test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1\t0.017s\tcoverage: 39.4% of statements\nok  \tgithub.com/llm-d/llm-d-workload-variant-autoscaler/internal/actuator\t6.326s\tcoverage: 66.1% of statements\n...\nAll tests passed",
+        "notes": "All unit tests passed (33 test packages). E2E tests excluded. Test coverage generated to cover.out."
+      }
+    ],
+    "summary": "install OK, dependencies OK, build OK, lint OK (0 issues), tests OK (all unit tests passed)"
+  },
+  "gaps": [
+    "No golangci-lint configuration file - uses default linters",
+    "E2E tests require Kind cluster with llm-d infrastructure - cannot run in basic container",
+    "E2E tests require external dependencies: Kind, kubectl, Docker, Prometheus, Gateway API CRDs",
+    "Some test packages have no tests (coverage: 0.0% of statements) - cmd, internal/collector, etc.",
+    "No coverage threshold enforced in CI configuration"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high",
+  "notes": "This is a Kubernetes controller project using kubebuilder/controller-runtime. Unit tests run successfully in a standard Go container. E2E tests require a full Kubernetes environment (Kind cluster) with llm-d components. For patch validation, agents can run lint and unit tests reliably. E2E validation requires infrastructure setup."
+}

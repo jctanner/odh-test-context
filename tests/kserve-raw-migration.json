@@ -1,0 +1,150 @@
+{
+  "repo": "kserve-raw-migration",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:23:00-04:00",
+  "languages": ["bash", "shell"],
+  "linting": {
+    "tools": [
+      {
+        "name": "shellcheck",
+        "config_file": null,
+        "run_command": "shellcheck convert.sh sample_curl.sh",
+        "fix_command": null,
+        "scope": "all .sh files"
+      },
+      {
+        "name": "bash -n",
+        "config_file": null,
+        "run_command": "bash -n convert.sh && bash -n sample_curl.sh",
+        "fix_command": null,
+        "scope": "syntax validation for all .sh files"
+      }
+    ],
+    "notes": "No linting configuration exists in the repository. Shellcheck can be used to lint bash scripts and reports multiple style warnings (SC2155, SC2162, SC2181, SC2086, etc.) but no syntax errors. The main convert.sh script has 47 shellcheck findings (mostly info/warning level style improvements)."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure exists. This is a utility script for OpenShift/Kubernetes administration. Functional testing would require: (1) OpenShift cluster with admin access, (2) KServe operator installed, (3) Existing InferenceService resources in serverless mode, (4) Required CLI tools: oc, yq v4.x+, jq v1.6+. Only syntax validation is possible without this infrastructure."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No GitHub Actions workflows, no Tekton pipelines, no Jenkinsfile, no CI automation of any kind."
+  },
+  "build": {
+    "system": "none",
+    "install_command": null,
+    "build_command": null,
+    "notes": "This is a shell script repository with no build system. The scripts are executed directly. Runtime dependencies are external CLI tools that must be pre-installed: oc (OpenShift CLI 4.x+), yq (YAML processor 4.x+), jq (JSON processor 1.6+)."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Shell script conventions: convert.sh is the main script (1061 lines), includes extensive help text, argument parsing, error handling, and interactive prompts. Uses bash best practices like 'set -e' trapping, function decomposition, and colored output. Script requires --inference-service parameter and optional --namespace parameter."
+  },
+  "container_recipe": {
+    "base_image": "debian:bookworm",
+    "system_deps": ["bash", "shellcheck"],
+    "setup_commands": [
+      "apt-get update -qq",
+      "apt-get install -y -qq shellcheck bash"
+    ],
+    "lint_commands": [
+      {
+        "command": "bash -n convert.sh",
+        "validated": true,
+        "notes": "Syntax check passed (exit code 0)"
+      },
+      {
+        "command": "bash -n sample_curl.sh",
+        "validated": true,
+        "notes": "Syntax check passed (exit code 0)"
+      },
+      {
+        "command": "shellcheck convert.sh",
+        "validated": true,
+        "notes": "Linter ran successfully (exit code 0). Found 47 issues: 13 warnings (SC2155: declare/assign separately, SC2034: unused variables), 18 info-level suggestions (SC2086: quote to prevent word splitting, SC2162: use read -r, SC2016: single quote expressions), 8 style suggestions (SC2181: check exit code directly, SC2001: use parameter expansion). No syntax errors."
+      },
+      {
+        "command": "shellcheck sample_curl.sh",
+        "validated": true,
+        "notes": "Linter ran successfully (exit code 0). Found 1 issue: SC2148 (error level but non-blocking): missing shebang line. Script is otherwise valid."
+      }
+    ],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No functional tests can be run without OpenShift cluster infrastructure. Only static analysis (syntax checking and linting) is possible. The scripts require runtime access to: OpenShift cluster API, KServe CRDs (InferenceService, ServingRuntime), and RBAC permissions to create/modify resources."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update -qq && apt-get install -y -qq shellcheck bash",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Dependencies installed successfully",
+        "notes": "System dependencies (shellcheck, bash) installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "bash -n convert.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "EXIT_CODE: 0",
+        "notes": "Bash syntax validation passed for convert.sh"
+      },
+      {
+        "step": "lint",
+        "command": "bash -n sample_curl.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "EXIT_CODE: 0",
+        "notes": "Bash syntax validation passed for sample_curl.sh"
+      },
+      {
+        "step": "lint",
+        "command": "shellcheck convert.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Found 47 shellcheck findings:\n- SC2155 (warning): Declare and assign separately to avoid masking return values (13 occurrences)\n- SC2086 (info): Double quote to prevent globbing and word splitting (18 occurrences)\n- SC2181 (style): Check exit code directly with 'if ! mycmd;' (8 occurrences)\n- SC2162 (info): read without -r will mangle backslashes (2 occurrences)\n- SC2034 (warning): Variable appears unused (2 occurrences)\n- SC2016 (info): Expressions don't expand in single quotes (3 occurrences)\n- SC2001 (style): Use ${variable//search/replace} instead (1 occurrence)\n- SC2269 (info): Variable assigned to itself (1 occurrence)",
+        "notes": "Shellcheck found 47 style/best-practice suggestions. No blocking errors. Script is production-ready but could be improved with these fixes."
+      },
+      {
+        "step": "lint",
+        "command": "shellcheck sample_curl.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "SC2148 (error): Tips depend on target shell and yours is unknown. Add a shebang or a 'shell' directive.",
+        "notes": "Shellcheck found 1 issue: missing shebang. Not a blocking error since it's a simple curl command snippet."
+      }
+    ],
+    "summary": "Static analysis OK: syntax validation passed for both scripts, shellcheck found 48 style improvements but no blocking errors. No functional tests available without OpenShift cluster."
+  },
+  "gaps": [
+    "No test infrastructure - repository contains only operational scripts with no unit or integration tests",
+    "No CI/CD pipeline - no automated validation on pull requests or commits",
+    "No linting configuration - shellcheck is not configured in the repository, must be run manually",
+    "Functional testing impossible without infrastructure - requires OpenShift cluster with KServe operator, admin permissions, and existing InferenceService resources",
+    "No pre-commit hooks or git hooks for automatic validation",
+    "No automated documentation validation (README vs actual script behavior)",
+    "No version pinning for dependencies (oc, yq, jq versions are documented but not enforced)",
+    "sample_curl.sh is missing shebang and contains hardcoded values (not a general-purpose example)"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

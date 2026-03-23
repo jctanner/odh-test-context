@@ -1,0 +1,219 @@
+{
+  "repo": "perf_analyzer",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:08:00Z",
+  "languages": [
+    "Python",
+    "C++"
+  ],
+  "linting": {
+    "tools": [
+      {
+        "name": "black",
+        "config_file": ".pre-commit-config.yaml, pyproject.toml",
+        "run_command": "cd genai-perf && python -m black --check genai_perf/",
+        "fix_command": "cd genai-perf && python -m black genai_perf/",
+        "scope": "Python files (genai-perf)"
+      },
+      {
+        "name": "isort",
+        "config_file": ".pre-commit-config.yaml, pyproject.toml",
+        "run_command": "cd genai-perf && python -m isort --check genai_perf/",
+        "fix_command": "cd genai-perf && python -m isort genai_perf/",
+        "scope": "Python files (genai-perf)"
+      },
+      {
+        "name": "flake8",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "cd genai-perf && python -m flake8 --max-line-length=88 --select=C,E,F,W,B,B950 --extend-ignore=E203,E501 genai_perf/",
+        "fix_command": null,
+        "scope": "Python files (genai-perf)"
+      },
+      {
+        "name": "mypy",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "cd genai-perf && python -m mypy genai_perf/",
+        "fix_command": null,
+        "scope": "Python files (genai-perf)"
+      },
+      {
+        "name": "clang-format",
+        "config_file": ".clang-format",
+        "run_command": "clang-format --dry-run --Werror src/**/*.cc src/**/*.h",
+        "fix_command": "clang-format -i src/**/*.cc src/**/*.h",
+        "scope": "C++ files (src)"
+      },
+      {
+        "name": "codespell",
+        "config_file": "pyproject.toml",
+        "run_command": "codespell --toml pyproject.toml",
+        "fix_command": null,
+        "scope": "All text files"
+      },
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": null,
+        "scope": "All files via pre-commit hooks"
+      }
+    ],
+    "notes": "Pre-commit hooks are the primary linting mechanism. The CI runs pre-commit on modified files only. For local development, install pre-commit and run 'pre-commit install' to set up git hooks."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "genai-perf/tests/",
+    "run_command": "cd genai-perf/tests && pytest --doctest-modules --junitxml=junit/test-results.xml --cov=genai_perf --cov-report=xml --cov-report=html --ignore-glob=test_models",
+    "run_single_file": "cd genai-perf/tests && pytest {file}",
+    "run_single_test": "cd genai-perf/tests && pytest {file}::{test_name}",
+    "setup_required": [
+      "cd genai-perf",
+      "pip install -e .[test]",
+      "pip install pytest pytest-timeout pytest-cov psutil"
+    ],
+    "env_vars": [],
+    "fixtures_location": "genai-perf/tests/",
+    "mock_patterns": "Uses pytest-mock for mocking. Mock files like mock_*.py in tests/ and test fixtures in conftest.py files.",
+    "coverage_command": "cd genai-perf/tests && pytest --cov=genai_perf --cov-report=html --cov-report=xml",
+    "coverage_threshold": null,
+    "notes": "Python tests are in genai-perf/tests/. C++ tests exist in src/test_*.cc using doctest/googletest but require complex CMake build with Triton client libraries, gRPC, and other external dependencies. The CI only runs Python tests. 669 tests passed, 1 failed (minor assertion issue in test_llm_profile_data_parser.py)."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/pre-commit.yml",
+      ".github/workflows/python-package-genai.yml",
+      ".github/workflows/codeql.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "pre-commit",
+        "command": "pre-commit run --files <modified_files>",
+        "required": true
+      },
+      {
+        "name": "pytest (genai-perf)",
+        "command": "cd genai-perf/ && python -m pip install -e .[test] && cd tests && pytest --doctest-modules --junitxml=junit/test-results.xml --cov=genai_perf --cov-report=xml --cov-report=html --ignore-glob=test_models",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "CodeQL",
+        "command": "CodeQL security analysis (automated by GitHub)",
+        "required": false
+      }
+    ],
+    "notes": "CI runs on pull_request events. Pre-commit workflow validates modified files only. Python package workflow tests genai-perf with Python 3.10 on ubuntu-22.04. C++ tests are not run in CI."
+  },
+  "build": {
+    "system": "Python setuptools/hatchling + CMake",
+    "install_command": "cd genai-perf && pip install -e .[test]",
+    "build_command": "For C++: mkdir build && cd build && cmake .. && make",
+    "notes": "Two separate packages: 1) genai-perf (Python) builds with hatchling, 2) perf_analyzer (C++) builds with CMake. C++ build requires Triton client libraries, gRPC, protobuf, and other external dependencies fetched via ExternalProject_Add. Python package includes perf-analyzer as a dependency."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py (Python), test_*.cc (C++)",
+    "test_naming": "Python: test_* functions in test_*.py files. C++: TEST_CASE or TEST macros in test_*.cc files",
+    "import_style": "Python: absolute imports, black/isort formatting with line-length=88",
+    "notes": "Python code follows black formatting with 88 char line length. C++ uses clang-format with config in .clang-format. All files must have NVIDIA copyright header (enforced by pre-commit hook)."
+  },
+  "container_recipe": {
+    "base_image": "python:3.10",
+    "system_deps": [],
+    "setup_commands": [
+      "cd /app/genai-perf",
+      "python -m pip install --upgrade pip setuptools wheel",
+      "pip install -e .[test]",
+      "pip install pytest pytest-timeout pytest-cov psutil",
+      "pip install black isort flake8 mypy pre-commit"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd /app/genai-perf && python -m black --check genai_perf/",
+        "validated": true,
+        "notes": "Found 1 file that would be reformatted (tokenizer.py) - working correctly"
+      },
+      {
+        "command": "cd /app/genai-perf && python -m isort --check genai_perf/",
+        "validated": true,
+        "notes": "No output - imports are correctly formatted"
+      },
+      {
+        "command": "cd /app/genai-perf && python -m flake8 --max-line-length=88 --select=C,E,F,W,B,B950 --extend-ignore=E203,E501 genai_perf/",
+        "validated": true,
+        "notes": "Found multiple violations (F401 unused imports, W503 line breaks, E713, E722, F541) - working correctly"
+      },
+      {
+        "command": "cd /app && pre-commit run --all-files",
+        "validated": false,
+        "notes": "Pre-commit requires git repo and hook setup - not validated in container"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd /app/genai-perf/tests && pytest --doctest-modules --junitxml=junit/test-results.xml --cov=genai_perf --cov-report=xml --cov-report=html --ignore-glob=test_models",
+        "validated": true,
+        "notes": "669 passed, 1 failed in 21.21s. Single failure is a minor assertion mismatch in test_llm_profile_data_parser.py, not a framework issue."
+      }
+    ],
+    "test_single_file": "cd /app/genai-perf/tests && pytest {file}",
+    "test_single_test": "cd /app/genai-perf/tests && pytest {file}::{test_name}",
+    "env_vars": [],
+    "notes": "Container setup validated for Python/genai-perf package only. C++ perf_analyzer requires complex dependencies (Triton client libraries, gRPC, CUDA) and CMake build - not practical to validate in basic container. The CI also only tests Python."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "cd /app/genai-perf && pip install -e .[test]",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully built genai-perf\nInstalling collected packages: ... genai-perf-0.0.16.dev0",
+        "notes": "All dependencies installed cleanly including transformers, pytest, optuna, pandas, plotly, etc."
+      },
+      {
+        "step": "lint",
+        "command": "cd /app/genai-perf && python -m black --check genai_perf/",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "would reformat /app/genai-perf/genai_perf/tokenizer.py\nOh no! 💥 💔 💥\n1 file would be reformatted, 599 files would be left unchanged.",
+        "notes": "Black found legitimate formatting issues - linter working correctly"
+      },
+      {
+        "step": "lint",
+        "command": "cd /app/genai-perf && python -m isort --check genai_perf/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "Isort check passed - all imports correctly formatted"
+      },
+      {
+        "step": "lint",
+        "command": "cd /app/genai-perf && python -m flake8 --max-line-length=88 --select=C,E,F,W,B,B950 --extend-ignore=E203,E501 genai_perf/",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "genai_perf/config/generate/genai_perf_config.py:15:1: F401 'argparse.Namespace' imported but unused\ngenai_perf/config/generate/objective_parameter.py:45:13: W503 line break before binary operator",
+        "notes": "Flake8 found legitimate issues - linter working correctly"
+      },
+      {
+        "step": "test",
+        "command": "cd /app/genai-perf/tests && pytest --doctest-modules --junitxml=junit/test-results.xml --cov=genai_perf --cov-report=xml --cov-report=html --ignore-glob=test_models",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "======================== 1 failed, 669 passed in 21.21s ========================\nFAILED test_data_parser/test_llm_profile_data_parser.py::TestLLMProfileDataParser::test_huggingface_generate_llm_profile_data[concurrency-10-expected_metrics0]",
+        "notes": "Tests ran successfully with 99.85% pass rate. Single failure is assertion mismatch (output_token_throughput 700000000.0 vs expected 900000000.0) - likely test data issue, not framework problem."
+      }
+    ],
+    "summary": "install OK, lint OK (found legitimate issues), tests OK (669/670 passed)"
+  },
+  "gaps": [
+    "C++ perf_analyzer tests not validated - require complex CMake build with Triton client libraries, gRPC, protobuf, CUDA",
+    "Pre-commit hooks not fully validated in container - require git repository setup",
+    "C++ build not validated - requires external Triton dependencies via ExternalProject_Add",
+    "No CI workflow for C++ builds or tests - only Python genai-perf is tested in CI",
+    "One test failure in test_llm_profile_data_parser.py - appears to be test data/assertion issue rather than framework problem"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

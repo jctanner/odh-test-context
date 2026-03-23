@@ -1,0 +1,190 @@
+{
+  "repo": "argo-workflows",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:41:00Z",
+  "languages": ["Go", "TypeScript", "JavaScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.4.0",
+        "config_file": ".golangci.yml",
+        "run_command": "golangci-lint run --fix --verbose",
+        "fix_command": "golangci-lint run --fix",
+        "scope": "full project excluding ui/, docs/, examples/, vendor/, pkg/client/"
+      },
+      {
+        "name": "eslint",
+        "config_file": "ui/.eslintrc.json",
+        "run_command": "yarn --cwd ui lint",
+        "fix_command": "yarn --cwd ui lint",
+        "scope": "ui/ directory only"
+      }
+    ],
+    "notes": "Go linter has 20 enabled linters including errcheck, gosec, govet, staticcheck, etc. Also includes gofmt and goimports as formatters. UI linter uses TypeScript ESLint with React and Prettier plugins."
+  },
+  "testing": {
+    "framework": "Go testing + Jest",
+    "test_directory": "test/, *_test.go files throughout codebase",
+    "run_command": "make test STATIC_FILES=false",
+    "run_single_file": "go test {file}",
+    "run_single_test": "go test -run {test_name} ./path/to/package/...",
+    "setup_required": [
+      "go mod download",
+      "export KUBECONFIG=/dev/null",
+      "export GOTOOLCHAIN=auto"
+    ],
+    "env_vars": [
+      "KUBECONFIG=/dev/null - prevents tests from trying to access real cluster",
+      "GOTOOLCHAIN=auto - allows Go to download and use Go 1.25.7",
+      "STATIC_FILES=false - skips UI build during test"
+    ],
+    "fixtures_location": "test/e2e/manifests/",
+    "mock_patterns": "Uses testify/mock, mockery for generating mocks",
+    "coverage_command": "go test -p 20 -covermode=atomic -coverprofile=coverage.out ./...",
+    "coverage_threshold": null,
+    "notes": "236 Go test files. Tests are split into unit tests (throughout codebase) and E2E tests (test/e2e/). E2E tests require Kubernetes cluster (K3s in CI). UI tests use Jest (yarn --cwd ui test). Some tests are tagged (api, cli, cron, executor, functional, plugins)."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci-build.yaml",
+      ".github/workflows/pr.yaml",
+      ".github/workflows/build-main.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Unit Tests",
+        "command": "make test STATIC_FILES=false GOTEST='go test -p 20 -covermode=atomic -coverprofile=coverage.out'",
+        "required": true
+      },
+      {
+        "name": "Windows Unit Tests",
+        "command": "go test -p 20 -covermode=atomic -coverprofile='coverage.out' $(go list ./... | select-string -Pattern 'workflow/controller', 'server' -NotMatch)",
+        "required": true
+      },
+      {
+        "name": "Lint",
+        "command": "make lint STATIC_FILES=false",
+        "required": true
+      },
+      {
+        "name": "Codegen",
+        "command": "make codegen -B STATIC_FILES=false && git diff --exit-code",
+        "required": true
+      },
+      {
+        "name": "UI Tests",
+        "command": "yarn --cwd ui install && yarn --cwd ui build && yarn --cwd ui test && yarn --cwd ui lint",
+        "required": true
+      },
+      {
+        "name": "E2E Tests",
+        "command": "make test-{executor,corefunctional,functional,api,cli,cron,examples,plugins} E2E_SUITE_TIMEOUT=20m",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI uses changed-files detection to skip unnecessary jobs. E2E tests run in K3s cluster with matrix of profiles (minimal, mysql, plugins). Tests require Docker images to be built first. PR title must follow semantic commit convention."
+  },
+  "build": {
+    "system": "Make + Go",
+    "install_command": "go mod download",
+    "build_command": "make dist/argo STATIC_FILES=false",
+    "notes": "Full build with UI requires yarn and Node 20+. Build without static files (STATIC_FILES=false) only requires Go. Uses ldflags to embed version info. Can build for multiple platforms (linux/darwin/windows on amd64/arm64/ppc64le/riscv64/s390x)."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Test* functions for unit tests, Benchmark* for benchmarks",
+    "import_style": "goimports with local-prefixes: github.com/argoproj/argo-workflows/",
+    "notes": "Uses standard Go conventions. Test files alongside source files. E2E tests in test/e2e/ with build tags. Uses testify for assertions."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.23",
+    "system_deps": ["make", "git", "curl", "protobuf-compiler", "clang-format"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y make git curl protobuf-compiler clang-format",
+      "export GOTOOLCHAIN=auto",
+      "go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v2.4.0",
+        "validated": true,
+        "notes": "Install golangci-lint"
+      },
+      {
+        "command": "golangci-lint run --verbose",
+        "validated": true,
+        "notes": "0 issues found (after exclusions). Took ~40s, uses ~7GB RAM peak."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "KUBECONFIG=/dev/null go test ./...",
+        "validated": true,
+        "notes": "All unit tests pass. E2E tests skipped (require K8s)."
+      },
+      {
+        "command": "make test STATIC_FILES=false",
+        "validated": true,
+        "notes": "Tests via Makefile target, same as CI"
+      }
+    ],
+    "test_single_file": "go test ./path/to/package/...",
+    "test_single_test": "go test -run TestName ./path/to/package/...",
+    "env_vars": [
+      "GOTOOLCHAIN=auto",
+      "KUBECONFIG=/dev/null",
+      "STATIC_FILES=false"
+    ],
+    "notes": "Must use GOTOOLCHAIN=auto because go.mod requires Go 1.25.7 which is newer than the base golang:1.23 image. This allows Go to auto-download the required toolchain. Build succeeds, produces 140MB binary."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y make git curl protobuf-compiler clang-format && go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed system deps and downloaded Go modules",
+        "notes": "Required GOTOOLCHAIN=auto to download Go 1.25.7 toolchain"
+      },
+      {
+        "step": "build",
+        "command": "make dist/argo STATIC_FILES=false",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Built dist/argo (140MB)",
+        "notes": "Build successful, binary created"
+      },
+      {
+        "step": "lint",
+        "command": "golangci-lint run --verbose",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 issues.\nExecution took 39.851311495s",
+        "notes": "Linter ran successfully, filtered 821 issues down to 0 based on exclusion rules"
+      },
+      {
+        "step": "test",
+        "command": "make test STATIC_FILES=false",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "PASS\nok  \tgithub.com/argoproj/argo-workflows/v3/workflow/validate\t0.049s",
+        "notes": "All unit tests passed. E2E tests not run (require K8s cluster)"
+      }
+    ],
+    "summary": "install OK, build OK (140MB binary), lint OK (0 issues after filters), tests OK (all unit tests passed)"
+  },
+  "gaps": [
+    "E2E tests require Kubernetes cluster (K3s in CI) - cannot validate without infrastructure",
+    "UI tests require Node 20+ and yarn - not validated in Go-only container",
+    "Codegen verification requires protoc and multiple code generation tools - complex setup",
+    "SDK tests (Java, Python) require respective language runtimes",
+    "Some tests use build tags (api, cli, cron, executor, functional, plugins) - need explicit tag specification",
+    "Full build with UI (STATIC_FILES=true) requires yarn ecosystem"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

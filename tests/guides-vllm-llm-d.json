@@ -1,0 +1,67 @@
+{
+  "repo": "guides-vllm-llm-d",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": [],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. Repository is empty with no commits."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No testing infrastructure found. Repository is empty with no commits."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI configuration found. Repository is empty with no commits."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build configuration found. Repository is empty with no commits."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "No conventions can be determined. Repository is empty with no commits."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No container recipe can be created. Repository is empty with no code to test."
+  },
+  "validation": {
+    "results": [],
+    "summary": "Validation skipped - repository is completely empty with no commits, files, or content"
+  },
+  "gaps": [
+    "Repository is completely empty - no commits exist",
+    "No files of any kind in the repository",
+    "No build, test, or lint infrastructure",
+    "No CI/CD configuration",
+    "No documentation or README"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

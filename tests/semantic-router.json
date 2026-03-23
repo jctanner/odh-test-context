@@ -1,0 +1,368 @@
+{
+  "repo": "semantic-router",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:21:00Z",
+  "languages": ["Go", "Rust", "Python", "JavaScript", "TypeScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.5.0",
+        "config_file": "tools/linter/go/.golangci.yml",
+        "run_command": "make go-lint",
+        "fix_command": "make go-lint-fix",
+        "scope": "src/semantic-router and dashboard/backend",
+        "notes": "Uses bodyclose, copyloopvar, depguard, errorlint, gocritic, gosec, importas, misspell, revive, staticcheck, testifylint, unconvert linters. Also enforces gci import ordering and gofumpt formatting."
+      },
+      {
+        "name": "cargo fmt",
+        "config_file": null,
+        "run_command": "cd candle-binding && cargo fmt --check",
+        "fix_command": "cd candle-binding && cargo fmt",
+        "scope": "candle-binding, ml-binding, nlp-binding, onnx-binding Rust crates"
+      },
+      {
+        "name": "cargo clippy",
+        "config_file": null,
+        "run_command": "cd candle-binding && cargo clippy",
+        "fix_command": null,
+        "scope": "All Rust crates"
+      },
+      {
+        "name": "Black",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "black --check *.py",
+        "fix_command": "black *.py",
+        "scope": "Python files (bench/, e2e/, scripts/, src/training/)"
+      },
+      {
+        "name": "ESLint",
+        "config_file": "website/.eslintrc.* and dashboard/frontend/.eslintrc.*",
+        "run_command": "cd dashboard/frontend && npm run lint",
+        "fix_command": "cd dashboard/frontend && npm run lint -- --fix",
+        "scope": "Dashboard frontend and website TypeScript/JavaScript"
+      },
+      {
+        "name": "yamllint",
+        "config_file": "tools/linter/yaml/.yamllint",
+        "run_command": "make yaml-lint",
+        "fix_command": null,
+        "scope": "All YAML files"
+      },
+      {
+        "name": "markdownlint",
+        "config_file": "tools/linter/markdown/markdownlint.yaml",
+        "run_command": "make markdown-lint",
+        "fix_command": "make markdown-lint-fix",
+        "scope": "All Markdown files"
+      },
+      {
+        "name": "shellcheck",
+        "config_file": "tools/linter/shellcheck/.shellcheckrc",
+        "run_command": "make shellcheck",
+        "fix_command": null,
+        "scope": "All shell scripts"
+      },
+      {
+        "name": "codespell",
+        "config_file": "tools/linter/codespell/.codespell.ignorewords",
+        "run_command": "make codespell",
+        "fix_command": null,
+        "scope": "All text files"
+      }
+    ],
+    "notes": "Pre-commit hooks enforce all linters. Run 'make precommit-check' to run all pre-commit hooks."
+  },
+  "testing": {
+    "framework": "Go standard testing with Ginkgo/Gomega BDD framework",
+    "test_directory": "src/semantic-router/pkg/*/",
+    "run_command": "make test",
+    "run_single_file": "cd src/semantic-router && go test -v {file}",
+    "run_single_test": "cd src/semantic-router && go test -v -run {TestName} {package}",
+    "setup_required": [
+      "make rust-ci",
+      "export LD_LIBRARY_PATH=${PWD}/candle-binding/target/release:${PWD}/ml-binding/target/release:${PWD}/nlp-binding/target/release",
+      "export CGO_ENABLED=1"
+    ],
+    "env_vars": [
+      "CI=true - enables CI mode",
+      "SKIP_MILVUS_TESTS=true - skips Milvus-dependent tests (default: true locally, false in CI)",
+      "SKIP_REDIS_TESTS=true - skips Redis-dependent tests (default: true locally, false in CI)",
+      "SKIP_LLAMA_STACK_TESTS=true - skips Llama Stack tests",
+      "SR_TEST_MODE=true - enables test mode for router",
+      "HF_TOKEN - HuggingFace token for downloading gated models",
+      "LD_LIBRARY_PATH - must include paths to Rust .so libraries"
+    ],
+    "fixtures_location": "config/testing/*.yaml for test configurations",
+    "mock_patterns": "e2e/testing/mock-vllm-*.py for mock vLLM servers",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are split: test-binding-minimal runs minimal classifier tests, test-binding-lora runs LoRA tests, test-semantic-router runs Go unit tests. Full test suite requires Milvus and Redis services running. Uses Ginkgo BDD framework with Gomega matchers."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/test-and-build.yml",
+      ".github/workflows/pre-commit.yml",
+      ".github/workflows/dashboard-test.yml",
+      ".github/workflows/integration-test-*.yml",
+      ".github/workflows/operator-ci.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "test-and-build",
+        "command": "make test (which runs: make vet check-go-mod-tidy download-models test-binding-minimal test-semantic-router clean-minimal-models download-models-lora test-binding-lora)",
+        "required": true,
+        "notes": "Requires Rust 1.90, Go 1.24, make, build-essential, pkg-config. Starts Milvus and Redis services. Uses /mnt for model storage to avoid disk space issues."
+      },
+      {
+        "name": "pre-commit",
+        "command": "make precommit-check (runs all pre-commit hooks including go-lint, cargo fmt, black, eslint, yamllint, markdown-lint, shellcheck, codespell)",
+        "required": true,
+        "notes": "Also runs 'make agent-fast-gate' to check changed files with agent tooling."
+      },
+      {
+        "name": "check-go-mod-tidy",
+        "command": "make check-go-mod-tidy",
+        "required": true,
+        "notes": "Verifies all Go modules have tidy go.mod and go.sum files."
+      },
+      {
+        "name": "dashboard-test",
+        "command": "make dashboard-check (runs dashboard-lint, dashboard-type-check, dashboard-go-mod-tidy)",
+        "required": true,
+        "notes": "Only runs when dashboard code changes. Requires Node.js 23, Go 1.24, golangci-lint."
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "integration-test-k8s",
+        "command": "Various Kubernetes integration tests",
+        "required": false,
+        "notes": "Runs on changes to helm, k8s, or docker files. Requires Kind cluster."
+      },
+      {
+        "name": "integration-test-helm",
+        "command": "Helm chart tests",
+        "required": false
+      },
+      {
+        "name": "performance-test",
+        "command": "Performance benchmarks",
+        "required": false
+      }
+    ],
+    "notes": "CI uses path-based change detection via ci-changes.yml workflow. Nightly runs publish Docker images. PR builds cache Go deps, Rust deps, Node deps, and models (up to ~75GB on /mnt)."
+  },
+  "build": {
+    "system": "Make with modular makefiles in tools/make/",
+    "install_command": "make rust-ci (for CI/CPU-only) or make rust (for local/CUDA)",
+    "build_command": "make build (builds Rust libs + Go router binary)",
+    "notes": "Build requires: Rust 1.90, Go 1.24, make, build-essential, pkg-config. Rust libraries (candle-binding, ml-binding, nlp-binding) must be built before Go code. Use 'make build-router' for just the router binary. Use 'make rust-ci' for CPU-only builds in CI."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go for Go, *_test.rs for Rust",
+    "test_naming": "Go: TestXxx functions or Ginkgo Describe/It blocks. Rust: #[test] fn test_xxx",
+    "import_style": "Go imports organized by gci: standard, default, prefix(github.com/vllm-project/semantic-router). Enforced by golangci-lint.",
+    "notes": "Go tests use Ginkgo/Gomega BDD style. Test files often have _test suffix with parallel test support. Rust tests in same file as implementation or in tests/ subdirectory."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.24",
+    "system_deps": ["make", "build-essential", "pkg-config", "git", "curl", "shellcheck", "python3", "python3-pip"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y make build-essential pkg-config git curl shellcheck python3 python3-pip",
+      "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.90",
+      "source /root/.cargo/env",
+      "pip3 install codespell yamllint --break-system-packages",
+      "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v2.5.0",
+      "cd /app && make rust-ci",
+      "cd /app && make check-go-mod-tidy",
+      "cd /app && make vet"
+    ],
+    "lint_commands": [
+      {
+        "command": "make go-lint",
+        "validated": false,
+        "notes": "Exit code 2. Found 11 issues: 8 errorlint (type assertions on errors), 2 gci (import formatting), 1 gocritic (unlambda). These are legitimate code quality issues that need fixing."
+      },
+      {
+        "command": "make shellcheck",
+        "validated": true,
+        "notes": "Exit code 0. All shell scripts pass."
+      },
+      {
+        "command": "make yaml-lint",
+        "validated": true,
+        "notes": "Exit code 0. Found 5 warnings about comment indentation, but these are warnings not errors."
+      },
+      {
+        "command": "make codespell",
+        "validated": true,
+        "notes": "Exit code 1. Found spelling issues in build artifacts (target/release/deps), not in source files. False positives on 'ser' in serde-related filenames."
+      },
+      {
+        "command": "make markdown-lint",
+        "validated": false,
+        "notes": "Requires markdownlint-cli npm package. Not tested in validation."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make vet",
+        "validated": true,
+        "notes": "Exit code 0. Go vet passed on all modules."
+      },
+      {
+        "command": "make check-go-mod-tidy",
+        "validated": true,
+        "notes": "Exit code 0. All go.mod and go.sum files are tidy."
+      },
+      {
+        "command": "make build-router",
+        "validated": true,
+        "notes": "Exit code 0. Router binary built successfully (CPU-only mode). Creates bin/router."
+      },
+      {
+        "command": "cd src/semantic-router && go test -v ./pkg/config/...",
+        "validated": true,
+        "notes": "Exit code 0. 280 specs passed in 0.037s. Example of unit tests that don't require external services."
+      },
+      {
+        "command": "make test",
+        "validated": false,
+        "notes": "Not fully tested - requires downloading models (~10GB+), running Milvus and Redis services. Would take 5+ minutes."
+      }
+    ],
+    "test_single_file": "cd src/semantic-router && go test -v {file}",
+    "test_single_test": "cd src/semantic-router && go test -v -run {TestName} {package}",
+    "env_vars": [
+      "LD_LIBRARY_PATH=${PWD}/candle-binding/target/release:${PWD}/ml-binding/target/release:${PWD}/nlp-binding/target/release",
+      "CGO_ENABLED=1",
+      "SKIP_MILVUS_TESTS=true",
+      "SKIP_REDIS_TESTS=true"
+    ],
+    "notes": "Container must have bind mount to repo at /app with :Z flag for SELinux. Rust build takes ~5-10 minutes first time. Go lint has existing issues that need fixing. Full test suite requires external services (Milvus, Redis) and model downloads."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "system_deps",
+        "command": "apt-get install -y make build-essential pkg-config git curl shellcheck python3 python3-pip",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed system dependencies",
+        "notes": "All required system packages installed successfully"
+      },
+      {
+        "step": "rust_install",
+        "command": "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.90",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Rust is installed now. Great!",
+        "notes": "Rust 1.90 toolchain installed"
+      },
+      {
+        "step": "python_tools",
+        "command": "pip3 install codespell yamllint --break-system-packages",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed codespell-2.4.2 pathspec-1.0.4 pyyaml-6.0.3 yamllint-1.38.0",
+        "notes": "Python linting tools installed"
+      },
+      {
+        "step": "golangci_lint_install",
+        "command": "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v2.5.0",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "golangci/golangci-lint info installed /usr/local/bin/golangci-lint",
+        "notes": "golangci-lint v2.5.0 installed"
+      },
+      {
+        "step": "build_rust",
+        "command": "make rust-ci",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Finished `release` profile [optimized] target(s) in 8.39s",
+        "notes": "Rust libraries built in CPU-only mode (candle-binding, ml-binding, nlp-binding). Build completed in ~8 seconds after deps cached."
+      },
+      {
+        "step": "check_go_mod_tidy",
+        "command": "make check-go-mod-tidy",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All go mod tidy checks passed",
+        "notes": "All Go modules have tidy dependencies"
+      },
+      {
+        "step": "vet",
+        "command": "make vet",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go vet passed on candle-binding and src/semantic-router",
+        "notes": "Go vet found no issues"
+      },
+      {
+        "step": "lint_shellcheck",
+        "command": "make shellcheck",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Running shellcheck with config from tools/linter/shellcheck/.shellcheckrc",
+        "notes": "All shell scripts pass shellcheck"
+      },
+      {
+        "step": "lint_yaml",
+        "command": "make yaml-lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "5 warnings about comment indentation",
+        "notes": "YAML files valid, only style warnings"
+      },
+      {
+        "step": "lint_codespell",
+        "command": "make codespell",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "Found 'ser' in ml-binding/target/release/deps/serde-*.d files",
+        "notes": "Codespell flagged 'ser' in build artifacts (false positives). Source code is clean."
+      },
+      {
+        "step": "lint_go",
+        "command": "make go-lint",
+        "exit_code": 2,
+        "success": false,
+        "output_snippet": "11 issues: errorlint: 8, gci: 2, gocritic: 1",
+        "notes": "Linter found legitimate issues: type assertions on errors without errors.As, import formatting, and lambda simplification. Need fixing."
+      },
+      {
+        "step": "build_router",
+        "command": "make build-router",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Router binary built at bin/router",
+        "notes": "Router builds successfully in production mode (CPU-only)"
+      },
+      {
+        "step": "test_unit",
+        "command": "cd src/semantic-router && go test -v ./pkg/config/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Ran 280 of 280 Specs in 0.027 seconds - SUCCESS! -- 280 Passed | 0 Failed",
+        "notes": "Unit tests work without external dependencies. Fast execution."
+      }
+    ],
+    "summary": "Build OK, vet OK, unit tests OK (280 passed). Go lint FAILED (11 issues need fixing). Codespell FAILED (false positives in build artifacts). Most validation successful."
+  },
+  "gaps": [
+    "Full test suite requires external services (Milvus vector DB on port 19530, Redis on port 6379) - not validated in container",
+    "Model downloads not tested - would require 10+ GB downloads and HuggingFace token for gated models",
+    "Go linting has 11 existing issues (8 errorlint, 2 gci, 1 gocritic) that would block pre-commit hooks",
+    "Dashboard frontend testing not validated (requires Node.js setup)",
+    "Rust linting (cargo clippy) not validated",
+    "E2E integration tests require full stack (router + envoy + vLLM) - not validated",
+    "Performance tests not validated",
+    "Some tests require GPU/CUDA environment - container used CPU-only mode",
+    "Pre-commit hooks not fully tested (would require installing all language toolchains)"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

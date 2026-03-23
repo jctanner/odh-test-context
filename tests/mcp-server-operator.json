@@ -1,0 +1,269 @@
+{
+  "repo": "mcp-server-operator",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:08:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v1.63.4",
+        "config_file": ".golangci.yml",
+        "run_command": "make lint",
+        "run_command_direct": "./bin/golangci-lint run",
+        "fix_command": "make lint-fix",
+        "fix_command_direct": "./bin/golangci-lint run --fix",
+        "scope": "full project",
+        "enabled_linters": [
+          "dupl",
+          "errcheck",
+          "copyloopvar",
+          "ginkgolinter",
+          "goconst",
+          "gocyclo",
+          "gofmt",
+          "goimports",
+          "gosimple",
+          "govet",
+          "ineffassign",
+          "lll",
+          "misspell",
+          "nakedret",
+          "prealloc",
+          "revive",
+          "staticcheck",
+          "typecheck",
+          "unconvert",
+          "unparam",
+          "unused"
+        ]
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "Linting is comprehensive with 24+ enabled linters. The Makefile target 'make lint' downloads golangci-lint to bin/ if not present. CI uses golangci-lint-action for caching."
+  },
+  "testing": {
+    "framework": "Ginkgo v2.22.0 + Gomega v1.36.1",
+    "test_directory": "internal/controller/*_test.go, test/e2e/*_test.go",
+    "run_command": "make test",
+    "run_command_expanded": "KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.32 --bin-dir ./bin -p path)\" go test $(go list ./... | grep -v /e2e) -coverprofile cover.out",
+    "run_single_file": "Not supported - Go tests must be run by package",
+    "run_single_package": "KUBEBUILDER_ASSETS=\"./bin/k8s/1.32.0-linux-amd64\" go test ./internal/controller",
+    "run_single_test": "KUBEBUILDER_ASSETS=\"./bin/k8s/1.32.0-linux-amd64\" go test ./internal/controller -run TestMCPServerReconciler_reconcileMCPServerDeployment",
+    "ginkgo_focus": "go test ./internal/controller -ginkgo.focus \"Verify MCPServer Deployment\"",
+    "setup_required": [
+      "make setup-envtest",
+      "go mod download"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS=./bin/k8s/1.32.0-linux-amd64"
+    ],
+    "fixtures_location": "config/crd/bases/, config/crd/external/",
+    "mock_patterns": "Uses envtest to provide fake Kubernetes API server",
+    "coverage_command": "make test",
+    "coverage_threshold": null,
+    "notes": "Unit tests use envtest (controller-runtime's fake K8s API server). E2E tests in test/e2e/ require a Kind cluster and are excluded from 'make test'. Coverage is 76.4% for the controller package. Tests follow Ginkgo BDD style with Describe/It blocks."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/lint.yml",
+      ".github/workflows/test.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "lint",
+        "workflow": "lint.yml",
+        "command": "golangci-lint run (via golangci/golangci-lint-action@v6)",
+        "required": true,
+        "trigger": "on: [push, pull_request]"
+      },
+      {
+        "name": "test",
+        "workflow": "test.yml",
+        "command": "go mod tidy && make test",
+        "required": true,
+        "trigger": "on: [push, pull_request]"
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Both workflows run on ubuntu-latest with Go version from go.mod (1.23.0). Lint uses golangci-lint v1.63.4. Test runs 'go mod tidy' first to ensure dependencies are tidy, then 'make test'."
+  },
+  "build": {
+    "system": "make + Go",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "build_command_expanded": "go build -o bin/manager cmd/main.go",
+    "pre_build_steps": [
+      "make manifests (generates CRDs and RBAC)",
+      "make generate (generates DeepCopy methods)",
+      "go fmt ./...",
+      "go vet ./..."
+    ],
+    "container_build": "podman build -t controller:latest .",
+    "notes": "Build uses Kubebuilder code generation. Dockerfile uses golang:1.23 as builder and distroless as runtime. The 'make build' target runs manifests, generate, fmt, and vet before compiling."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Ginkgo BDD style: Describe(), It(), BeforeSuite(), AfterSuite(). Test functions use underscores: TestMCPServerReconciler_reconcileMCPServerDeployment",
+    "import_style": "Grouped imports: standard library, third-party, internal. Uses Ginkgo dot imports (. \"github.com/onsi/ginkgo/v2\")",
+    "code_generation": "Uses controller-gen for CRD/RBAC generation and DeepCopy methods",
+    "notes": "This is a Kubebuilder-generated operator following standard Kubernetes operator patterns. Code is organized with api/, internal/controller/, config/, and pkg/ directories."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.23",
+    "system_deps": [
+      "make",
+      "git"
+    ],
+    "setup_commands": [
+      "go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "make lint",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Downloads golangci-lint v1.63.4 to bin/ on first run, then executes linting. No issues found."
+      },
+      {
+        "command": "./bin/golangci-lint run",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Direct invocation after make lint has downloaded the binary. Clean run."
+      },
+      {
+        "command": "go fmt ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Code formatting check passed."
+      },
+      {
+        "command": "go vet ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Go vet analysis passed."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Full test suite passed. Downloads controller-gen, setup-envtest, and K8s binaries on first run. Tests run with envtest providing fake K8s API. Coverage: 76.4% for internal/controller. Output: 'ok  github.com/opendatahub-io/mcp-server-operator/internal/controller 6.277s coverage: 76.4% of statements'"
+      }
+    ],
+    "test_single_package": "KUBEBUILDER_ASSETS=\"./bin/k8s/1.32.0-linux-amd64\" go test ./internal/controller -v",
+    "test_single_test": "KUBEBUILDER_ASSETS=\"./bin/k8s/1.32.0-linux-amd64\" go test ./internal/controller -run TestMCPServerReconciler_reconcileMCPServerDeployment",
+    "build_command": {
+      "command": "make build",
+      "validated": true,
+      "exit_code": 0,
+      "notes": "Builds bin/manager binary. Runs code generation (manifests, generate), fmt, vet before compiling."
+    },
+    "env_vars": [
+      "KUBEBUILDER_ASSETS=./bin/k8s/1.32.0-linux-amd64"
+    ],
+    "notes": "The container recipe is straightforward. After 'go mod download', 'make test' handles all setup (downloads tools, generates code, runs tests). Tools are downloaded to ./bin/ and cached. E2E tests (test/e2e/) are excluded from 'make test' and require a Kind cluster."
+  },
+  "validation": {
+    "container_used": "test-context-mcp-server-operator",
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - success)",
+        "notes": "Dependencies downloaded cleanly."
+      },
+      {
+        "step": "lint",
+        "command": "make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Downloaded golangci-lint v1.63.4, ran linting, no issues found",
+        "notes": "Lint passed with no violations. Downloaded golangci-lint on first run."
+      },
+      {
+        "step": "lint-direct",
+        "command": "./bin/golangci-lint run",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - clean)",
+        "notes": "Direct lint invocation confirmed clean codebase."
+      },
+      {
+        "step": "fmt",
+        "command": "go fmt ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - formatted)",
+        "notes": "Code is properly formatted."
+      },
+      {
+        "step": "vet",
+        "command": "go vet ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - passed)",
+        "notes": "Static analysis passed."
+      },
+      {
+        "step": "test",
+        "command": "make test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  github.com/opendatahub-io/mcp-server-operator/internal/controller 6.277s coverage: 76.4% of statements",
+        "notes": "All unit tests passed. Coverage 76.4% in controller package. Envtest binaries downloaded successfully."
+      },
+      {
+        "step": "test-single-package",
+        "command": "KUBEBUILDER_ASSETS=./bin/k8s/1.32.0-linux-amd64 go test ./internal/controller",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  github.com/opendatahub-io/mcp-server-operator/internal/controller 0.027s",
+        "notes": "Single package test execution works."
+      },
+      {
+        "step": "test-single-test",
+        "command": "KUBEBUILDER_ASSETS=./bin/k8s/1.32.0-linux-amd64 go test ./internal/controller -run TestMCPServerReconciler_reconcileMCPServerDeployment",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  github.com/opendatahub-io/mcp-server-operator/internal/controller 0.027s",
+        "notes": "Specific test execution via -run flag works."
+      },
+      {
+        "step": "build",
+        "command": "make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go build -o bin/manager cmd/main.go",
+        "notes": "Build successful, binary created at bin/manager."
+      }
+    ],
+    "summary": "All validation steps passed: install ✓, lint ✓, fmt ✓, vet ✓, test ✓ (76.4% coverage), build ✓. Container recipe is production-ready."
+  },
+  "gaps": [
+    "E2E tests (test/e2e/) require a Kind Kubernetes cluster and cannot be run in a simple container",
+    "No coverage threshold is enforced - current coverage is 76.4% for controller package",
+    "Some packages (api/v1, cmd, test/utils) have 0% test coverage",
+    "The Makefile's 'make test-e2e' target expects a Kind cluster to be already running"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high",
+  "notes": "This is a well-structured Kubernetes operator with comprehensive linting, good test coverage (76.4%), and clean CI configuration. All lint and test commands validated successfully in a golang:1.23 container. An AI agent can clone, patch, lint, and test this repo with a simple container setup. E2E tests require cluster infrastructure (noted in gaps). The Makefile provides clear targets for all operations. Code follows Kubebuilder patterns and uses Ginkgo/Gomega for BDD-style testing."
+}

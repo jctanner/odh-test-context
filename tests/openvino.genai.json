@@ -1,0 +1,285 @@
+{
+  "repo": "openvino.genai",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:58:00Z",
+  "languages": ["C++", "Python", "JavaScript/TypeScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "python -m ruff check . --line-length 120",
+        "fix_command": "python -m ruff check . --line-length 120 --fix",
+        "scope": "full project - Python files"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": "pyproject.toml",
+        "run_command": "python -m ruff format . --line-length 120",
+        "fix_command": "python -m ruff format . --line-length 120",
+        "scope": "full project - Python files"
+      },
+      {
+        "name": "bandit",
+        "config_file": "bandit.yml",
+        "run_command": "python -m bandit --recursive --configfile bandit.yml .",
+        "fix_command": null,
+        "scope": "full project - Python security"
+      },
+      {
+        "name": "flake8",
+        "config_file": "tools/who_what_benchmark/setup.cfg",
+        "run_command": "cd tools/who_what_benchmark && python -m flake8 . --config=./setup.cfg",
+        "fix_command": null,
+        "scope": "who_what_benchmark tool only"
+      },
+      {
+        "name": "flake8",
+        "config_file": "tools/llm_bench/setup.cfg",
+        "run_command": "cd tools/llm_bench && python -m flake8 . --config=./setup.cfg",
+        "fix_command": null,
+        "scope": "llm_bench tool only"
+      },
+      {
+        "name": "clang-format",
+        "config_file": ".clang-format",
+        "run_command": "clang-format --dry-run --Werror src/**/*.cpp src/**/*.hpp",
+        "fix_command": "clang-format -i src/**/*.cpp src/**/*.hpp",
+        "scope": "full project - C/C++ files"
+      },
+      {
+        "name": "eslint",
+        "config_file": "src/js/eslint.config.js (implicit)",
+        "run_command": "cd src/js && npm run lint",
+        "fix_command": null,
+        "scope": "JavaScript/TypeScript bindings"
+      },
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": "pre-commit run --all-files",
+        "scope": "full project - uses darker+ruff, trailing whitespace, etc."
+      }
+    ],
+    "notes": "Primary linting is via pre-commit hooks. CI runs pre-commit on changed files only. Ruff is the main Python linter with line-length=120. Bandit checks for security issues. The project uses darker (incremental formatter) with ruff backend."
+  },
+  "testing": {
+    "framework": "pytest (Python), gtest (C++), Node.js test runner (JavaScript)",
+    "test_directory": "tests/python_tests/ (Python), tests/cpp/ (C++), src/js/tests/ (JavaScript)",
+    "run_command": "python -m pytest -v tests/python_tests/",
+    "run_single_file": "python -m pytest -v {file}",
+    "run_single_test": "python -m pytest -v {file}::{test_name}",
+    "setup_required": [
+      "Install OpenVINO package (complex dependency)",
+      "pip install -r tests/python_tests/requirements.txt",
+      "Build C++ library with CMake",
+      "Download models from HuggingFace (requires HF_TOKEN)"
+    ],
+    "env_vars": [
+      "HF_TOKEN - HuggingFace API token for model downloads",
+      "OPENVINO_LOG_LEVEL - OpenVINO logging level (default: 4)",
+      "HF_HOME - HuggingFace cache directory",
+      "OV_CACHE - OpenVINO model cache directory"
+    ],
+    "fixtures_location": "tests/python_tests/conftest.py",
+    "mock_patterns": "Tests use real models from HuggingFace, heavy integration testing style",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are integration-heavy and require: (1) OpenVINO Python package installed, (2) openvino_genai package built and installed, (3) openvino_tokenizers package, (4) Model downloads from HuggingFace. Tests are categorized with pytest markers (whisper, llm, vlm, etc.). Many tests take 30-360 minutes. C++ tests use gtest and are built via CMake. JavaScript tests use Node.js built-in test runner."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/lint.yml",
+      ".github/workflows/linux.yml",
+      ".github/workflows/sdl.yml",
+      ".github/workflows/mac.yml",
+      ".github/workflows/windows.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Lint Changed Files",
+        "command": "pre-commit run --from-ref origin/master --to-ref HEAD",
+        "required": true
+      },
+      {
+        "name": "Bandit Security Scan",
+        "command": "python -m bandit --recursive --configfile bandit.yml .",
+        "required": true
+      },
+      {
+        "name": "Flake8 (WWB)",
+        "command": "cd tools/who_what_benchmark && python -m flake8 . --config=./setup.cfg",
+        "required": true
+      },
+      {
+        "name": "Flake8 (LLM)",
+        "command": "cd tools/llm_bench && python -m flake8 . --config=./setup.cfg",
+        "required": true
+      },
+      {
+        "name": "Build GenAI Library (CMake)",
+        "command": "cmake -DOpenVINODeveloperPackage_DIR=$OV_INSTALL_DIR/developer_package/cmake -DENABLE_PYTHON=OFF -S . -B build && cmake --build build --parallel",
+        "required": true
+      },
+      {
+        "name": "Build GenAI Python Wheels",
+        "command": "python -m pip wheel -v --no-deps --wheel-dir wheels .",
+        "required": true
+      },
+      {
+        "name": "Python Tests (various categories)",
+        "command": "python -m pytest -v tests/python_tests/",
+        "required": true
+      },
+      {
+        "name": "C++ Unit Tests (gtest)",
+        "command": "tests_continuous_batching --gtest_filter=\"-AddSecondInputTest.*\"",
+        "required": true
+      },
+      {
+        "name": "Sample Tests",
+        "command": "python -m pytest -vvs tests/python_tests/samples -m <marker>",
+        "required": true
+      },
+      {
+        "name": "Node.js Tests",
+        "command": "cd src/js && npm test",
+        "required": true
+      },
+      {
+        "name": "Trivy Vulnerability Scan",
+        "command": "trivy fs scan",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI is complex and multi-stage: (1) Downloads OpenVINO nightly builds, (2) Builds C++ library for multiple Python versions, (3) Builds Python wheels, (4) Runs tests categorized by feature (Whisper, LLM, VLM, etc.), (5) Tests samples in C++/Python/JavaScript. Tests run in Azure Kubernetes (aks-linux-*-cores-*gb runners) with custom Docker images. Smart CI system skips tests based on changed files. Tests require HuggingFace token and model downloads."
+  },
+  "build": {
+    "system": "CMake + py-build-cmake (Python)",
+    "install_command": "pip install -r requirements-build.txt",
+    "build_command": "cmake -DOpenVINODeveloperPackage_DIR=$OV_INSTALL_DIR/developer_package/cmake -S . -B build && cmake --build build --parallel",
+    "notes": "Build is complex: (1) Requires OpenVINO developer package pre-installed, (2) C++ library built with CMake, (3) Python bindings built with py-build-cmake, (4) JavaScript bindings built with node-gyp via CMake. Build requires: cmake>=3.23, C++11 compiler, OpenVINO ~=2026.0.0.0.dev. Python wheel build: pip wheel . (uses py-build-cmake backend). Optional dependencies include ffmpeg/libav for video/audio processing."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/python_tests/test_*.py (Python), tests/cpp/*.cpp (C++), src/js/tests/*.test.js (JavaScript)",
+    "test_naming": "test_* functions (Python), TEST() macros (C++ gtest), Node.js test() (JavaScript)",
+    "import_style": "Absolute imports for Python, standard C++ includes, ES modules for JavaScript",
+    "notes": "Code follows Google style for C++ (via .clang-format). Python uses ruff with line-length=120. Tests are heavily categorized with pytest markers: llm, vlm, whisper, rag, etc. Samples are tested against reference outputs."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["git", "make", "cmake"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y git make cmake",
+      "python -m pip install ruff==0.14.4 bandit flake8 darker pre-commit pytest"
+    ],
+    "lint_commands": [
+      {
+        "command": "python -m ruff check . --line-length 120",
+        "validated": true,
+        "notes": "Exit code 1 - found lint violations (unused variables, etc.). Tool works correctly."
+      },
+      {
+        "command": "python -m bandit --recursive --configfile bandit.yml .",
+        "validated": true,
+        "notes": "Exit code 0 - no security issues found. Scanned 28,145 lines of code."
+      },
+      {
+        "command": "cd tools/who_what_benchmark && python -m flake8 . --config=./setup.cfg",
+        "validated": true,
+        "notes": "Exit code 0 - no issues found."
+      },
+      {
+        "command": "cd tools/llm_bench && python -m flake8 . --config=./setup.cfg",
+        "validated": true,
+        "notes": "Exit code 0 - no issues found."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "python -m pytest -v tests/python_tests/",
+        "validated": false,
+        "notes": "Cannot run - requires openvino module which is a complex external dependency. Tests fail at import with: ModuleNotFoundError: No module named 'openvino'"
+      }
+    ],
+    "test_single_file": "python -m pytest -v {file}",
+    "test_single_test": "python -m pytest -v {file}::{test_name}",
+    "env_vars": [],
+    "notes": "Linting tools work perfectly in a basic Python container. Full testing requires: (1) OpenVINO package (not in PyPI, requires special installation), (2) C++ build artifacts, (3) Model downloads from HuggingFace. For patch validation, linting is feasible but testing requires the full CI environment with OpenVINO."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y git make cmake",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Setting up cmake (3.31.6-2) ...",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "python -m pip install ruff==0.14.4 bandit flake8 darker pre-commit pytest",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed PyYAML-6.0.3 bandit-1.9.4 cfgv-3.5.0 darker-3.0.0 darkgraylib-2.4.1 distlib-0.4.0 filelock-3.25.2 flake8-7.3.0 ...",
+        "notes": "Python linting and testing tools installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "python -m ruff check . --line-length 120",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "F841 Local variable `strength` is assigned to but never used\n   --> samples/python/image_generation/benchmark_image_gen.py:184:5\n...",
+        "notes": "Ruff found lint violations (exit 1 is expected when violations exist). Tool itself works correctly. Found many F841 (unused variable) violations across the codebase."
+      },
+      {
+        "step": "lint",
+        "command": "python -m bandit --recursive --configfile bandit.yml .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Test results:\n\tNo issues identified.\n\nCode scanned:\n\tTotal lines of code: 28145\n\tTotal lines skipped (#nosec): 3",
+        "notes": "Bandit security scan passed - no security issues found in 28,145 lines of code"
+      },
+      {
+        "step": "lint",
+        "command": "cd tools/who_what_benchmark && python -m flake8 . --config=./setup.cfg",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - success)",
+        "notes": "Flake8 passed for who_what_benchmark tool"
+      },
+      {
+        "step": "lint",
+        "command": "cd tools/llm_bench && python -m flake8 . --config=./setup.cfg",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - success)",
+        "notes": "Flake8 passed for llm_bench tool"
+      },
+      {
+        "step": "test",
+        "command": "python -m pytest --collect-only tests/python_tests/",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "ImportError while loading conftest '/app/tests/python_tests/conftest.py'.\ntests/python_tests/conftest.py:6: in <module>\n    from utils.constants import (\ntests/python_tests/utils/constants.py:4: in <module>\n    import openvino.properties.hint as hints\nE   ModuleNotFoundError: No module named 'openvino'",
+        "notes": "Tests cannot run without OpenVINO package. This is expected - OpenVINO is a complex C++ library with Python bindings, not available via simple pip install. Requires full CI environment."
+      }
+    ],
+    "summary": "Linting: ALL PASS (ruff found violations but tool works, bandit passed, flake8 passed). Testing: BLOCKED on OpenVINO dependency. Linting is fully functional for patch validation."
+  },
+  "gaps": [
+    "Tests require OpenVINO package which is not easily installable outside CI environment",
+    "Tests require model downloads from HuggingFace (multi-GB models)",
+    "C++ tests require CMake build which depends on OpenVINO developer package",
+    "No simple 'make test' command - tests are run through complex CI pipeline",
+    "Tests are resource-intensive (some take 360 minutes) and require GPU/specialized hardware for optimal performance",
+    "JavaScript tests require Node.js bindings to be built first via CMake",
+    "No coverage reporting configured in pytest.ini or pyproject.toml"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

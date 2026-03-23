@@ -1,0 +1,251 @@
+{
+  "repo": "litellm",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:40:00Z",
+  "languages": ["Python", "TypeScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "black",
+        "version": "23.12.1",
+        "config_file": "pyproject.toml",
+        "run_command": "cd litellm && poetry run black . --check",
+        "fix_command": "cd litellm && poetry run black .",
+        "scope": "litellm/ directory only"
+      },
+      {
+        "name": "ruff",
+        "version": "0.1.15",
+        "config_file": "pyproject.toml",
+        "run_command": "cd litellm && poetry run ruff check .",
+        "fix_command": "cd litellm && poetry run ruff check . --fix",
+        "scope": "litellm/ directory only"
+      },
+      {
+        "name": "mypy",
+        "version": "1.14.1",
+        "config_file": "pyproject.toml",
+        "run_command": "cd litellm && poetry run mypy . --ignore-missing-imports",
+        "fix_command": null,
+        "scope": "litellm/ directory only"
+      },
+      {
+        "name": "flake8",
+        "version": "6.1.0",
+        "config_file": ".flake8",
+        "run_command": "poetry run flake8 litellm/",
+        "fix_command": null,
+        "scope": "litellm/ directory (configured but not in CI)"
+      }
+    ],
+    "notes": "Linting runs from litellm/ subdirectory, not repo root. MyPy validation failed due to missing proxy/enterprise directory reference. Black and Ruff validated successfully. Custom checks for circular imports and import safety also validated."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/test_litellm",
+    "run_command": "poetry run pytest tests/test_litellm -x -vv -n 4",
+    "run_single_file": "poetry run pytest {file} -v",
+    "run_single_test": "poetry run pytest {file}::{test_name} -v",
+    "setup_required": [
+      "poetry install --with dev,proxy-dev --extras 'proxy semantic-router'",
+      "poetry run pip install 'pytest-retry==1.6.3' pytest-xdist 'google-genai==1.22.0' 'fastapi-offline==1.7.3'"
+    ],
+    "env_vars": [],
+    "fixtures_location": "tests/test_litellm/conftest.py",
+    "mock_patterns": "Uses pytest-mock, requests-mock, responses, respx for mocking. Conftest includes auto-reload of litellm module and event loop management.",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests use parallel execution with pytest-xdist (-n 4). Conftest reloads litellm before each test to prevent callback chaining. Enterprise package setup is optional (cd enterprise && python -m pip install -e .) but directory may not exist. Tests validated successfully with 105 passing in test_utils.py."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/test-linting.yml",
+      ".github/workflows/test-litellm.yml",
+      ".github/workflows/llm-translation-testing.yml",
+      ".github/workflows/helm_unit_test.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "LiteLLM Linting",
+        "command": "cd litellm && poetry run black . && poetry run ruff check . && poetry run mypy . --ignore-missing-imports && poetry run python ../tests/documentation_tests/test_circular_imports.py && poetry run python -c 'from litellm import *'",
+        "required": true
+      },
+      {
+        "name": "LiteLLM Mock Tests",
+        "command": "poetry run pytest tests/test_litellm -x -vv -n 4",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "LLM Translation Testing",
+        "command": "python .github/workflows/run_llm_translation_tests.py",
+        "required": false
+      },
+      {
+        "name": "Helm Unit Tests",
+        "command": "helm unittest -f 'tests/*.yaml' deploy/charts/litellm-helm",
+        "required": false
+      }
+    ],
+    "notes": "CI uses Python 3.12. Linting workflow runs Black (formatting, not just checking), Ruff, MyPy, circular imports check, and import safety check. Test workflow pins openai==1.100.1 after poetry install. Enterprise package setup is attempted but may fail if directory missing."
+  },
+  "build": {
+    "system": "poetry",
+    "install_command": "poetry install --with dev,proxy-dev --extras 'proxy semantic-router'",
+    "build_command": "poetry build",
+    "notes": "Poetry 1.8.0 is used. After poetry install, openai package is pinned to specific version (1.100.1 in CI). The project has optional extras: proxy, extra_proxy, utils, caching, semantic-router, mlflow."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py or *_test.py",
+    "test_naming": "Functions prefixed with test_",
+    "import_style": "isort with black profile configured",
+    "notes": "Conftest uses automatic litellm module reloading. Tests use pytest markers and fixtures. Code formatted with Black (line length and style from Black defaults)."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": ["make", "git", "curl"],
+    "setup_commands": [
+      "pip install --upgrade pip",
+      "pip install poetry==1.8.0",
+      "poetry install --with dev",
+      "pip install openai==1.100.1"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd litellm && poetry run black . --check",
+        "validated": true,
+        "notes": "Found formatting issues in multiple files (expected behavior - linter working correctly)"
+      },
+      {
+        "command": "cd litellm && poetry run ruff check .",
+        "validated": true,
+        "notes": "Passed with exit code 0, no issues found"
+      },
+      {
+        "command": "cd litellm && poetry run mypy . --ignore-missing-imports",
+        "validated": false,
+        "notes": "Failed with 'can't read file proxy/enterprise: No such file or directory' - configuration issue"
+      },
+      {
+        "command": "poetry run python tests/documentation_tests/test_circular_imports.py",
+        "validated": true,
+        "notes": "Passed, found expected litellm type hints usage"
+      },
+      {
+        "command": "poetry run python -c 'from litellm import *'",
+        "validated": true,
+        "notes": "Import safety check passed"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "poetry install --with dev,proxy-dev --extras 'proxy semantic-router' && poetry run pip install 'pytest-retry==1.6.3' pytest-xdist 'google-genai==1.22.0' 'fastapi-offline==1.7.3'",
+        "validated": true,
+        "notes": "Test dependencies installed successfully"
+      },
+      {
+        "command": "poetry run pytest tests/test_litellm/test_main.py::test_build_database_url -v",
+        "validated": true,
+        "notes": "Single test passed in 0.37s"
+      },
+      {
+        "command": "poetry run pytest tests/test_litellm/test_utils.py -v",
+        "validated": true,
+        "notes": "105 tests passed in 3.06s"
+      }
+    ],
+    "test_single_file": "poetry run pytest {file} -v",
+    "test_single_test": "poetry run pytest {file}::{test_name} -v",
+    "env_vars": [],
+    "notes": "Enterprise package setup (cd enterprise && python -m pip install -e .) fails as directory doesn't exist in this checkout - this is optional. MyPy has configuration issues but other linters work. Tests run successfully with pytest-xdist for parallel execution."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "poetry install --with dev && pip install openai==1.100.1",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Installing the current project: litellm (1.76.1)\nSuccessfully installed openai-1.100.1",
+        "notes": "All dev dependencies installed successfully"
+      },
+      {
+        "step": "lint-black",
+        "command": "cd litellm && poetry run black . --check",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "would reformat /app/litellm/caching/gcs_cache.py\nwould reformat /app/litellm/caching/s3_cache.py\n...",
+        "notes": "Found formatting violations (expected) - linter working correctly"
+      },
+      {
+        "step": "lint-ruff",
+        "command": "cd litellm && poetry run ruff check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "--- EXIT CODE: 0",
+        "notes": "Ruff passed with no issues"
+      },
+      {
+        "step": "lint-mypy",
+        "command": "cd litellm && poetry run mypy . --ignore-missing-imports",
+        "exit_code": 2,
+        "success": false,
+        "output_snippet": "mypy: can't read file 'proxy/enterprise': No such file or directory",
+        "notes": "MyPy configuration references missing directory - tool installation OK but config broken"
+      },
+      {
+        "step": "lint-circular-imports",
+        "command": "poetry run python tests/documentation_tests/test_circular_imports.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "LiteLLM Type Hints Found:\n./litellm/litellm_core_utils/litellm_logging.py:1303...",
+        "notes": "Circular imports check passed"
+      },
+      {
+        "step": "lint-import-safety",
+        "command": "poetry run python -c 'from litellm import *'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "--- EXIT CODE: 0",
+        "notes": "Import safety check passed"
+      },
+      {
+        "step": "test-install-deps",
+        "command": "poetry install --with dev,proxy-dev --extras 'proxy semantic-router' && poetry run pip install 'pytest-retry==1.6.3' pytest-xdist",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed anyio-4.12.1 execnet-2.1.2 fastapi-offline-1.7.3...",
+        "notes": "Test dependencies installed successfully"
+      },
+      {
+        "step": "test",
+        "command": "poetry run pytest tests/test_litellm/test_main.py::test_build_database_url -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "tests/test_litellm/test_main.py::test_build_database_url PASSED [100%]\n1 passed in 0.37s",
+        "notes": "Single test validation passed"
+      },
+      {
+        "step": "test",
+        "command": "poetry run pytest tests/test_litellm/test_utils.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "105 passed in 3.06s",
+        "notes": "Full test file validated - all tests passing"
+      }
+    ],
+    "summary": "Install OK, Black OK (found violations), Ruff OK, MyPy FAILED (config issue), circular imports OK, import safety OK, tests OK (105 passed)"
+  },
+  "gaps": [
+    "MyPy type checking fails due to missing proxy/enterprise directory reference in configuration",
+    "Enterprise package directory doesn't exist in this checkout (optional dependency)",
+    "No coverage threshold configured or enforced",
+    "UI/TypeScript linting not validated (separate Next.js app in ui/litellm-dashboard)",
+    "Some CI workflows (LLM translation, load tests) require external services/infrastructure",
+    "Black runs in --check mode in validation but CI runs in format mode (non-idempotent)"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

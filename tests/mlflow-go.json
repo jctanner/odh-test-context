@@ -1,0 +1,240 @@
+{
+  "repo": "mlflow-go",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:09:30Z",
+  "languages": [
+    "Go"
+  ],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.1.6",
+        "config_file": ".golangci.yml",
+        "run_command": "make lint",
+        "run_command_direct": "golangci-lint run ./...",
+        "fix_command": null,
+        "scope": "full project",
+        "enabled_linters": [
+          "gocritic",
+          "gosec",
+          "misspell",
+          "prealloc",
+          "revive",
+          "unconvert",
+          "unparam"
+        ],
+        "formatters": [
+          "gofmt",
+          "goimports"
+        ]
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "make vet",
+        "run_command_direct": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "gofmt",
+        "config_file": null,
+        "run_command": "gofmt -l .",
+        "fix_command": "make fmt",
+        "fix_command_direct": "gofmt -w -s .",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Linting is comprehensive. CI also checks that go.mod/go.sum are tidy with 'go mod tidy' + git diff check."
+  },
+  "testing": {
+    "framework": "Go standard testing",
+    "test_directory": "Multiple: internal/*/, mlflow/*/, test/integration/",
+    "run_command": "make test/unit",
+    "run_command_direct": "go test -v -race ./...",
+    "run_single_file": "go test -v -race {file}",
+    "run_single_test": "go test -v -race -run {TestName} ./{package}/...",
+    "setup_required": [
+      "go mod download"
+    ],
+    "env_vars": [],
+    "fixtures_location": "testdata/ directory",
+    "mock_patterns": "Uses httptest.Server for mocking HTTP responses in unit tests",
+    "coverage_command": "go test -v -race -coverprofile=coverage.out ./...",
+    "coverage_threshold": null,
+    "integration_tests": {
+      "run_command": "make test/integration-ci",
+      "requires_infrastructure": true,
+      "infrastructure_needed": "MLflow server (Python-based, started via uv)",
+      "build_tag": "integration",
+      "run_command_direct": "MLFLOW_TRACKING_URI=http://localhost:5001 MLFLOW_INSECURE_SKIP_TLS_VERIFY=true go test -v -race -tags=integration ./test/integration/...",
+      "variants": [
+        "test/integration-ci (SQLite backend)",
+        "test/integration-ci-postgres (PostgreSQL backend)",
+        "test/integration-ci-midstream (opendatahub-io/mlflow fork with workspaces)"
+      ]
+    },
+    "notes": "Unit tests run without infrastructure and all pass. Integration tests require a running MLflow server (auto-managed in CI via make targets). Integration tests use build tag '//go:build integration'."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/go.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "lint",
+        "commands": [
+          "make lint",
+          "make vet",
+          "gofmt -l . (must return empty)",
+          "go mod tidy + git diff check"
+        ],
+        "required": true
+      },
+      {
+        "name": "test-unit",
+        "command": "make test/unit",
+        "required": true
+      },
+      {
+        "name": "test-integration",
+        "command": "make test/integration-ci",
+        "required": true
+      },
+      {
+        "name": "test-integration-postgres",
+        "command": "make test/integration-ci-postgres",
+        "required": true
+      },
+      {
+        "name": "test-integration-midstream",
+        "command": "make test/integration-ci-midstream MLFLOW_MIDSTREAM_REF=master",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "All 5 jobs triggered on pull_request and push to main. All appear to be gating. Integration tests are fully automated in CI (they start MLflow server, run tests, clean up)."
+  },
+  "build": {
+    "system": "make + Go modules",
+    "install_command": "go mod download",
+    "build_command": "No explicit build command (Go builds on-demand for tests)",
+    "tidy_command": "go mod tidy",
+    "notes": "Project uses Go 1.24. Makefile provides convenience targets. The project installs golangci-lint and other tools into bin/ directory via lazy installation targets."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Test functions: Test* (e.g., TestAPIError_Error). Go standard convention.",
+    "import_style": "Standard Go import grouping. Generated code excluded from linting.",
+    "build_tags": "Integration tests use '//go:build integration' build tag",
+    "notes": "Clean separation between unit tests (no build tag) and integration tests (integration build tag). Generated protobuf code lives in internal/gen/ and is excluded from linting."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.24",
+    "system_deps": [
+      "make",
+      "git",
+      "curl"
+    ],
+    "setup_commands": [
+      "apt-get update -qq && apt-get install -y -qq make git curl",
+      "go mod download",
+      "go mod tidy"
+    ],
+    "lint_commands": [
+      {
+        "command": "make lint",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Installs golangci-lint v2.1.6 to bin/ then runs golangci-lint run ./... - 0 issues found"
+      },
+      {
+        "command": "make vet",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Runs go vet ./... - passed with no output"
+      },
+      {
+        "command": "gofmt -l .",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "No formatting issues - returned empty (correct formatting)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "go test -v -race ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All unit tests passed. 5 packages tested, 0 failures. Tests use race detector."
+      }
+    ],
+    "test_single_file": "go test -v -race {file}",
+    "test_single_test": "go test -v -race -run {TestName} ./{package}/...",
+    "env_vars": [],
+    "notes": "Container validation was fully successful. All basic commands work. Integration tests not validated in container because they require MLflow server infrastructure (Python-based)."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install_system_deps",
+        "command": "apt-get update -qq && apt-get install -y -qq make git curl",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "System dependencies installed",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "install_go_modules",
+        "command": "go mod download && go mod tidy",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Go modules downloaded\ngo: downloading github.com/google/go-cmp v0.7.0\nGo mod tidy complete",
+        "notes": "Go dependencies downloaded and tidied successfully"
+      },
+      {
+        "step": "lint",
+        "command": "make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "/app/bin/golangci-lint run ./...\n0 issues.",
+        "notes": "Linting passed with 0 issues"
+      },
+      {
+        "step": "vet",
+        "command": "go vet ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - success)",
+        "notes": "go vet passed with no issues"
+      },
+      {
+        "step": "format_check",
+        "command": "gofmt -l .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - success)",
+        "notes": "Code is properly formatted"
+      },
+      {
+        "step": "test_unit",
+        "command": "go test -v -race ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "PASS\nok  \tgithub.com/opendatahub-io/mlflow-go/internal/errors\t1.017s\n...\nPASS\nok  \tgithub.com/opendatahub-io/mlflow-go/mlflow/tracking\t1.059s",
+        "notes": "All unit tests passed across 5 packages"
+      }
+    ],
+    "summary": "Container validation: FULL SUCCESS. System deps installed, Go modules downloaded, lint passed (0 issues), vet passed, format check passed, all unit tests passed (5 packages)."
+  },
+  "gaps": [
+    "Integration tests require MLflow server infrastructure (Python-based, installed via uv). These are fully automated in CI but cannot be validated in a simple Go container without the MLflow Python server.",
+    "No explicit build command, but this is standard for Go libraries (compiled on-demand).",
+    "Some integration test variants require PostgreSQL or Docker (test/integration-ci-postgres uses docker to start postgres:16)."
+  ],
+  "agent_readiness": "high",
+  "confidence": "high",
+  "notes": "This is a well-structured Go project with excellent test infrastructure. All basic validation (lint, vet, unit tests) works perfectly in a standard Go container. Integration tests are sophisticated (they auto-start MLflow servers with different backends) but are fully automated in CI. An agent can easily validate patches by running lint + unit tests in a golang:1.24 container."
+}

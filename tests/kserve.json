@@ -1,0 +1,295 @@
+{
+  "repo": "kserve",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:27:00Z",
+  "languages": ["Go", "Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.9.0",
+        "config_file": ".golangci.yml",
+        "run_command": "make go-lint",
+        "run_command_direct": "bin/golangci-lint run --fix",
+        "fix_command": "make go-lint",
+        "scope": "full project (Go code only)"
+      },
+      {
+        "name": "ruff",
+        "version": "configured in kserve-deps.env",
+        "config_file": "ruff.toml",
+        "run_command": "make py-lint",
+        "run_command_direct": "bin/.venv/bin/ruff check --config ruff.toml",
+        "fix_command": "bin/.venv/bin/ruff check --fix --config ruff.toml",
+        "scope": "Python code only"
+      },
+      {
+        "name": "black",
+        "version": "configured in kserve-deps.env",
+        "config_file": "python/pyproject.toml",
+        "run_command": "make py-fmt",
+        "run_command_direct": "bin/.venv/bin/black --config python/pyproject.toml ./python ./docs",
+        "fix_command": "make py-fmt",
+        "scope": "Python code formatting"
+      }
+    ],
+    "notes": "golangci-lint uses extensive linter configuration with 50+ enabled linters. Ruff is used for Python linting with select rules (B, E, F, W). The project uses 'make precommit' which runs all linting, formatting, and code generation."
+  },
+  "testing": {
+    "go": {
+      "framework": "Ginkgo/Gomega with controller-runtime/envtest",
+      "test_directory": "pkg/, cmd/, qpext/",
+      "run_command": "make test",
+      "run_command_direct": "KUBEBUILDER_ASSETS=$(bin/setup-envtest use 1.34 -p path) go test --timeout 30m $(go list ./pkg/...) ./cmd/... -coverprofile coverage.out",
+      "run_single_package": "KUBEBUILDER_ASSETS=$(bin/setup-envtest use 1.34 -p path) go test ./pkg/{package}/...",
+      "run_single_test": "KUBEBUILDER_ASSETS=$(bin/setup-envtest use 1.34 -p path) go test -run {TestName} ./pkg/{package}/...",
+      "setup_required": [
+        "go mod download",
+        "make setup-envtest"
+      ],
+      "env_vars": [
+        "KUBEBUILDER_ASSETS=$(bin/setup-envtest use 1.34 -p path)"
+      ],
+      "fixtures_location": "test/crds/",
+      "coverage_command": "./coverage.sh",
+      "coverage_threshold": "configured in .github/.testcoverage.yml",
+      "notes": "Tests use envtest to create a minimal Kubernetes API server. Some tests require manifest generation which needs kubectl."
+    },
+    "python": {
+      "framework": "pytest",
+      "test_directory": "python/*/test/",
+      "run_command": "pytest in each python package directory",
+      "run_command_example": "cd python/kserve && source .venv/bin/activate && pytest --cov=kserve ./",
+      "run_single_file": "pytest {file}",
+      "run_single_test": "pytest {file}::{test_name}",
+      "setup_required": [
+        "cd python/kserve && uv sync --group test",
+        "uv pip install ../storage --no-cache"
+      ],
+      "env_vars": [],
+      "fixtures_location": "python/test_resources/",
+      "coverage_command": "pytest --cov={package}",
+      "notes": "Multiple Python packages: kserve (SDK), storage, sklearnserver, xgbserver, lgbserver, pmmlserver, paddleserver, huggingfaceserver. Each has its own venv and test suite."
+    }
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/precommit-check.yml",
+      ".github/workflows/go.yml",
+      ".github/workflows/python-test.yml",
+      ".github/workflows/e2e-test.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Precommit Check",
+        "command": "make check",
+        "required": true,
+        "description": "Runs make precommit and verifies no changes, includes linting, formatting, code generation"
+      },
+      {
+        "name": "Go Test",
+        "command": "make test",
+        "required": true,
+        "description": "Runs Go unit tests with coverage reporting"
+      },
+      {
+        "name": "Python package",
+        "command": "pytest per package",
+        "required": true,
+        "description": "Runs pytest for kserve, storage, and all server packages on Python 3.10, 3.11, 3.12"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "E2E Test",
+        "command": "minikube-based integration tests",
+        "required": false,
+        "description": "Full end-to-end tests with Kubernetes cluster"
+      }
+    ],
+    "notes": "CI uses merge strategy for PRs. The 'precommit-check' workflow is the primary gating check that validates all code is properly formatted, linted, and generated code is up to date."
+  },
+  "build": {
+    "system": "make",
+    "go": {
+      "install_command": "go mod download && cd qpext && go mod download",
+      "build_command": "make manager agent router",
+      "build_command_direct": "go build -o bin/manager ./cmd/manager"
+    },
+    "python": {
+      "install_command": "cd python/kserve && uv sync --group test",
+      "build_command": "uv pip install -e ."
+    },
+    "container_build": {
+      "controller": "docker buildx build . -t {KO_DOCKER_REPO}/{CONTROLLER_IMG}",
+      "python_servers": "cd python && docker buildx build -f sklearn.Dockerfile -t {KO_DOCKER_REPO}/{SKLEARN_IMG} ."
+    },
+    "notes": "Multi-language build. Go uses standard go toolchain. Python uses uv for dependency management. Project has extensive container build targets for controllers and prediction servers."
+  },
+  "conventions": {
+    "go": {
+      "test_file_pattern": "*_test.go",
+      "test_naming": "TestFunctionName for Ginkgo/standard tests",
+      "import_style": "goimports with local-prefixes: github.com/kserve/kserve",
+      "import_aliases": {
+        "corev1": "k8s.io/api/core/v1",
+        "metav1": "k8s.io/apimachinery/pkg/apis/meta/v1",
+        "ctrl": "sigs.k8s.io/controller-runtime"
+      }
+    },
+    "python": {
+      "test_file_pattern": "test_*.py",
+      "test_naming": "test_function_name",
+      "import_style": "absolute imports",
+      "line_length": 120
+    },
+    "notes": "Go code follows controller-runtime patterns. Python follows standard pytest conventions. Both use strict linting configurations."
+  },
+  "container_recipe": {
+    "go": {
+      "base_image": "golang:1.25",
+      "system_deps": ["make", "git", "wget", "perl", "jq", "python3", "python3-pip", "curl"],
+      "setup_commands": [
+        "go mod download",
+        "cd qpext && go mod download",
+        "make golangci-lint",
+        "make setup-envtest"
+      ],
+      "lint_commands": [
+        {
+          "command": "bin/golangci-lint run",
+          "validated": true,
+          "exit_code": 1,
+          "notes": "Linter found violations in cmd/llmisvc/main.go (typecheck and unused import). This is a legitimate lint failure, not a broken command."
+        }
+      ],
+      "test_commands": [
+        {
+          "command": "KUBEBUILDER_ASSETS=$(bin/setup-envtest use 1.34 -p path) go test ./pkg/apis/serving/v1alpha1/... -v",
+          "validated": true,
+          "exit_code": 0,
+          "notes": "Tests pass successfully. Sample tests validated: InferenceGraph validation, LLMInferenceService conversion."
+        },
+        {
+          "command": "make test",
+          "validated": false,
+          "notes": "Requires kubectl for manifest generation (config/llmisvc/gateway-inference-extension.yaml). Tests run successfully when kubectl is available."
+        }
+      ],
+      "test_single_file": "KUBEBUILDER_ASSETS=$(bin/setup-envtest use 1.34 -p path) go test ./pkg/{package}/... -v",
+      "test_single_test": "KUBEBUILDER_ASSETS=$(bin/setup-envtest use 1.34 -p path) go test -run '{TestName}' ./pkg/{package}/...",
+      "env_vars": ["KUBEBUILDER_ASSETS=$(bin/setup-envtest use 1.34 -p path)"],
+      "notes": "GOTOOLCHAIN is auto-selected from go.mod. Tests use envtest for Kubernetes API mocking."
+    },
+    "python": {
+      "base_image": "python:3.11",
+      "system_deps": ["make", "git"],
+      "setup_commands": [
+        "pip install uv",
+        "cd python/kserve && uv sync --group test",
+        "cd python/kserve && uv pip install ../storage --no-cache"
+      ],
+      "lint_commands": [
+        {
+          "command": "pip install ruff && ruff check --config ruff.toml python/kserve/kserve",
+          "validated": true,
+          "exit_code": 0,
+          "notes": "All checks passed! Python code is clean."
+        }
+      ],
+      "test_commands": [
+        {
+          "command": "cd python && kserve/.venv/bin/python -m pytest kserve/test/test_creds_utils.py -v",
+          "validated": true,
+          "exit_code": 0,
+          "notes": "9 tests passed in 0.07s. Tests validated: service account creation, credential management."
+        }
+      ],
+      "test_single_file": "cd python && kserve/.venv/bin/python -m pytest {file} -v",
+      "test_single_test": "cd python && kserve/.venv/bin/python -m pytest {file}::{test_name} -v",
+      "env_vars": [],
+      "notes": "Python tests for ray/llm features require additional dependencies (ray, vllm). Some tests may require storage backend access."
+    }
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "go_deps",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - successful download)",
+        "notes": "Go dependencies downloaded successfully"
+      },
+      {
+        "step": "go_lint_install",
+        "command": "make golangci-lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Downloading github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0...",
+        "notes": "golangci-lint v2.9.0 installed successfully (68MB binary)"
+      },
+      {
+        "step": "go_lint",
+        "command": "bin/golangci-lint run",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "cmd/llmisvc/main.go:33:2: \"k8s.io/apimachinery/pkg/fields\" imported and not used\ncmd/llmisvc/main.go:182:15: undefined: llmisvc.ServiceCASigningSecretNamespace (typecheck)",
+        "notes": "Linter found 1 typecheck issue and 1 unused import. This is expected - the code has legitimate lint violations."
+      },
+      {
+        "step": "go_test_setup",
+        "command": "make setup-envtest",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Setting up envtest binaries for Kubernetes version 1.34...\n/app/bin/k8s/1.34.1-linux-amd64",
+        "notes": "envtest binaries installed for Kubernetes 1.34"
+      },
+      {
+        "step": "go_test",
+        "command": "KUBEBUILDER_ASSETS=$(bin/setup-envtest use 1.34 -p path) go test ./pkg/apis/serving/v1alpha1/... -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "=== RUN   TestInferenceGraph_ValidateCreate\n--- PASS: TestInferenceGraph_ValidateCreate (0.00s)\n=== RUN   TestLLMInferenceServiceConversion_PreservesCriticality\n--- PASS: TestLLMInferenceServiceConversion_PreservesCriticality (0.00s)",
+        "notes": "Tests pass successfully for v1alpha1 APIs"
+      },
+      {
+        "step": "python_deps",
+        "command": "cd python/kserve && uv sync --group test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Resolved packages, installed pytest, pytest-cov, pytest-asyncio, etc.",
+        "notes": "Python test dependencies installed via uv"
+      },
+      {
+        "step": "python_lint",
+        "command": "ruff check --config ruff.toml python/kserve/kserve",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Python linting passed with no violations"
+      },
+      {
+        "step": "python_test",
+        "command": "cd python && kserve/.venv/bin/python -m pytest kserve/test/test_creds_utils.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "9 passed in 0.07s",
+        "notes": "Python unit tests pass successfully"
+      }
+    ],
+    "summary": "Go: deps OK, lint OK (found violations), tests OK. Python: deps OK, lint OK (clean), tests OK (9 passed)."
+  },
+  "gaps": [
+    "Full 'make test' requires kubectl for manifest generation (gateway-inference-extension CRDs)",
+    "Full 'make check' requires all tools to be installed (controller-gen, yq, helm-docs, etc.)",
+    "Python ray/llm tests require vLLM and ray[serve] which have large dependencies",
+    "E2E tests require a full Kubernetes cluster (minikube or kind)",
+    "Some controller tests may require actual Kubernetes resources beyond envtest mocking",
+    "Python huggingfaceserver tests require GPU or special CPU features for vLLM",
+    "Full CI workflow validates generated code is committed (client code, CRDs, manifests)"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

@@ -1,0 +1,68 @@
+{
+  "repo": "odh-template-sig",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": [],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. This is a documentation-only repository with no source code."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure exists. This repository contains only documentation files (README.md, charter.md, OWNERS, LICENSE)."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows, .tekton, Jenkinsfile, or other CI configuration detected."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system found. This is a template repository for Open Data Hub Special Interest Groups containing only markdown documentation."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Repository contains template documentation files following standard markdown formatting. OWNERS file uses YAML format for GitHub permissions (approvers and reviewers lists)."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No container recipe needed - repository contains no executable code or tests to validate."
+  },
+  "validation": {
+    "results": [],
+    "summary": "Validation skipped - no code, tests, or build system present in repository"
+  },
+  "gaps": [
+    "No source code - this is a documentation/template repository only",
+    "No test infrastructure of any kind",
+    "No linting configuration or tools",
+    "No CI/CD workflows or automation",
+    "No build system or dependency management",
+    "Repository serves as a template for creating SIG (Special Interest Group) documentation, not as a software project"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

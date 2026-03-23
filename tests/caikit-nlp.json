@@ -1,0 +1,197 @@
+{
+  "repo": "caikit-nlp",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:45:00Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "pylint",
+        "config_file": ".pylintrc",
+        "run_command": "tox -e lint",
+        "fix_command": null,
+        "scope": "full project (caikit_nlp directory)"
+      },
+      {
+        "name": "black",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "tox -e fmt",
+        "fix_command": "pre-commit run black --all-files",
+        "scope": "full project (Python files)"
+      },
+      {
+        "name": "isort",
+        "config_file": ".isort.cfg",
+        "run_command": "tox -e fmt",
+        "fix_command": "pre-commit run isort --all-files",
+        "scope": "full project (Python files)"
+      },
+      {
+        "name": "prettier",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "tox -e fmt",
+        "fix_command": "pre-commit run prettier --all-files",
+        "scope": "markdown, YAML, JSON files"
+      }
+    ],
+    "notes": "The fmt tox environment runs all formatting checks via pre-commit. In CI mode it fails if files need formatting. Locally it auto-formats files. Pylint has many checks disabled via .pylintrc configuration."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "tox -e py39",
+    "run_single_file": ".tox/py39/bin/pytest {file}",
+    "run_single_test": ".tox/py39/bin/pytest {file}::{test_name}",
+    "setup_required": [
+      "pip install -r setup_requirements.txt"
+    ],
+    "env_vars": [
+      "LOG_LEVEL=off (default)",
+      "LOG_FILTERS=urllib3:off (default)",
+      "LOG_FORMATTER=optional",
+      "LOG_THREAD_ID=true/false",
+      "LOG_CHANNEL_WIDTH=optional",
+      "PYTORCH_ENABLE_MPS_FALLBACK=optional"
+    ],
+    "fixtures_location": "tests/fixtures/",
+    "mock_patterns": "Uses unittest.mock extensively for external dependencies",
+    "coverage_command": "pytest --cov=caikit_nlp --cov-report=term --cov-report=html tests",
+    "coverage_threshold": null,
+    "notes": "Tests are run via tox which creates isolated virtualenvs. The test suite includes unit tests and regression tests for ML models. Tests use pytest fixtures extensively. Current test suite has 10 known failing tests in test_crossencoder.py related to truncation functionality. 383 tests pass, 94% code coverage achieved."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/build-library.yml",
+      ".github/workflows/lint-code.yml",
+      ".github/workflows/build-image.yml",
+      ".github/workflows/publish-library.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Build Caikit NLP Library",
+        "command": "tox -e py39",
+        "required": true
+      },
+      {
+        "name": "Build Caikit NLP Library (Python 3.10)",
+        "command": "tox -e py310",
+        "required": true
+      },
+      {
+        "name": "Check Formatting",
+        "command": "tox -e fmt",
+        "required": true
+      },
+      {
+        "name": "Run pylint",
+        "command": "tox -e lint",
+        "required": true
+      },
+      {
+        "name": "Build Image",
+        "command": "docker build -t caikit-nlp:latest .",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on push and pull_request to main and release-* branches. Tests run on Python 3.9 and 3.10 matrix (not 3.11 due to TGIS backend compatibility). All workflows are gating for pull requests. The build-image workflow only triggers on specific path changes but runs on all PRs."
+  },
+  "build": {
+    "system": "Python setuptools with setuptools-scm",
+    "install_command": "pip install -r setup_requirements.txt",
+    "build_command": "tox -e build",
+    "notes": "Build system uses pyproject.toml with setuptools-scm for version management from git tags. Build produces both wheel (.whl) and source distribution (.tar.gz). Requires git repository for version detection."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py",
+    "test_naming": "Functions named test_* using standard pytest conventions",
+    "import_style": "isort with black profile, grouped imports with headers (Future, Standard, Third Party, First Party, Local)",
+    "notes": "Max line length is 100 characters. Snake_case for functions/variables, PascalCase for classes. Many pylint checks disabled including missing docstrings, too-many-arguments, cyclic-import, etc."
+  },
+  "container_recipe": {
+    "base_image": "python:3.9",
+    "system_deps": ["git", "make"],
+    "setup_commands": [
+      "pip install --upgrade pip",
+      "pip install -r setup_requirements.txt"
+    ],
+    "lint_commands": [
+      {
+        "command": "tox -e fmt",
+        "validated": true,
+        "notes": "Passed - prettier, black, and isort all successful"
+      },
+      {
+        "command": "tox -e lint",
+        "validated": true,
+        "notes": "Passed - pylint scored 10.00/10 with no errors or warnings"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "tox -e py39",
+        "validated": true,
+        "notes": "Partial success - 383 passed, 10 failed, 1 skipped. Failures in test_crossencoder.py appear to be pre-existing issues. Coverage: 94%"
+      }
+    ],
+    "test_single_file": ".tox/py39/bin/pytest {file}",
+    "test_single_test": ".tox/py39/bin/pytest {file}::{test_name}",
+    "env_vars": [],
+    "notes": "Container validation completed successfully. Tox handles all dependency installation in isolated virtualenvs. ML dependencies (torch, transformers, etc.) are heavy and take time to install. Tests complete in ~32 seconds after dependency installation (~70 seconds setup time). Some test failures exist but test infrastructure is fully functional."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install -r setup_requirements.txt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed build-0.10.0 tox-4.4.12",
+        "notes": "Setup requirements installed cleanly"
+      },
+      {
+        "step": "build",
+        "command": "tox -e build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully built caikit_nlp-0.4.17.dev134+g3ff06a008.tar.gz and caikit_nlp-0.4.17.dev134+g3ff06a008-py3-none-any.whl",
+        "notes": "Build completed successfully in 4.16 seconds"
+      },
+      {
+        "step": "lint-format",
+        "command": "tox -e fmt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "prettier...Passed\nblack...Passed\nisort...Passed",
+        "notes": "All formatting checks passed in 15.02 seconds"
+      },
+      {
+        "step": "lint-pylint",
+        "command": "tox -e lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Your code has been rated at 10.00/10",
+        "notes": "Pylint completed successfully with perfect score in 20.73 seconds"
+      },
+      {
+        "step": "test",
+        "command": "tox -e py39",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "=========== 10 failed, 383 passed, 1 skipped, 18 warnings in 31.97s ============\nTOTAL coverage: 94%",
+        "notes": "Tests ran successfully but 10 tests failed in test_crossencoder.py (truncation tests). These appear to be pre-existing test issues, not infrastructure failures. 383/393 tests pass. Coverage is 94%."
+      }
+    ],
+    "summary": "Install OK, build OK, format OK, lint OK (10/10), tests PARTIAL (383 passed, 10 failed, 94% coverage)"
+  },
+  "gaps": [
+    "10 failing tests in tests/modules/text_embedding/test_crossencoder.py (all test_truncation variants)",
+    "No explicit coverage threshold requirement found in configuration",
+    "Tests depend on large ML models and PyTorch which are slow to install and run",
+    "Some tests may require GPU for optimal performance (CPU fallback available)",
+    "Python 3.11+ not supported due to TGIS backend limitations"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

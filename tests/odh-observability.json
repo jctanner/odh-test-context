@@ -1,0 +1,69 @@
+{
+  "repo": "odh-observability",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": [],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. Repository contains no source code."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure found. Repository contains no source code."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI configuration found. No .github/workflows, .tekton, Jenkinsfile, or other CI configs detected."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system detected. Repository contains only a LICENSE file."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "No code conventions to analyze. Repository is empty."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No container recipe can be created. Repository contains no code to validate."
+  },
+  "validation": {
+    "results": [],
+    "summary": "Repository is empty - contains only LICENSE file. No validation possible."
+  },
+  "gaps": [
+    "Repository contains no source code - only a LICENSE file",
+    "No build configuration files detected (no package.json, pyproject.toml, go.mod, Makefile, etc.)",
+    "No test infrastructure present",
+    "No linting configuration present",
+    "No CI/CD configuration present",
+    "No README or documentation present",
+    "Repository appears to be a placeholder or newly initialized project with no actual code"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

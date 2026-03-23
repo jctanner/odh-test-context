@@ -1,0 +1,167 @@
+{
+  "repo": "ilab-on-ocp",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:21:00Z",
+  "languages": ["Python", "Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "uv run ruff check .",
+        "fix_command": "uv run ruff check --fix .",
+        "scope": "full project"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "uv run ruff format --check .",
+        "fix_command": "uv run ruff format .",
+        "scope": "full project"
+      },
+      {
+        "name": "yamllint",
+        "config_file": ".yamllint.yaml",
+        "run_command": "uv run pre-commit run yamllint --all-files",
+        "fix_command": null,
+        "scope": "all YAML files"
+      }
+    ],
+    "notes": "Pre-commit hooks are the primary linting mechanism. Run 'uv run pre-commit run --all-files' to execute all linters. Ruff handles Python linting and formatting, yamllint handles YAML files."
+  },
+  "testing": {
+    "framework": "Go testing with gomega/testify for e2e tests; no Python tests",
+    "test_directory": "tests/pipeline/e2e/",
+    "run_command": "cd tests && go test -run TestPipelineRun -v -timeout 180m ./pipeline/e2e/",
+    "run_single_file": null,
+    "run_single_test": "cd tests && go test -run {test_name} -v -timeout 180m ./pipeline/e2e/",
+    "setup_required": ["OpenShift cluster with RHOAI installed", "Data Science Pipelines configured", "Pipeline imported into RHOAI"],
+    "env_vars": ["ENABLE_ILAB_PIPELINE_TEST=true", "PIPELINE_SERVER_URL=<url>", "BEARER_TOKEN=<token>", "PIPELINE_DISPLAY_NAME=<name>"],
+    "fixtures_location": "tests/pipeline/e2e/resources/",
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No Python unit tests exist. Only Go e2e tests that require a live OpenShift cluster with RHOAI. Tests validate end-to-end pipeline execution, not individual Python components. Cannot be run in isolated container."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/pre_commit.yaml", ".github/workflows/build-main.yml"],
+    "gating_checks": [
+      {
+        "name": "pre-commit-check",
+        "command": "uv run pre-commit run --all-files",
+        "required": true
+      },
+      {
+        "name": "pipeline-up-to-date",
+        "command": "uv run make pipeline && git diff --exit-code",
+        "required": true
+      },
+      {
+        "name": "requirements-validation",
+        "command": "Check if requirements.txt matches pyproject.toml when either changes",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "The pre_commit.yaml workflow runs on pull_request and is gating. It validates: (1) all pre-commit hooks pass, (2) pipeline.yaml is up-to-date with pipeline.py, (3) requirements.txt is in sync with pyproject.toml. The build-main.yml workflow only runs on main branch pushes and builds container images."
+  },
+  "build": {
+    "system": "uv (Python package manager) + Makefile",
+    "install_command": "uv sync --group lint",
+    "build_command": "uv run make pipeline",
+    "notes": "Project uses UV for dependency management. 'uv sync' creates a virtual environment and installs dependencies. 'uv sync --group lint' adds the lint group (ruff, pre-commit). 'make pipeline' generates the pipeline.yaml from pipeline.py."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go (Go tests only)",
+    "test_naming": "Go: func Test* (e.g., TestPipelineRun)",
+    "import_style": "Ruff enforces import sorting via pre-commit hook with --select I flag",
+    "notes": "No Python test conventions as no Python tests exist. Pre-commit enforces trailing whitespace, end-of-file-fixer, YAML validity, merge conflict detection, and private key detection."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": ["curl", "git", "make"],
+    "setup_commands": [
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=/root/.local/bin:$PATH",
+      "uv sync --group lint"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run pre-commit run --all-files",
+        "validated": true,
+        "notes": "All hooks passed: trailing-whitespace, end-of-file-fixer, check-yaml, check-merge-conflict, detect-private-key, ruff, ruff-format, yamllint"
+      },
+      {
+        "command": "uv run ruff check .",
+        "validated": true,
+        "notes": "Found 2 lint violations: unused import in eval/mt_bench.py:4, f-string without placeholder in training/components.py:183"
+      },
+      {
+        "command": "uv run ruff format --check .",
+        "validated": true,
+        "notes": "All 13 files already formatted correctly"
+      }
+    ],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No Python unit tests exist. Go e2e tests require OpenShift cluster infrastructure and cannot be validated in container. UV package manager must be installed via install script. Pre-commit hooks install themselves on first run."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "uv sync --group lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Using CPython 3.12.13 interpreter\nCreating virtual environment at: .venv\nResolved 69 packages\nInstalled 67 packages",
+        "notes": "Installed all dependencies including ruff 0.8.2 and pre-commit 4.0.1"
+      },
+      {
+        "step": "lint",
+        "command": "uv run pre-commit run --all-files",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "trim trailing whitespace...Passed\nfix end of files...Passed\ncheck yaml...Passed\ncheck for merge conflicts...Passed\ndetect private key...Passed\nruff...Passed\nruff-format...Passed\nyamllint...Passed",
+        "notes": "All pre-commit hooks passed on first run"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff check .",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "eval/mt_bench.py:4:32: F401 [*] `typing.Optional` imported but unused\ntraining/components.py:183:28: F541 [*] f-string without any placeholders",
+        "notes": "Ruff found 2 fixable lint violations in the current codebase"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff format --check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "13 files already formatted",
+        "notes": "All Python files are correctly formatted"
+      },
+      {
+        "step": "build",
+        "command": "uv run make pipeline",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Generating pipeline\n(Some SyntaxWarnings about invalid escape sequences, but pipeline generation succeeds)",
+        "notes": "Pipeline YAML generation succeeded with warnings"
+      }
+    ],
+    "summary": "install OK, lint OK (pre-commit passed, but ruff check found 2 violations), format OK, build OK, no Python tests exist"
+  },
+  "gaps": [
+    "No Python unit tests - cannot validate Python code changes functionally",
+    "No integration tests that can run in isolation",
+    "Go e2e tests require full OpenShift cluster with RHOAI - cannot run in container",
+    "Current codebase has 2 ruff lint violations (unused import, f-string issue) that pre-commit doesn't catch in --fix mode",
+    "No test coverage measurement",
+    "No way to test individual Python modules or functions"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

@@ -1,0 +1,70 @@
+{
+  "repo": "opendatahub-community",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": [],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. This is a documentation-only repository with no automated linting for Markdown or YAML files."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure exists. This is a community governance and documentation repository with no executable code or tests."
+  },
+  "ci": {
+    "system": "None",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No GitHub Actions workflows, Tekton pipelines, or other CI systems detected."
+  },
+  "build": {
+    "system": "None",
+    "install_command": null,
+    "build_command": null,
+    "notes": "This is a static documentation repository. No build system or dependencies to install."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Documentation repository conventions: Markdown files for all documentation, YAML files for configuration (sigs.yaml, membership.yaml, issue templates). Follows standard GitHub community repository structure."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No container validation performed - repository contains only documentation with no executable code or validation commands."
+  },
+  "validation": {
+    "results": [],
+    "summary": "No validation performed - documentation-only repository with no code, tests, or CI"
+  },
+  "gaps": [
+    "No automated testing infrastructure",
+    "No linting configuration for Markdown or YAML files",
+    "No CI/CD workflows to validate pull requests",
+    "No pre-commit hooks configured",
+    "Documentation changes cannot be automatically validated",
+    "YAML syntax is not validated (membership.yaml, sigs.yaml, issue templates)",
+    "Markdown formatting is not enforced",
+    "Link validation is not performed"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

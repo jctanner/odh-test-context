@@ -1,0 +1,231 @@
+{
+  "repo": "feast",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:10:00Z",
+  "languages": ["Python", "Go", "Java", "JavaScript", "TypeScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff check sdk/python/feast/ sdk/python/tests/",
+        "fix_command": "uv run ruff check --fix sdk/python/feast/ sdk/python/tests/ && uv run ruff format sdk/python/feast/ sdk/python/tests/",
+        "scope": "sdk/python/feast/ and sdk/python/tests/"
+      },
+      {
+        "name": "mypy",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run bash -c \"cd sdk/python && mypy feast\"",
+        "fix_command": null,
+        "scope": "sdk/python/feast/"
+      },
+      {
+        "name": "golangci-lint",
+        "config_file": "infra/feast-operator/.golangci.yml",
+        "run_command": "cd infra/feast-operator && golangci-lint run",
+        "fix_command": "cd infra/feast-operator && golangci-lint run --fix",
+        "scope": "infra/feast-operator/"
+      },
+      {
+        "name": "prettier",
+        "config_file": "ui/.prettierrc (implicit)",
+        "run_command": "cd ui && yarn format:check",
+        "fix_command": "cd ui && yarn format",
+        "scope": "ui/"
+      },
+      {
+        "name": "spotless",
+        "config_file": "java/pom.xml",
+        "run_command": "mvn -f java/pom.xml --no-transfer-progress spotless:check",
+        "fix_command": "mvn -f java/pom.xml spotless:apply",
+        "scope": "java/"
+      }
+    ],
+    "notes": "Primary linting is for Python (ruff + mypy). Pre-commit hooks configured in .pre-commit-config.yaml run format and lint on changed files only."
+  },
+  "testing": {
+    "framework": "pytest (Python), go test (Go), jest (JS), Maven (Java)",
+    "test_directory": "sdk/python/tests/, infra/feast-operator/test/, ui/src/, java/",
+    "run_command": "uv run python -m pytest -n 8 --color=yes --ignore=sdk/python/tests/component/ray --ignore=sdk/python/tests/component/spark sdk/python/tests",
+    "run_single_file": "uv run python -m pytest {file} -v",
+    "run_single_test": "uv run python -m pytest {file}::{test_name} -v",
+    "setup_required": [
+      "make install-python-dependencies-ci"
+    ],
+    "env_vars": [
+      "PYTHONPATH=/app/sdk/python (for imports)",
+      "FEAST_IS_LOCAL_TEST=True (for local integration tests)",
+      "FEAST_LOCAL_ONLINE_CONTAINER=True (for containerized tests)"
+    ],
+    "fixtures_location": "sdk/python/tests/conftest.py and subdirectories",
+    "mock_patterns": "Uses pytest fixtures, testcontainers for services (Redis, etc.)",
+    "coverage_command": "uv run python -m pytest --cov=feast --cov-report=html sdk/python/tests",
+    "coverage_threshold": null,
+    "notes": "Unit tests exclude Ray and Spark components by default. Integration tests require cloud credentials (AWS, GCP, Snowflake) and external services. Use -n auto or -n 8 for parallel execution. Fast subset: sdk/python/tests/unit only."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/linter.yml",
+      ".github/workflows/unit_tests.yml",
+      ".github/workflows/pr_integration_tests.yml",
+      ".github/workflows/operator_pr.yml",
+      ".github/workflows/pr_local_integration_tests.yml",
+      ".github/workflows/pr_duckdb_integration_tests.yml",
+      ".github/workflows/pr_ray_integration_tests.yml",
+      ".github/workflows/pr_registration_integration_tests.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "lint-python",
+        "command": "make lint-python",
+        "required": true
+      },
+      {
+        "name": "unit-test-python",
+        "command": "make test-python-unit",
+        "required": true
+      },
+      {
+        "name": "unit-test-ui",
+        "command": "cd ui && yarn test --watchAll=false",
+        "required": true
+      },
+      {
+        "name": "operator-test",
+        "command": "make -C infra/feast-operator test",
+        "required": true
+      },
+      {
+        "name": "pre-commit",
+        "command": "pre-commit run --all-files",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "integration-test-python",
+        "command": "make test-python-integration",
+        "required": false,
+        "notes": "Requires 'ok-to-test' label, AWS/GCP credentials, Snowflake access"
+      },
+      {
+        "name": "duckdb-integration",
+        "command": "pixi run -e duckdb-tests test",
+        "required": false
+      },
+      {
+        "name": "ray-integration",
+        "command": "pixi run -e ray-tests test",
+        "required": false
+      }
+    ],
+    "notes": "Python tests run on matrix of 3.10, 3.11, 3.12 on ubuntu-latest and macos-14. Integration tests require manual approval via 'ok-to-test' label and use pull_request_target for security. Operator tests use Go 1.22.9."
+  },
+  "build": {
+    "system": "make + uv (Python), go (operator), maven (Java), yarn (UI)",
+    "install_command": "make install-python-dependencies-ci",
+    "build_command": "make build (builds protos + Docker images)",
+    "notes": "Python uses uv for dependency management with locked requirements. Protobuf compilation via make compile-protos-python. Go operator builds with make -C infra/feast-operator build. Java builds with mvn clean verify."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py (Python), *_test.go (Go), *.test.ts/*.spec.ts (JS)",
+    "test_naming": "test_* functions (Python), Test* functions (Go), describe/it (Jest)",
+    "import_style": "Absolute imports from feast.* in Python. Grouped imports enforced by ruff.",
+    "notes": "Python code formatted with ruff (88 char line length). Type hints required and checked with mypy. Tests organized by unit/, integration/, component/ directories."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["make", "git", "curl"],
+    "setup_commands": [
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=\"$HOME/.local/bin:$PATH\"",
+      "make install-python-dependencies-ci"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run ruff check sdk/python/feast/ sdk/python/tests/",
+        "validated": true,
+        "notes": "All checks passed"
+      },
+      {
+        "command": "uv run ruff format --check sdk/python/feast/ sdk/python/tests/",
+        "validated": true,
+        "notes": "721 files already formatted"
+      },
+      {
+        "command": "uv run bash -c 'cd sdk/python && mypy feast'",
+        "validated": true,
+        "notes": "Success: no issues found in 546 source files"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "uv run python -m pytest -n 2 sdk/python/tests/unit/test_repo_operations_validate_feast_project_name.py -v",
+        "validated": true,
+        "notes": "1 passed in 5.48s"
+      }
+    ],
+    "test_single_file": "uv run python -m pytest {file} -v",
+    "test_single_test": "uv run python -m pytest {file}::{test_name} -v",
+    "env_vars": [
+      "PATH=$HOME/.local/bin:$PATH"
+    ],
+    "notes": "Container needs --link-mode=copy or UV_LINK_MODE=copy if on different filesystem. Use -n 8 for parallel tests. Exclude Ray/Spark components for unit tests."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "make install-python-dependencies-ci",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Installed 1 package in 1ms\n + feast==0.60.1.dev105+g849e8b965 (from file:///app)",
+        "notes": "Dependencies installed successfully with uv"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff check sdk/python/feast/ sdk/python/tests/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "No ruff violations found"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff format --check sdk/python/feast/ sdk/python/tests/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "721 files already formatted",
+        "notes": "Code properly formatted"
+      },
+      {
+        "step": "lint",
+        "command": "uv run bash -c 'cd sdk/python && mypy feast'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Success: no issues found in 546 source files",
+        "notes": "Type checking passed (notes are informational only)"
+      },
+      {
+        "step": "test",
+        "command": "uv run python -m pytest -n 2 sdk/python/tests/unit/test_repo_operations_validate_feast_project_name.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "1 passed in 5.48s",
+        "notes": "Unit test framework working correctly"
+      }
+    ],
+    "summary": "install OK, lint OK (ruff + mypy passed), tests OK (1 passed)"
+  },
+  "gaps": [
+    "Integration tests require external cloud credentials (AWS, GCP, Snowflake) - cannot run in isolated container",
+    "Some integration tests require Redis, PostgreSQL, or other databases - use testcontainers or external services",
+    "Operator tests require Kubernetes environment (envtest or real cluster)",
+    "Java and Go tests not validated in this analysis - separate containers would be needed",
+    "UI tests require Node.js/Yarn environment - not validated",
+    "Full test suite is very large and slow - use pattern filtering for targeted testing"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

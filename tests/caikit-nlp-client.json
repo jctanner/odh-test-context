@@ -1,0 +1,229 @@
+{
+  "repo": "caikit-nlp-client",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:52:00Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff check .",
+        "fix_command": "ruff check --fix .",
+        "scope": "full project",
+        "version": "0.5.4"
+      },
+      {
+        "name": "mypy",
+        "config_file": "pyproject.toml",
+        "run_command": "mypy src tests",
+        "fix_command": null,
+        "scope": "src and tests directories",
+        "version": "1.10.1"
+      },
+      {
+        "name": "bandit",
+        "config_file": "pyproject.toml",
+        "run_command": "bandit -c pyproject.toml --quiet -r caikit_nlp_client/",
+        "fix_command": null,
+        "scope": "caikit_nlp_client/ directory",
+        "version": "1.8.0"
+      },
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": "pre-commit run --all-files",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Linting is run via nox sessions. Use 'nox -s pre-commit' for comprehensive linting including ruff, bandit, and pre-commit hooks. Mypy has known type errors (8 errors in grpc_client.py) that appear to be long-standing issues."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "nox -s tests-3.11",
+    "run_single_file": "pytest {file}",
+    "run_single_test": "pytest {file}::{test_name}",
+    "setup_required": [
+      "pip install --index-url=https://download.pytorch.org/whl/cpu torch",
+      "pip install -e '.[tests]'"
+    ],
+    "env_vars": [
+      "COVERAGE_FILE=.coverage.{python_version} (for coverage tracking)"
+    ],
+    "fixtures_location": "tests/fixtures/",
+    "mock_patterns": "Uses pytest-mock for mocking. Tests parametrized by ConnectionType (INSECURE, TLS, MTLS). Uses pytest-docker for integration tests.",
+    "coverage_command": "pytest --cov --cov-config=pyproject.toml",
+    "coverage_threshold": "50%",
+    "notes": "Tests have two modes: (1) default with mocked backend, (2) real caikit stack with --real-caikit flag. TLS/MTLS tests fail due to expired certificates in tests/fixtures/resources/ssl-certs/. INSECURE tests mostly pass (20 passed, 5 failed). Can run specific connection types with: pytest -k 'INSECURE'"
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/tests.yml",
+      ".github/workflows/tests-docker.yml",
+      ".github/workflows/release.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "pre-commit",
+        "command": "nox -v --session pre-commit",
+        "required": true,
+        "workflow": "tests.yml"
+      },
+      {
+        "name": "mypy",
+        "command": "nox -v --session mypy",
+        "required": true,
+        "workflow": "tests.yml"
+      },
+      {
+        "name": "tests (Python 3.9)",
+        "command": "nox -v --session tests-3.9 -- --cov-report=xml",
+        "required": true,
+        "workflow": "tests.yml"
+      },
+      {
+        "name": "tests (Python 3.10)",
+        "command": "nox -v --session tests-3.10 -- --cov-report=xml",
+        "required": true,
+        "workflow": "tests.yml"
+      },
+      {
+        "name": "tests (Python 3.11)",
+        "command": "nox -v --session tests-3.11 -- --cov-report=xml",
+        "required": true,
+        "workflow": "tests.yml"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "tests-docker (Python 3.11)",
+        "command": "nox -v --session tests-3.11 -- --real-caikit --cov-report=xml",
+        "required": false,
+        "workflow": "tests-docker.yml",
+        "notes": "Runs weekly on Monday, uses real caikit-tgis-serving images"
+      }
+    ],
+    "notes": "CI runs on pull_request, push to main, and scheduled (daily for tests.yml, weekly for tests-docker.yml). Coverage reports uploaded to codecov. Matrix builds test Python 3.9, 3.10, 3.11 on ubuntu-latest."
+  },
+  "build": {
+    "system": "setuptools with setuptools-scm",
+    "install_command": "pip install -e '.[dev,tests]'",
+    "build_command": "python -m build",
+    "notes": "Version is dynamic, managed by setuptools-scm from git tags. Use 'nox -s build' to build and check distribution with twine. PyTorch is installed from CPU-only wheel index to speed up installation."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/test_*.py",
+    "test_naming": "Functions named test_* using pytest conventions. Tests parametrized with @pytest.mark.parametrize for multiple connection types.",
+    "import_style": "Imports organized by ruff: stdlib, third-party, local. TYPE_CHECKING imports for type hints.",
+    "notes": "Source code in src/caikit_nlp_client/. Uses src layout with setuptools packages.find. Excludes examples/ from linting."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11-bookworm",
+    "system_deps": ["git", "make"],
+    "setup_commands": [
+      "pip install --upgrade pip",
+      "pip install nox",
+      "pip install --index-url=https://download.pytorch.org/whl/cpu torch",
+      "pip install -e '.[dev,tests]'"
+    ],
+    "lint_commands": [
+      {
+        "command": "nox -s pre-commit",
+        "validated": true,
+        "notes": "Passed after auto-fixing 1 import order issue. Runs ruff, ruff-format, bandit, pyupgrade, trailing-whitespace, end-of-file-fixer, check-yaml, check-toml, check-added-large-files."
+      },
+      {
+        "command": "nox -s mypy",
+        "validated": false,
+        "notes": "Failed with 8 type errors in src/caikit_nlp_client/grpc_client.py related to google.protobuf types. These appear to be existing issues in the codebase."
+      },
+      {
+        "command": "ruff check .",
+        "validated": true,
+        "notes": "Found 6 import order issues, all auto-fixable with --fix"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "nox -s tests-3.11",
+        "validated": true,
+        "notes": "86 tests collected: 25 passed, 5 failed, 2 skipped, 54 errors. Failures in INSECURE mode tests. Errors in TLS/MTLS tests due to expired certificates."
+      },
+      {
+        "command": "pytest tests/ -k 'INSECURE'",
+        "validated": true,
+        "notes": "27 tests: 20 passed, 5 failed, 2 skipped. Failures in test_request_exception_handling, test_get_text_generation_parameters, test_embedding_tasks, test_sentence_similarity_tasks, test_rerank_tasks"
+      }
+    ],
+    "test_single_file": "pytest tests/{file}.py",
+    "test_single_test": "pytest tests/{file}.py::{test_name}",
+    "env_vars": [],
+    "notes": "TLS/MTLS tests fail due to expired certificates in tests/fixtures/resources/ssl-certs/ (certificates expired). To run only working tests, use: pytest -k 'INSECURE'. The --real-caikit flag runs tests against actual caikit-tgis-serving containers but requires Docker and downloads ~300MB model."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install_deps",
+        "command": "pip install nox && pip install --index-url=https://download.pytorch.org/whl/cpu torch && pip install -e '.[dev,tests]'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed [...] caikit-nlp-client-0.0.9.dev45+g8f2ec859d",
+        "notes": "Dependencies installed successfully. PyTorch CPU version used to reduce download size."
+      },
+      {
+        "step": "lint_pre_commit",
+        "command": "nox -s pre-commit",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ruff.....................................................................Failed\nruff-format..............................................................Passed\nbandit...................................................................Passed\npyupgrade................................................................Passed",
+        "notes": "Pre-commit passed after auto-fixing 1 ruff import order issue. All hooks passed on second run."
+      },
+      {
+        "step": "lint_mypy",
+        "command": "nox -s mypy",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "src/caikit_nlp_client/grpc_client.py:153: error: Argument 1 to \"_populate_request\" [...]\nFound 8 errors in 1 file (checked 18 source files)",
+        "notes": "Mypy failed with 8 type errors in grpc_client.py related to google.protobuf descriptor types. These appear to be existing issues."
+      },
+      {
+        "step": "lint_ruff",
+        "command": "ruff check .",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "Found 6 errors.\n[*] 6 fixable with the `--fix` option.",
+        "notes": "Ruff found 6 import order issues, all auto-fixable. Exit code 1 indicates issues found (expected for linters)."
+      },
+      {
+        "step": "test",
+        "command": "nox -s tests-3.11",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "== 5 failed, 25 passed, 2 skipped, 4 warnings, 54 errors in 75.02s (0:01:15) ===",
+        "notes": "Tests ran but had failures. 25 tests passed in INSECURE mode. 54 errors in TLS/MTLS tests due to expired certificates. 5 real test failures in INSECURE mode."
+      },
+      {
+        "step": "test_insecure_only",
+        "command": "pytest tests/ -k 'INSECURE'",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "====== 5 failed, 20 passed, 2 skipped, 59 deselected, 4 warnings in 4.33s ======",
+        "notes": "20 of 25 INSECURE tests passed. 5 failures appear to be assertion errors in API response validation."
+      }
+    ],
+    "summary": "Install OK, lint partially OK (pre-commit passed, mypy has 8 errors), tests partially OK (20/25 INSECURE tests passed, TLS/MTLS tests fail due to expired certs)"
+  },
+  "gaps": [
+    "Mypy type checking has 8 existing errors in grpc_client.py related to protobuf type handling",
+    "TLS/MTLS test fixtures have expired SSL certificates (as of 2026-03-22)",
+    "5 INSECURE mode tests fail with assertion errors in API response validation",
+    "No automated certificate regeneration for test fixtures",
+    "Stream mocking is broken (2 tests skipped, see issue #46)",
+    "Test failures may indicate API changes between caikit-nlp client and server versions"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

@@ -1,0 +1,201 @@
+{
+  "repo": "mod-arch-library",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T19:19:00-04:00",
+  "languages": ["TypeScript", "JavaScript", "Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "eslint",
+        "config_file": "mod-arch-core/.eslintrc.cjs (and per-workspace configs)",
+        "run_command": "npm run lint",
+        "fix_command": "npm run lint:fix",
+        "scope": "full project (all workspaces)"
+      },
+      {
+        "name": "golangci-lint",
+        "config_file": "mod-arch-starter/bff/.golangci.yaml",
+        "run_command": "cd mod-arch-starter/bff && make lint",
+        "fix_command": "cd mod-arch-starter/bff && make lint-fix",
+        "scope": "mod-arch-starter/bff (Go backend)"
+      },
+      {
+        "name": "lint-staged",
+        "config_file": "package.json (lint-staged section)",
+        "run_command": "npx lint-staged",
+        "fix_command": null,
+        "scope": "pre-commit hook (staged files only)"
+      }
+    ],
+    "notes": "ESLint runs for all TypeScript/JavaScript workspaces with comprehensive rules including React hooks, import ordering, and prettier. Go linting uses golangci-lint v2.0.2 with standard presets."
+  },
+  "testing": {
+    "framework": "Jest (JavaScript/TypeScript), Go test (Go)",
+    "test_directory": "mod-arch-*/__tests__ (TypeScript), mod-arch-starter/bff/**/*_test.go (Go)",
+    "run_command": "npm run test",
+    "run_single_file": "cd mod-arch-core && npx jest {file}",
+    "run_single_test": "cd mod-arch-core && npx jest -t '{test_name}'",
+    "setup_required": [
+      "npm ci --ignore-scripts",
+      "npm run build"
+    ],
+    "env_vars": [],
+    "fixtures_location": "mod-arch-core/__tests__/unit/jest.setup.ts",
+    "mock_patterns": "Jest mocks in __mocks__ directories, transform helpers for CSS/assets",
+    "coverage_command": "npm run test:jest -- --coverage",
+    "coverage_threshold": null,
+    "notes": "Tests include: mod-arch-core (63 tests), mod-arch-shared (26 tests), mod-arch-kubeflow (no tests), mod-arch-installer (flavor template tests). Go tests use envtest but work without it. Test framework is ts-jest with jsdom environment."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/test.yml", ".github/workflows/publish.yml", ".github/workflows/release.yml"],
+    "gating_checks": [
+      {
+        "name": "Lint PR Title",
+        "command": "Semantic PR title validation (conventional commits)",
+        "required": true
+      },
+      {
+        "name": "Run linting",
+        "command": "npm run lint",
+        "required": true
+      },
+      {
+        "name": "Run all tests",
+        "command": "npm run test",
+        "required": true
+      },
+      {
+        "name": "Build all packages",
+        "command": "npm run build",
+        "required": true
+      },
+      {
+        "name": "Test coverage (mod-arch-core)",
+        "command": "npm run test:jest -- --coverage --workspace=mod-arch-core",
+        "required": true
+      },
+      {
+        "name": "Test coverage (mod-arch-shared)",
+        "command": "npm run test:jest -- --coverage --workspace=mod-arch-shared",
+        "required": true
+      },
+      {
+        "name": "Test individual packages",
+        "command": "npm run test:core && npm run test:shared && npm run test:kubeflow",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on Node.js 22.x. All jobs are gating for pull requests. Pre-commit hook runs lint-staged on changed files."
+  },
+  "build": {
+    "system": "npm workspaces (monorepo)",
+    "install_command": "npm ci --ignore-scripts",
+    "build_command": "npm run build",
+    "notes": "Monorepo with 4 workspaces: mod-arch-core, mod-arch-shared, mod-arch-kubeflow, mod-arch-installer. Build uses TypeScript compiler (tsc) + tsc-alias for path resolution. Requires rsync system dependency for copying assets."
+  },
+  "conventions": {
+    "test_file_pattern": "**/__tests__/**/*.{test,spec}.{ts,tsx} (JS/TS), **/*_test.go (Go)",
+    "test_naming": "describe/it blocks (Jest), Test* functions (Go)",
+    "import_style": "Absolute imports with ~ alias for src root, enforced by eslint-plugin-no-relative-import-paths",
+    "notes": "Strict ESLint rules including no console.log, naming conventions (camelCase/PascalCase), import ordering. Uses Prettier for code formatting. Semantic commit messages required (conventional-changelog)."
+  },
+  "container_recipe": {
+    "base_image": "node:22-bookworm",
+    "system_deps": ["rsync", "make", "git"],
+    "setup_commands": [
+      "apt-get update -qq && apt-get install -y -qq rsync make git",
+      "npm ci --ignore-scripts",
+      "npm run build"
+    ],
+    "lint_commands": [
+      {
+        "command": "npm run lint",
+        "validated": true,
+        "notes": "SUCCESS - exit 0, no lint violations found"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "npm run test",
+        "validated": true,
+        "notes": "SUCCESS - exit 0, 11 test suites, 89 tests passed (mod-arch-core: 63, mod-arch-shared: 26, mod-arch-installer: flavor tests)"
+      }
+    ],
+    "test_single_file": "cd mod-arch-core && npx jest {file}",
+    "test_single_test": "cd mod-arch-core && npx jest -t '{test_name}'",
+    "env_vars": [],
+    "notes": "Build must complete before tests. Requires --ignore-scripts for npm ci to avoid build failures during install. Go tests validated separately and pass (mod-arch-starter/bff). Go lint finds 5 unused code violations but command works."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "npm ci --ignore-scripts",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "added 1180 packages, and audited 1345 packages in 30s\n16 vulnerabilities (4 low, 3 moderate, 9 high)",
+        "notes": "Dependencies installed successfully. Some deprecation warnings for old packages (eslint 8.x, glob 7.x)."
+      },
+      {
+        "step": "build",
+        "command": "npm run build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "> mod-arch-core@0.0.0-semantically-released build\n> tsc && tsc-alias\n\n> mod-arch-shared@0.0.0-semantically-released build\n> tsc && tsc-alias && npm run copy-assets",
+        "notes": "All 4 workspaces built successfully. Required rsync for asset copying in mod-arch-shared."
+      },
+      {
+        "step": "lint",
+        "command": "npm run lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "> mod-arch-core@0.0.0-semantically-released test:lint\n> eslint --max-warnings 0 --ext .js,.ts,.jsx,.tsx .",
+        "notes": "Linting passed with no warnings or errors across all workspaces."
+      },
+      {
+        "step": "test",
+        "command": "npm run test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Test Suites: 7 passed, 7 total\nTests:       63 passed, 63 total\n(mod-arch-core)\n\nTest Suites: 4 passed, 4 total\nTests:       26 passed, 26 total\n(mod-arch-shared)",
+        "notes": "All tests passed. mod-arch-kubeflow has no tests (passWithNoTests). mod-arch-installer runs flavor template tests."
+      },
+      {
+        "step": "test_single_file",
+        "command": "cd mod-arch-core && npx jest hooks/__tests__/useModularArchContext.test.tsx",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Test Suites: 1 passed, 1 total\nTests:       3 passed, 3 total",
+        "notes": "Single test file execution works correctly."
+      },
+      {
+        "step": "go_lint",
+        "command": "cd mod-arch-starter/bff && make lint",
+        "exit_code": 2,
+        "success": false,
+        "output_snippet": "internal/api/errors.go:34:17: func (*App).forbiddenResponse is unused (unused)\n5 issues:\n* unused: 5",
+        "notes": "Linter found 5 unused code violations. Command works but code has lint issues."
+      },
+      {
+        "step": "go_test",
+        "command": "cd mod-arch-starter/bff && make test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/opendatahub-io/mod-arch-library/bff/cmd\t0.010s\nok  \tgithub.com/opendatahub-io/mod-arch-library/bff/internal/api\t0.010s",
+        "notes": "Go tests passed. Warning about envtest assets but tests run successfully."
+      }
+    ],
+    "summary": "install OK, build OK (needs rsync), lint OK (JS/TS), test OK (89 tests passed), Go lint found 5 violations, Go test OK (2 packages)"
+  },
+  "gaps": [
+    "mod-arch-kubeflow has no tests (uses --passWithNoTests flag)",
+    "Go code has 5 unused function violations that would need to be fixed for lint to pass",
+    "Some npm packages have known vulnerabilities (16 total: 4 low, 3 moderate, 9 high)",
+    "Deprecated packages in use: eslint 8.x, glob 7.x, inflight, rimraf 3.x",
+    "envtest assets fetch fails with 401 but doesn't affect test execution"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

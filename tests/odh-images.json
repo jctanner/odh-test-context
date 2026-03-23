@@ -1,0 +1,93 @@
+{
+  "repo": "odh-images",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:39:00Z",
+  "languages": ["Go", "Python", "Shell", "Dockerfile"],
+  "linting": {
+    "tools": [],
+    "notes": "No linter configuration found. No .golangci.yml, .flake8, pylintrc, or other linter configs present."
+  },
+  "testing": {
+    "framework": "container-structure-test (superset only)",
+    "test_directory": "No traditional test directories",
+    "run_command": "cd superset && container-structure-test test -i quay.io/opendatahub/superset:1.5.2-ubi -c test-config.yaml",
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [
+      "Build the superset image first: cd superset && podman build -t quay.io/opendatahub/superset:1.5.2-ubi .",
+      "Install container-structure-test: https://github.com/GoogleContainerTools/container-structure-test"
+    ],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No unit tests found. No *_test.go files for Go code, no Python test files. Only one container structure test for the superset image that validates package installation, file existence, and metadata."
+  },
+  "ci": {
+    "system": "None",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD system configured. No .github/workflows, no Tekton, no Jenkins, no other CI system found."
+  },
+  "build": {
+    "system": "make + docker/podman",
+    "install_command": "No dependency install needed - Go modules vendored, container builds self-contained",
+    "build_command": "For Go components: go build ./... (or use Makefiles for container builds)",
+    "notes": "Repository contains multiple independent container images. configmap-puller: make build (uses Makefile), leader-election: build via Dockerfile, superset: make build (uses Makefile). Go dependencies are vendored in configmap-puller."
+  },
+  "conventions": {
+    "test_file_pattern": "None - no tests present",
+    "test_naming": "N/A",
+    "import_style": "Go: standard library imports, then third-party, then k8s.io imports. Python: standard imports.",
+    "notes": "No established testing conventions since no tests exist. Go code uses standard Kubernetes client-go patterns. Two Go components are independent tools, not libraries."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.15",
+    "system_deps": [],
+    "setup_commands": [
+      "# No system dependencies needed - Go toolchain includes everything"
+    ],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "Go build validated successfully. Both configmap-puller and leader-election compile without errors. No linters or unit tests to run."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "build-configmap-puller",
+        "command": "cd /app/configmap-puller && go build -v ./cmd/configmap-puller",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Built successfully. Binary: 42MB",
+        "notes": "Go 1.15 build succeeded. All k8s.io dependencies compiled correctly."
+      },
+      {
+        "step": "build-leader-election",
+        "command": "cd /app/leader-election && go build -v .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Built successfully. Binary: 39MB",
+        "notes": "Go 1.14 build succeeded. Dependencies downloaded from network since not vendored."
+      }
+    ],
+    "summary": "Go builds OK (configmap-puller and leader-election). No linters configured. No unit tests present. Container structure test not validated (requires image build + special tool)."
+  },
+  "gaps": [
+    "No unit tests - no *_test.go files for Go code, no Python tests",
+    "No linter configuration - no golangci-lint, no Python linters",
+    "No CI/CD workflows - no automated testing or validation",
+    "No documentation of testing procedures",
+    "Container structure test for superset requires manual image build and external tool",
+    "No code coverage measurement",
+    "No integration tests",
+    "leader-election uses deprecated ioutil package (Go 1.16+ deprecation)",
+    "Mixed Go versions (1.14 and 1.15) across components"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

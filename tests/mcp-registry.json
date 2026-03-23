@@ -1,0 +1,257 @@
+{
+  "repo": "mcp-registry",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T19:03:00-04:00",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v1.61.0",
+        "config_file": ".golangci.yml",
+        "run_command": "golangci-lint run --timeout=5m",
+        "fix_command": null,
+        "scope": "full project",
+        "enabled_linters": [
+          "errcheck", "gosimple", "govet", "ineffassign", "staticcheck",
+          "typecheck", "unused", "asasalint", "asciicheck", "bidichk",
+          "bodyclose", "containedctx", "contextcheck", "cyclop", "dupl",
+          "durationcheck", "errname", "errorlint", "exhaustive", "forbidigo",
+          "funlen", "gci", "gocognit", "goconst", "gocritic", "gocyclo",
+          "godox", "gofmt", "goimports", "gomoddirectives", "gomodguard",
+          "goprintffuncname", "gosec", "grouper", "importas", "ireturn",
+          "lll", "makezero", "misspell", "nakedret", "nestif", "nilerr",
+          "nilnil", "noctx", "nolintlint", "nosprintfhostport", "predeclared",
+          "promlinter", "reassign", "revive", "rowserrcheck", "sqlclosecheck",
+          "stylecheck", "tenv", "testpackage", "thelper", "tparallel",
+          "unconvert", "unparam", "usestdlibvars", "wastedassign", "whitespace"
+        ]
+      },
+      {
+        "name": "gofmt",
+        "config_file": null,
+        "run_command": "gofmt -s -l .",
+        "fix_command": "gofmt -s -w .",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Extensive linting configuration with 70+ enabled linters. Test files have some linters disabled (mnd, funlen, gocyclo, errcheck, dupl, gosec). Generated docs/ files exempt from line length limits."
+  },
+  "testing": {
+    "framework": "Go testing + testify/assert",
+    "test_directories": [
+      "internal/api/handlers/v0/",
+      "integrationtests/"
+    ],
+    "run_command": "go test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/... ./integrationtests/...",
+    "run_unit_tests": "go test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/...",
+    "run_integration_tests": "./integrationtests/run_tests.sh",
+    "run_integration_tests_with_coverage": "go test -v -race -coverprofile=integration-coverage.out -covermode=atomic ./integrationtests/...",
+    "run_single_file": "go test -v {file}",
+    "run_single_test": "go test -v -run '{test_name}' {package_path}",
+    "setup_required": [
+      "go mod download"
+    ],
+    "env_vars": [],
+    "fixtures_location": "Uses in-memory database for tests (no external fixtures required)",
+    "mock_patterns": "Uses testify/assert for assertions, table-driven tests, httptest for HTTP handler testing",
+    "coverage_command": "go test -race -coverprofile=coverage.out -covermode=atomic ./internal/...",
+    "coverage_threshold": null,
+    "notes": "Tests are self-contained with no external dependencies. Unit tests use in-memory database. Integration tests also use in-memory database. All tests passed successfully in validation (unit: 18+ tests, integration: 13 tests)."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/unit-tests.yml",
+      ".github/workflows/integration-tests.yml",
+      ".tekton/mcp-registry-pull-request.yaml",
+      ".tekton/mcp-registry-push.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "lint",
+        "command": "golangci-lint run --timeout=5m",
+        "required": true,
+        "workflow": "ci.yml"
+      },
+      {
+        "name": "format-check",
+        "command": "gofmt -s -l .",
+        "required": true,
+        "workflow": "ci.yml"
+      },
+      {
+        "name": "build",
+        "command": "go build -v ./cmd/...",
+        "required": true,
+        "workflow": "ci.yml"
+      },
+      {
+        "name": "vulnerability-check",
+        "command": "govulncheck ./...",
+        "required": true,
+        "workflow": "ci.yml"
+      },
+      {
+        "name": "unit-tests",
+        "command": "go test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/...",
+        "required": true,
+        "workflow": "ci.yml, unit-tests.yml"
+      },
+      {
+        "name": "integration-tests",
+        "command": "./integrationtests/run_tests.sh && go test -v -race -coverprofile=integration-coverage.out -covermode=atomic ./integrationtests/...",
+        "required": true,
+        "workflow": "ci.yml, integration-tests.yml"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "codecov-upload",
+        "command": "codecov/codecov-action@v4",
+        "required": false
+      }
+    ],
+    "notes": "CI runs on push to main/develop and on pull requests. All tests run with race detector. Go version 1.23.x is required. Tekton pipelines also configured for Kubernetes-based CI."
+  },
+  "build": {
+    "system": "Go modules",
+    "go_version": "1.23.0",
+    "install_command": "go mod download",
+    "verify_command": "go mod verify",
+    "build_command": "go build -v ./cmd/...",
+    "build_binary": "go build ./cmd/registry",
+    "docker_build": "docker build -t registry .",
+    "dev_setup": "docker compose up",
+    "notes": "Dockerfile uses multi-stage build with golang:1.23-alpine. Final image based on alpine:latest. Service runs on port 8080. Optional git hooks available in .githooks/"
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Test functions named Test* with table-driven tests using t.Run(). External test packages use _test suffix (e.g., package v0_test)",
+    "import_style": "Standard library imports first, then third-party packages, then local packages. Managed by gci linter.",
+    "package_structure": "cmd/ for entry points, internal/ for private code (api/, config/, model/, service/, database/, auth/), tools/ for CLI utilities",
+    "notes": "Uses testify/assert for assertions. HTTP handlers tested with httptest. Table-driven test pattern is standard. Test coverage reported but no enforced threshold."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.23",
+    "system_deps": [],
+    "setup_commands": [
+      "go mod download",
+      "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v1.61.0"
+    ],
+    "lint_commands": [
+      {
+        "command": "golangci-lint run --timeout=5m",
+        "validated": true,
+        "notes": "Passed with no issues"
+      },
+      {
+        "command": "gofmt -s -l .",
+        "validated": true,
+        "notes": "No formatting issues found (0 files)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "go test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/...",
+        "validated": true,
+        "notes": "All unit tests passed (18+ test cases)"
+      },
+      {
+        "command": "./integrationtests/run_tests.sh",
+        "validated": true,
+        "notes": "All integration tests passed (13 test cases)"
+      },
+      {
+        "command": "go test -v -race -coverprofile=integration-coverage.out -covermode=atomic ./integrationtests/...",
+        "validated": true,
+        "notes": "Integration tests with coverage - all passed"
+      }
+    ],
+    "test_single_file": "go test -v {file}",
+    "test_single_test": "go test -v -run '{test_name}' {package_path}",
+    "env_vars": [],
+    "notes": "All tests use in-memory database - no MongoDB required for testing. Tests are completely self-contained."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - dependencies downloaded successfully)",
+        "notes": "Dependencies installed cleanly"
+      },
+      {
+        "step": "build",
+        "command": "go build ./cmd/registry",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Build completed",
+        "notes": "Binary built successfully"
+      },
+      {
+        "step": "lint-install",
+        "command": "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v1.61.0",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "golangci/golangci-lint info installed /usr/local/bin/golangci-lint",
+        "notes": "golangci-lint v1.61.0 installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "golangci-lint run --timeout=5m",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - all checks passed)",
+        "notes": "No linting issues found"
+      },
+      {
+        "step": "format-check",
+        "command": "gofmt -s -l .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "gofmt files found: 0",
+        "notes": "All files properly formatted"
+      },
+      {
+        "step": "unit-test",
+        "command": "go test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "TestHealthHandler, TestPublishHandler, TestServersHandler - all PASS",
+        "notes": "All unit tests passed (18+ test cases covering health, publish, and servers handlers)"
+      },
+      {
+        "step": "integration-test",
+        "command": "./integrationtests/run_tests.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "TestPublishIntegration - all PASS\n✅ All integration tests passed!",
+        "notes": "All integration tests passed (13 test cases)"
+      },
+      {
+        "step": "single-test-file",
+        "command": "go test -v ./internal/api/handlers/v0/health_test.go",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "TestHealthHandler - PASS",
+        "notes": "Single test file execution works"
+      },
+      {
+        "step": "single-test-run",
+        "command": "go test -v -run TestHealthHandler ./internal/api/handlers/v0/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "TestHealthHandler - PASS",
+        "notes": "Single test execution by name works"
+      }
+    ],
+    "summary": "All validation steps passed: dependencies OK, build OK, lint OK (0 issues), format OK, unit tests OK (18+ passed), integration tests OK (13 passed)"
+  },
+  "gaps": [],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

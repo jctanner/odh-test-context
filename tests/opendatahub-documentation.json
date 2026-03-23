@@ -1,0 +1,158 @@
+{
+  "repo": "opendatahub-documentation",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:48:45Z",
+  "languages": ["AsciiDoc", "Shell"],
+  "linting": {
+    "tools": [
+      {
+        "name": "vale",
+        "config_file": ".vale.ini",
+        "run_command": "vale sync && vale '*.adoc'",
+        "fix_command": null,
+        "scope": "*.adoc files",
+        "notes": "Configured but NOT used in CI. RedHat style package has regex errors that prevent execution. Can be manually installed and run after fixing style configs."
+      },
+      {
+        "name": "gitleaks",
+        "config_file": ".gitleaks.toml",
+        "run_command": "gitleaks detect --source . --verbose",
+        "fix_command": null,
+        "scope": "full project",
+        "notes": "Configured but NOT used in CI. Used for secret detection."
+      },
+      {
+        "name": "semgrep",
+        "config_file": "semgrep.yaml",
+        "run_command": "semgrep --config semgrep.yaml .",
+        "fix_command": null,
+        "scope": "full project",
+        "notes": "Configured but NOT used in CI. Contains rules for Go, Python, TypeScript, YAML, and generic patterns."
+      }
+    ],
+    "notes": "Only link checking runs in CI. Vale, gitleaks, and semgrep are configured but not enforced."
+  },
+  "testing": {
+    "framework": "Custom shell scripts for link validation",
+    "test_directory": null,
+    "run_command": "bash scripts/check-updated-books.sh",
+    "run_single_file": "bash scripts/check-book-links.sh {file}",
+    "run_single_test": null,
+    "setup_required": [
+      "apt-get update",
+      "apt-get install -y asciidoctor curl git"
+    ],
+    "env_vars": [],
+    "fixtures_location": "scripts/.links_ignore",
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "This is a documentation repository. No traditional unit/integration tests. The only 'test' is link validation which checks for broken HTTP/HTTPS links in rendered HTML. Link checking uses curl with 5s timeout per URL."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/check-links.yml"],
+    "gating_checks": [
+      {
+        "name": "Check links in modified AsciiDoc files",
+        "command": "scripts/check-updated-books.sh",
+        "required": true,
+        "notes": "Finds modified .adoc files (modules, assemblies, books) and validates all HTTP/HTTPS URLs in rendered HTML. Skips URLs matching patterns in scripts/.links_ignore."
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on push and pull_request. Only one workflow: link checking. Requires asciidoctor to build HTML, then extracts and validates URLs with curl. Runs up to 10 concurrent curl checks per file."
+  },
+  "build": {
+    "system": "asciidoctor (Ruby)",
+    "install_command": "apt-get update && apt-get install -y asciidoctor",
+    "build_command": "bash scripts/build-docs-ci.sh",
+    "notes": "Builds all root-level .adoc files to HTML in out/ directory. Creates index.html listing all books. Uses asciidoctor with -a toc=left -a doctype=book -a allow-uri-read -a sectanchors -a skip-front-matter. Published to ReadTheDocs at https://opendatahub.io/docs."
+  },
+  "conventions": {
+    "test_file_pattern": "N/A - no test files",
+    "test_naming": "N/A",
+    "import_style": "AsciiDoc include:: statements for assemblies and modules",
+    "notes": "Documentation follows Red Hat modular documentation standards. Modules in modules/, assemblies in assemblies/, root .adoc files are book entry points. Uses product attributes from _artifacts/document-attributes-global.adoc."
+  },
+  "container_recipe": {
+    "base_image": "ubuntu:24.04",
+    "system_deps": ["asciidoctor", "curl", "git"],
+    "setup_commands": [
+      "apt-get update",
+      "apt-get install -y asciidoctor curl git"
+    ],
+    "lint_commands": [
+      {
+        "command": "vale sync && vale '*.adoc'",
+        "validated": false,
+        "notes": "Vale can be installed but RedHat style has regex errors. Not used in CI anyway."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "bash scripts/build-docs-ci.sh",
+        "validated": true,
+        "notes": "Build succeeded with exit code 0. Generated HTML output to out/ directory. Some warnings about duplicate IDs but build completes successfully."
+      },
+      {
+        "command": "bash scripts/check-book-links.sh README.adoc",
+        "validated": true,
+        "notes": "Link checking works correctly. Validates HTTP/HTTPS URLs in rendered HTML using curl."
+      }
+    ],
+    "test_single_file": "bash scripts/check-book-links.sh {file}",
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "This is a documentation repo. Build and link checking work. Vale linting has config issues. No traditional tests exist."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y asciidoctor curl git",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "asciidoctor (2.0.20-1) installed successfully along with dependencies",
+        "notes": "Dependencies installed cleanly in Ubuntu 24.04 container"
+      },
+      {
+        "step": "build",
+        "command": "bash scripts/build-docs-ci.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "asciidoctor: WARNING: assemblies/modules/using-the-kubeflow-sdk-to-run-distributed-training-workloads.adoc: line 5: id assigned to section already in use",
+        "notes": "Build succeeded. Some warnings about duplicate section IDs but does not fail build. Generated 40+ HTML books in out/ directory."
+      },
+      {
+        "step": "test",
+        "command": "bash scripts/check-book-links.sh README.adoc",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Checking: README.adoc\n✅ All links are valid!",
+        "notes": "Link checking works correctly. README.adoc has no links so passed immediately."
+      },
+      {
+        "step": "lint",
+        "command": "vale sync && vale README.adoc",
+        "exit_code": 2,
+        "success": false,
+        "output_snippet": "E201 Invalid value [/root/.local/share/vale/styles/RedHat/CaseSensitiveTerms.yml:36:4]: capture group not supported; use '(?:' instead of '('",
+        "notes": "Vale installed successfully but RedHat style package has regex syntax errors. Vale is configured but not used in CI anyway."
+      }
+    ],
+    "summary": "Build OK (warnings but succeeds), link checking OK, Vale has config errors (not used in CI)"
+  },
+  "gaps": [
+    "No traditional unit or integration tests - this is a documentation repository",
+    "Vale prose linter is configured but has syntax errors in RedHat style package and is not used in CI",
+    "Gitleaks (secret detection) is configured but not used in CI",
+    "Semgrep (SAST) is configured but not used in CI",
+    "No automated spell checking or grammar checking in CI",
+    "Build produces warnings about duplicate section IDs that should be fixed",
+    "No validation that AsciiDoc structure follows modular documentation standards",
+    "Link checking is the only gating CI check"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

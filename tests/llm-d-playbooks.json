@@ -1,0 +1,81 @@
+{
+  "repo": "llm-d-playbooks",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": ["YAML", "Markdown", "Python", "Shell"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. Repository contains YAML manifests and documentation but no yamllint, markdownlint, or Python linters configured."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure found. Repository contains deployment playbooks and documentation. The Python scripts in 08-benchmarking/intelligent-inference-scheduler/test-data-generator/ are data generators, not unit tests."
+  },
+  "ci": {
+    "system": "None",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows directory, no GitHub Actions, no Tekton pipelines, no Jenkins files."
+  },
+  "build": {
+    "system": "None",
+    "install_command": "pip install -r 08-benchmarking/intelligent-inference-scheduler/test-data-generator/requirements.txt",
+    "build_command": null,
+    "notes": "No build system. Repository is primarily YAML manifests and documentation. Python scripts have dependencies in 08-benchmarking/intelligent-inference-scheduler/test-data-generator/requirements.txt (pandas, guidellm==0.3.1)."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Repository structure organized by deployment steps (01-cluster-bring-up through 08-benchmarking). Each directory contains README.md with instructions and YAML manifests for Kubernetes resources. Python scripts are standalone data generators with argparse CLI interfaces."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11-slim",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install -r 08-benchmarking/intelligent-inference-scheduler/test-data-generator/requirements.txt"
+    ],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No validation commands to run. Repository contains deployment manifests and documentation, not executable code with tests. Python scripts are data generators that can be validated by running them with --help to verify syntax, but they have no automated tests."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "analysis",
+        "command": "Repository structure scan",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "33 YAML files, 17 Markdown files, 3 Python scripts, no test files, no CI config",
+        "notes": "Repository is documentation and deployment manifests. No tests or linting to validate."
+      }
+    ],
+    "summary": "No validation infrastructure present - repository is deployment playbooks and documentation only"
+  },
+  "gaps": [
+    "No CI/CD configuration - no automated checks on pull requests",
+    "No linting for YAML manifests (yamllint could validate Kubernetes YAML syntax)",
+    "No linting for Markdown documentation (markdownlint could enforce style)",
+    "No linting for Python scripts (ruff, flake8, or black could ensure code quality)",
+    "No unit tests for Python data generator scripts",
+    "No integration tests to validate Kubernetes manifests syntax",
+    "No validation that kustomize can build the manifests",
+    "No documentation about contributing guidelines or code review process"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

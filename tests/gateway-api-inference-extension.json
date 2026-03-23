@@ -1,0 +1,224 @@
+{
+  "repo": "gateway-api-inference-extension",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:16:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.3.0",
+        "config_file": ".golangci.yml",
+        "run_command": "make lint",
+        "fix_command": "make lint-fix",
+        "scope": "full project",
+        "notes": "Uses golangci-lint with custom configuration. Enabled linters: copyloopvar, dupword, durationcheck, errcheck, fatcontext, ginkgolinter, goconst, gocritic, govet, ineffassign, loggercheck, makezero, misspell, nakedret, perfsprint, prealloc, revive, staticcheck, unconvert, unparam, unused. Also includes gofmt and goimports formatters."
+      },
+      {
+        "name": "golangci-kube-api-linter",
+        "version": "v2.3.0",
+        "config_file": ".golangci-kal.yml",
+        "run_command": "make api-lint",
+        "fix_command": null,
+        "scope": "full project",
+        "notes": "Kubernetes API-specific linting using custom golangci-lint plugin for API conventions. This is a gating CI check."
+      },
+      {
+        "name": "go fmt",
+        "version": null,
+        "config_file": null,
+        "run_command": "make fmt",
+        "fix_command": "make fmt",
+        "scope": "full project",
+        "notes": "Standard Go formatting tool"
+      },
+      {
+        "name": "go vet",
+        "version": null,
+        "config_file": null,
+        "run_command": "make vet",
+        "fix_command": null,
+        "scope": "full project",
+        "notes": "Standard Go static analysis tool"
+      }
+    ],
+    "notes": "The Makefile has a 'verify' target that runs vet, fmt-verify, generate, ci-lint, api-lint, and verify-all. CI only runs api-lint on PRs."
+  },
+  "testing": {
+    "framework": "Go testing with Ginkgo/Gomega",
+    "test_directory": "pkg/, test/",
+    "run_command": "CGO_ENABLED=1 KUBEBUILDER_ASSETS=\"$(make envtest 2>&1 | grep -oP 'path.*' | cut -d' ' -f2)\" go test ./pkg/... -race -coverprofile cover.out",
+    "run_single_file": "CGO_ENABLED=1 go test {file} -race",
+    "run_single_test": "CGO_ENABLED=1 go test {file} -race -run {test_name}",
+    "setup_required": [
+      "go mod download"
+    ],
+    "env_vars": [
+      "CGO_ENABLED=1 (required for race detector)",
+      "KUBEBUILDER_ASSETS (path to envtest binaries, auto-installed by Makefile)"
+    ],
+    "fixtures_location": "test/testdata/",
+    "mock_patterns": "Uses mocks in pkg/epp/*/mocks/ directories, generated code patterns",
+    "coverage_command": "go test ./pkg/... -race -coverprofile cover.out && go tool cover -func=cover.out",
+    "coverage_threshold": null,
+    "notes": "Three test tiers: unit tests (make test-unit: pkg/...), integration tests (make test-integration: test/integration/epp/...), and e2e tests (make test-e2e, requires Kubernetes cluster). All unit tests use race detector. Integration and e2e tests require envtest/kind. The full 'make test' target runs generate, fmt, vet, envtest setup, image-build, verify-crds, verify-helm-charts, then all tests excluding e2e and conformance."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/kal.yml",
+      ".github/workflows/non-main-gatekeeper.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "kube-api-lint",
+        "command": "make api-lint",
+        "required": true,
+        "workflow": "kal.yml",
+        "trigger": "pull_request (opened, edited, synchronize, reopened)"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "non-main-gatekeeper",
+        "command": "N/A (just adds labels)",
+        "required": false,
+        "workflow": "non-main-gatekeeper.yml",
+        "trigger": "pull_request on non-main branches"
+      }
+    ],
+    "notes": "Only one gating CI check runs on PRs: api-lint. The project also has a cloudbuild.yaml for Google Cloud Build (image building/pushing for releases, not gating). No visible integration test or unit test CI workflows, suggesting tests may run in a different system (e.g., Prow) or are expected to be run locally before PR."
+  },
+  "build": {
+    "system": "Makefile + Docker/Podman",
+    "install_command": "go mod download",
+    "build_command": "make image-build",
+    "build_local_binary": "go build -o epp ./cmd/epp",
+    "container_image": "Dockerfile (main EPP image), bbr.Dockerfile (body-based routing)",
+    "base_image": "golang:1.24 (builder), gcr.io/distroless/static:nonroot (runtime)",
+    "notes": "Multi-stage Docker build. CGO_ENABLED=0 for static binary. Uses kubebuilder for CRD generation. The project builds multiple images: EPP (endpoint picker), BBR (body-based router), and LoRA syncer."
+  },
+  "conventions": {
+    "test_file_pattern": "**/*_test.go",
+    "test_naming": "Standard Go: Test* functions in *_test.go files. Uses Ginkgo Describe/It blocks in some tests.",
+    "import_style": "Standard library first, then third-party, then project imports (sigs.k8s.io/gateway-api-inference-extension). Enforced by gci formatter with make fmt-imports.",
+    "code_generation": "Uses controller-gen for CRDs, k8s.io/code-generator for client-go, deepcopy, etc. Run 'make generate' to regenerate.",
+    "notes": "Kubernetes controller project following standard kubebuilder conventions. API versions in api/ and apix/ directories. Heavy use of code generation."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.24",
+    "system_deps": [
+      "make",
+      "git",
+      "gcc"
+    ],
+    "setup_commands": [
+      "go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "make lint",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Passed with 0 issues. Auto-installs golangci-lint v2.3.0 if needed."
+      },
+      {
+        "command": "make api-lint",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Passed with 0 issues. Builds custom golangci-kube-api-linter plugin first."
+      },
+      {
+        "command": "go fmt ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "No formatting issues found."
+      },
+      {
+        "command": "go vet ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "No vet issues found."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "CGO_ENABLED=1 go test ./pkg/... -race -coverprofile cover.out",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All 53 test packages passed. Coverage ranges from 10% to 100% across packages. Total runtime ~60 seconds."
+      }
+    ],
+    "test_single_file": "CGO_ENABLED=1 go test {file} -race",
+    "test_single_test": "CGO_ENABLED=1 go test {file} -race -run {test_name}",
+    "env_vars": [
+      "CGO_ENABLED=1"
+    ],
+    "notes": "Container setup is straightforward. All deps install cleanly. Tests require CGO for race detector. Integration/e2e tests require envtest/kind but unit tests run without cluster. The golang:1.24 image already has make, git, gcc installed."
+  },
+  "validation": {
+    "container_name": "test-context-gateway-api-inference-extension",
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output, successful download)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "lint",
+        "command": "make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 issues.",
+        "notes": "golangci-lint auto-installed to bin/ and ran successfully"
+      },
+      {
+        "step": "api-lint",
+        "command": "make api-lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 issues.",
+        "notes": "Kubernetes API linting passed"
+      },
+      {
+        "step": "test",
+        "command": "CGO_ENABLED=1 go test ./pkg/... -race -coverprofile cover.out",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tsigs.k8s.io/gateway-api-inference-extension/pkg/bbr/handlers\t1.078s\tcoverage: 40.2% of statements\nok  \tsigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics\t1.059s\tcoverage: 65.6% of statements",
+        "notes": "All 53 test packages passed with race detection enabled. Total runtime ~60s."
+      },
+      {
+        "step": "fmt",
+        "command": "go fmt ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "No formatting issues"
+      },
+      {
+        "step": "vet",
+        "command": "go vet ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "No vet issues"
+      }
+    ],
+    "summary": "install OK, lint OK (0 issues), api-lint OK (0 issues), fmt OK, vet OK, tests OK (53 packages passed, ~60s runtime)"
+  },
+  "gaps": [
+    "No unit test or integration test CI workflows visible in .github/workflows/ - may run in external CI system (Prow)",
+    "E2E tests require Kubernetes cluster (kind) and cannot be validated in simple container",
+    "Integration tests require envtest setup with specific Kubernetes version",
+    "The 'make test' target requires image-build which needs Docker/Podman buildx",
+    "No explicit coverage threshold configured, though coverage is measured",
+    "Code generation (make generate) not validated - requires controller-gen and code-generator tools"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high",
+  "rationale": "All core validation commands (lint, api-lint, fmt, vet, unit tests) run successfully in a standard golang:1.24 container with no special setup beyond 'go mod download'. The api-lint check is confirmed as a gating CI check. Unit tests pass with race detection. An agent can clone this repo, spin up the container, and get clear pass/fail signals for patch validation. Integration and e2e tests require infrastructure but unit tests provide good coverage (40-100% across packages)."
+}

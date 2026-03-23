@@ -1,0 +1,190 @@
+{
+  "repo": "rhaii-cluster-validation",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-23T00:13:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.11.3",
+        "config_file": ".golangci.yml",
+        "run_command": "golangci-lint run ./...",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      }
+    ],
+    "notes": "golangci-lint config disables errcheck (intentional - fmt.Fprintf to output writers is logging pattern). Linter validated successfully with 0 issues."
+  },
+  "testing": {
+    "framework": "Go standard testing package",
+    "test_directory": "pkg/*/",
+    "run_command": "go test ./... -count=1 -race",
+    "run_single_file": "go test ./{package} -v",
+    "run_single_test": "go test ./{package} -run {TestName} -v",
+    "setup_required": ["go mod download"],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": "No mocking framework - uses Go standard testing with temp directories for file I/O tests",
+    "coverage_command": "go test ./... -cover",
+    "coverage_threshold": null,
+    "notes": "7 packages with tests (gpu, networking, rdma, config, controller, jobrunner, runner). All tests pass including race detector. CI runs with -count=1 -race flags."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci.yaml",
+      ".github/workflows/e2e.yaml",
+      ".github/workflows/release.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Build",
+        "command": "make build",
+        "required": true
+      },
+      {
+        "name": "Test",
+        "command": "go test ./... -count=1 -race",
+        "required": true
+      },
+      {
+        "name": "Lint",
+        "command": "golangci-lint run ./...",
+        "required": true
+      },
+      {
+        "name": "Verify go.mod tidy",
+        "command": "go mod tidy && git diff --exit-code go.mod go.sum",
+        "required": true
+      },
+      {
+        "name": "E2E - Binary version check",
+        "command": "./bin/rhaii-validator --version",
+        "required": true
+      },
+      {
+        "name": "E2E - Local run validation",
+        "command": "./bin/rhaii-validator run --node-name ci-runner",
+        "required": true
+      },
+      {
+        "name": "E2E - Container build",
+        "command": "docker build -t rhaii-validator:ci .",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Both ci.yaml and e2e.yaml are gating (trigger on pull_request to main). E2E tests expect check failures (no GPU/RDMA in CI) but validate no runtime errors and valid JSON output. Release workflow is push-only (not gating)."
+  },
+  "build": {
+    "system": "Go + Makefile",
+    "install_command": "go mod download",
+    "build_command": "CGO_ENABLED=0 go build -o bin/rhaii-validator ./cmd/agent/",
+    "container_build_command": "docker build -t rhaii-validator:ci .",
+    "notes": "Makefile provides convenience targets. Build produces single binary bin/rhaii-validator. Uses Go 1.25.0 (from go.mod). Container uses UBI9 base with go-toolset builder."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "TestFunctionName pattern, following Go conventions",
+    "import_style": "Go standard import grouping (stdlib, external, internal)",
+    "notes": "Standard Go project layout: cmd/ for entrypoints, pkg/ for libraries, deploy/ for K8s manifests, test/ for integration tests."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25",
+    "system_deps": [
+      "curl (for golangci-lint install)",
+      "git (for go mod tidy verification)"
+    ],
+    "setup_commands": [
+      "go mod download",
+      "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v2.11.3"
+    ],
+    "lint_commands": [
+      {
+        "command": "golangci-lint run ./...",
+        "validated": true,
+        "notes": "Passed with 0 issues"
+      },
+      {
+        "command": "go fmt ./...",
+        "validated": true,
+        "notes": "Standard Go formatting"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "go test ./... -count=1 -race",
+        "validated": true,
+        "notes": "All 7 packages pass (gpu, networking, rdma, config, controller, jobrunner, runner)"
+      }
+    ],
+    "test_single_file": "go test ./{package} -v",
+    "test_single_test": "go test ./{package} -run {TestName} -v",
+    "env_vars": [],
+    "notes": "Container must have internet access to download go modules. Race detector adds ~1s per package."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - successful download)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "CGO_ENABLED=0 go build -o bin/rhaii-validator ./cmd/agent/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)\n-rwxr-xr-x. 1 root root 36M Mar 23 00:11 bin/rhaii-validator",
+        "notes": "Build succeeded, 36MB binary created"
+      },
+      {
+        "step": "lint",
+        "command": "golangci-lint run ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 issues.",
+        "notes": "Linting passed with no issues"
+      },
+      {
+        "step": "test",
+        "command": "go test ./... -count=1",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/opendatahub-io/rhaii-cluster-validation/pkg/checks/gpu\t0.002s\nok  \tgithub.com/opendatahub-io/rhaii-cluster-validation/pkg/checks/networking\t0.009s\nok  \tgithub.com/opendatahub-io/rhaii-cluster-validation/pkg/checks/rdma\t0.008s\nok  \tgithub.com/opendatahub-io/rhaii-cluster-validation/pkg/config\t0.009s\nok  \tgithub.com/opendatahub-io/rhaii-cluster-validation/pkg/controller\t0.010s\nok  \tgithub.com/opendatahub-io/rhaii-cluster-validation/pkg/jobrunner\t0.007s\nok  \tgithub.com/opendatahub-io/rhaii-cluster-validation/pkg/runner\t0.002s",
+        "notes": "All 7 test packages passed"
+      },
+      {
+        "step": "test_race",
+        "command": "go test ./... -count=1 -race",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/opendatahub-io/rhaii-cluster-validation/pkg/checks/gpu\t1.014s\nok  \tgithub.com/opendatahub-io/rhaii-cluster-validation/pkg/checks/networking\t1.027s\nok  \tgithub.com/opendatahub-io/rhaii-cluster-validation/pkg/checks/rdma\t1.032s",
+        "notes": "Race detector tests passed (longer runtime ~1s per package)"
+      },
+      {
+        "step": "verify_tidy",
+        "command": "go mod tidy && git diff --exit-code go.mod go.sum",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "EXIT_CODE=0",
+        "notes": "go.mod is already tidy"
+      }
+    ],
+    "summary": "All validation steps passed: deps OK, build OK (36MB binary), lint OK (0 issues), tests OK (7 packages, all pass), race detector OK, go.mod tidy OK"
+  },
+  "gaps": [],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

@@ -1,0 +1,86 @@
+{
+  "repo": "dsp-dev-tools",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:02:52-04:00",
+  "languages": ["Python", "Shell", "YAML"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. No .flake8, .pylintrc, pyproject.toml, .pre-commit-config.yaml, or other linter configs present in the repository."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure found. This repository contains developer tools, scripts, and example pipelines for Data Science Pipelines (DSP) development, not a library or application with unit tests."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows, .tekton, Jenkinsfile, or other CI system configs present."
+  },
+  "build": {
+    "system": "scripts",
+    "install_command": null,
+    "build_command": null,
+    "notes": "This is a repository of developer tools and scripts, not a formal project with a build system. Contents include: (1) dev-setup scripts for local DSP development environment, (2) example KFP pipelines in example-pipelines/, (3) Kubernetes manifests in manifests/, (4) toolbox/ with a containerized dev environment Dockerfile. The main.sh script generates configuration files from templates for local DSP API server development."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": "Python scripts use standard imports; KFP components defined with @component decorator",
+    "notes": "Repository structure: (1) Shell script templates in dev-setup/templates/ use placeholder syntax like <namespace> and <dspa> for substitution, (2) KFP pipeline components declare dependencies via packages_to_install parameter (e.g., pandas, scikit-learn, tf2onnx), (3) Kubernetes manifests use kustomize overlays pattern in cloudbeaver/ and external-connection-setup/"
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["bash", "shellcheck"],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No dependencies to install. Scripts are standalone with minimal imports from Python stdlib and KFP SDK (for pipeline examples). Validation performed: Python syntax check on all .py files (passed), bash syntax check on executable shell scripts (passed). Template shell scripts (.sh files in templates/) contain placeholders and are not directly executable."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "python_syntax",
+        "command": "python -m py_compile <all .py files>",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All Python files validated successfully:\n- dev-setup/converter.py\n- dev-setup/driver-launcher-debug/driver.py\n- dev-setup/driver-launcher-debug/launcher.py\n- example-pipelines/fraud-detection/*.py (13 files)\n- meeting-calendar/script.py",
+        "notes": "All Python files have valid syntax. Total ~75 lines of Python code."
+      },
+      {
+        "step": "shell_syntax",
+        "command": "bash -n <.sh files>",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Validated shell scripts:\n✓ dev-setup/main.sh\n✓ dev-setup/post-config-run.sh\n✓ external-connection-setup/devenv.sh\n✓ manifests/deploy-kfp/openshift/base/add_resources.sh\n✗ Template files (expected): dev-setup/templates/*.sh (contain <placeholder> syntax)",
+        "notes": "Core shell scripts are syntactically valid. Template files intentionally contain placeholders and are processed by main.sh during dev environment setup."
+      }
+    ],
+    "summary": "Python syntax OK (14 files), shell syntax OK (4 executable scripts), templates OK (9 template files with placeholders)"
+  },
+  "gaps": [
+    "No test infrastructure - no unit tests, integration tests, or test framework",
+    "No linting configuration - no code quality enforcement tools configured",
+    "No CI/CD - no automated validation or gating checks",
+    "No formal build system - no package management or dependency specification",
+    "No requirements.txt, pyproject.toml, or dependency manifest",
+    "Scripts are intended for developer use, not production deployment",
+    "KFP pipeline examples require Kubeflow Pipelines SDK and OpenShift/Kubernetes cluster to execute"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

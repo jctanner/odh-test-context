@@ -1,0 +1,252 @@
+{
+  "repo": "llama-stack-modular-ui",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:48:30-04:00",
+  "languages": ["TypeScript", "JavaScript", "Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "eslint",
+        "config_file": "frontend/.eslintrc.js",
+        "run_command": "cd frontend && npm run test:lint",
+        "fix_command": "cd frontend && npm run test:fix",
+        "scope": "frontend/src directory"
+      },
+      {
+        "name": "prettier",
+        "config_file": "frontend/.prettierrc",
+        "run_command": "cd frontend && npm run format",
+        "fix_command": "cd frontend && npm run format",
+        "scope": "frontend/src directory"
+      },
+      {
+        "name": "typescript",
+        "config_file": "frontend/tsconfig.json",
+        "run_command": "cd frontend && npm run test:type-check",
+        "fix_command": null,
+        "scope": "full frontend project"
+      },
+      {
+        "name": "golangci-lint",
+        "config_file": null,
+        "run_command": "cd bff && make lint",
+        "fix_command": "cd bff && make lint-fix",
+        "scope": "full bff project"
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "cd bff && make fmt",
+        "fix_command": "cd bff && make fmt",
+        "scope": "full bff project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "cd bff && make vet",
+        "fix_command": null,
+        "scope": "full bff project"
+      }
+    ],
+    "notes": "Frontend uses ESLint with TypeScript parser, max-warnings set to 0 (strict). Prettier enforces formatting. BFF uses golangci-lint v1.63.4 with default config."
+  },
+  "testing": {
+    "framework": "Jest (frontend), Go test (bff)",
+    "test_directory": "frontend/src/__tests__ (Jest unit tests in unit/, Cypress E2E in cypress/), bff/*_test.go files",
+    "run_command": "cd frontend && npm run test:jest (for unit tests); cd bff && make test (for Go tests)",
+    "run_single_file": "cd frontend && npx jest {file}; cd bff && go test {package}",
+    "run_single_test": "cd frontend && npx jest -t '{test_name}'; cd bff && go test -run '{TestName}' {package}",
+    "setup_required": [
+      "cd frontend && npm install",
+      "cd bff && go mod download",
+      "cd bff && make envtest"
+    ],
+    "env_vars": [
+      "ENVTEST_ASSETS (optional, for bff tests with envtest)"
+    ],
+    "fixtures_location": "frontend/src/__tests__/unit/jest.setup.ts, frontend/config/transform.*.js",
+    "mock_patterns": "Jest mocks via moduleNameMapper in jest.config.js",
+    "coverage_command": "cd frontend && npm run test:coverage",
+    "coverage_threshold": null,
+    "notes": "Frontend has 77 Jest unit tests passing. BFF has 3 test files with tests in cmd/ and internal/api/ packages. Full frontend test suite includes Cypress E2E tests (npm run test). ENVTEST downloads may fail with 401 errors but tests run successfully with empty ENVTEST_ASSETS."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ui-frontend-build.yml",
+      ".github/workflows/ui-bff-build.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Frontend - Install dependencies",
+        "command": "cd frontend && npm install",
+        "required": true
+      },
+      {
+        "name": "Frontend - Run tests",
+        "command": "cd frontend && npm run test",
+        "required": true
+      },
+      {
+        "name": "Frontend - Run clean",
+        "command": "cd frontend && npm run clean",
+        "required": true
+      },
+      {
+        "name": "Frontend - Run build",
+        "command": "cd frontend && npm run build",
+        "required": true
+      },
+      {
+        "name": "BFF - Run clean",
+        "command": "cd bff && make clean",
+        "required": true
+      },
+      {
+        "name": "BFF - Run lint",
+        "command": "cd bff && golangci-lint run (via golangci-lint-action@v8)",
+        "required": true
+      },
+      {
+        "name": "BFF - Run build",
+        "command": "cd bff && make build",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Both workflows trigger on pull_request and push to main. They check for uncommitted file changes after build. Frontend uses Node 20, BFF uses Go 1.24.3 (note: go.mod specifies 1.23.5, CI uses 1.24.3). Frontend 'npm run test' includes lint, type-check, jest, and cypress tests."
+  },
+  "build": {
+    "system": "npm (frontend), make (bff)",
+    "install_command": "cd frontend && npm install; cd bff && go mod download",
+    "build_command": "cd frontend && npm run build; cd bff && make build",
+    "notes": "Frontend build requires prebuild step (type-check and clean). BFF build runs fmt, vet, and test before compiling. Frontend build outputs to frontend/dist/. BFF build outputs to bff/bin/bff."
+  },
+  "conventions": {
+    "test_file_pattern": "frontend: **/__tests__/**/*.spec.ts, **/__tests__/**/*.spec.tsx; bff: *_test.go",
+    "test_naming": "frontend: describe/it blocks (Jest); bff: TestXxx functions",
+    "import_style": "frontend: path aliases with ~ prefix for root, @app/* for app code; bff: standard Go imports",
+    "notes": "Frontend enforces strict ESLint rules including no-console, max-warnings 0. Prettier formats to 100 char width, single quotes, trailing commas. BFF follows standard Go conventions."
+  },
+  "container_recipe": {
+    "base_image": "node:20 (frontend), golang:1.23 (bff)",
+    "system_deps": [],
+    "setup_commands": [
+      "cd /app/frontend && npm install",
+      "cd /app/bff && go mod download",
+      "cd /app/bff && make golangci-lint",
+      "cd /app/bff && make envtest"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd /app/frontend && npm run test:lint",
+        "validated": true,
+        "notes": "Passed with exit code 0, no warnings"
+      },
+      {
+        "command": "cd /app/frontend && npm run test:type-check",
+        "validated": true,
+        "notes": "Passed with exit code 0, no type errors"
+      },
+      {
+        "command": "cd /app/bff && make lint",
+        "validated": true,
+        "notes": "Passed with exit code 0, uses golangci-lint v1.63.4"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd /app/frontend && npm run test:jest",
+        "validated": true,
+        "notes": "Passed: 6 test suites, 77 tests passed in 1.965s"
+      },
+      {
+        "command": "cd /app/bff && make test",
+        "validated": true,
+        "notes": "Passed: 2 test packages (cmd, internal/api), envtest download warning but tests run successfully"
+      }
+    ],
+    "test_single_file": "cd /app/frontend && npx jest {file}; cd /app/bff && go test {package_path}",
+    "test_single_test": "cd /app/frontend && npx jest -t '{test_name}'; cd /app/bff && go test -run '{TestName}' {package_path}",
+    "env_vars": [],
+    "notes": "ENVTEST download fails with 401 Unauthorized from GCS but tests run with empty ENVTEST_ASSETS. Frontend Cypress tests require a running dev server and are skipped in unit test runs."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "frontend-install",
+        "command": "cd /app/frontend && npm install",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "added 1990 packages, and audited 1991 packages in 38s\n404 packages are looking for funding",
+        "notes": "Dependencies installed successfully with deprecation warnings (expected)"
+      },
+      {
+        "step": "frontend-lint",
+        "command": "cd /app/frontend && npm run test:lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "> eslint --max-warnings 0 --ext .js,.ts,.jsx,.tsx ./src",
+        "notes": "ESLint passed with no warnings or errors"
+      },
+      {
+        "step": "frontend-type-check",
+        "command": "cd /app/frontend && npm run test:type-check",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "> tsc --noEmit",
+        "notes": "TypeScript type checking passed with no errors"
+      },
+      {
+        "step": "frontend-test",
+        "command": "cd /app/frontend && npm run test:jest",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Test Suites: 6 passed, 6 total\nTests:       77 passed, 77 total\nSnapshots:   0 total\nTime:        1.965 s\nRan all test suites.",
+        "notes": "All Jest unit tests passed"
+      },
+      {
+        "step": "bff-install",
+        "command": "cd /app/bff && go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "Go dependencies downloaded successfully"
+      },
+      {
+        "step": "bff-lint",
+        "command": "cd /app/bff && make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "/app/bff/bin/golangci-lint-v1.63.4 run",
+        "notes": "golangci-lint passed with no issues"
+      },
+      {
+        "step": "bff-test",
+        "command": "cd /app/bff && make test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/opendatahub-io/llama-stack-modular-ui/cmd\t0.005s\nok  \tgithub.com/opendatahub-io/llama-stack-modular-ui/internal/api\t0.003s",
+        "notes": "Tests passed. ENVTEST download warning is expected and doesn't block tests"
+      },
+      {
+        "step": "bff-build",
+        "command": "cd /app/bff && make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go build -o bin/bff ./cmd",
+        "notes": "Build completed successfully, binary created at bin/bff"
+      }
+    ],
+    "summary": "All validation passed: install OK, lint OK (0 warnings), type-check OK, frontend tests OK (77 passed), bff tests OK (2 packages), build OK"
+  },
+  "gaps": [
+    "No golangci-lint config file (.golangci.yml) found - using defaults",
+    "ENVTEST download requires authentication to GCS, fails in container but tests still run",
+    "Cypress E2E tests require running dev server, not validated in this analysis",
+    "Frontend full test suite (npm run test) includes Cypress which requires additional setup",
+    "No explicit coverage thresholds configured"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

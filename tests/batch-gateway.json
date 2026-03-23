@@ -1,0 +1,192 @@
+{
+  "repo": "batch-gateway",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:38:57Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v1.63.4",
+        "config_file": null,
+        "run_command": "golangci-lint run ./...",
+        "fix_command": null,
+        "scope": "full project",
+        "notes": "No custom .golangci.yml config file - uses default linters. Configured in .pre-commit-config.yaml with 5m timeout."
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "go mod tidy",
+        "config_file": "go.mod",
+        "run_command": "go mod tidy",
+        "fix_command": "go mod tidy",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Linting is enforced via pre-commit hooks and GitHub Actions. The pre-commit workflow runs on pull_request_target events. Golangci-lint found several legitimate errcheck violations (unchecked error returns in test code and main.go)."
+  },
+  "testing": {
+    "framework": "go test (stdlib testing)",
+    "test_directory": "internal/, pkg/, test/e2e/",
+    "run_command": "go test -race -v ./...",
+    "run_single_file": "go test -race ./path/to/package/...",
+    "run_single_test": "go test -race -run '^TestName$' ./path/to/package/...",
+    "setup_required": [
+      "go mod download"
+    ],
+    "env_vars": [
+      "TEST_BASE_URL - for E2E tests (optional, defaults to http://localhost:8080)"
+    ],
+    "fixtures_location": "Test files use table-driven tests and mock implementations (pgxmock, miniredis)",
+    "mock_patterns": "pgxmock for PostgreSQL database mocking, miniredis for Redis mocking, httptest for HTTP server mocking",
+    "coverage_command": "go test -coverprofile=coverage.out ./...",
+    "coverage_threshold": null,
+    "notes": "206 total test cases. Tests are categorized as: (1) Unit tests - standard Go tests without build tags, (2) Integration tests - use '//go:build integration' tag and are run via 'make test-integration', (3) E2E tests - located in test/e2e/ and run via 'make test-e2e'. The Makefile provides helpful test targets with summaries. Test flags include -race for race detection."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/pre-commit.yml",
+      ".github/workflows/docker.yml",
+      ".github/workflows/prow-github.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "pre-commit",
+        "command": "pre-commit run --all-files (runs go-fmt, go-unit-tests, go-build, go-mod-tidy, golangci-lint)",
+        "required": true,
+        "notes": "Runs on pull_request_target. Uses j178/prek-action@v1 with Go 1.25 from go.mod. Pre-commit hooks include: trailing-whitespace, end-of-file-fixer, check-yaml, check-added-large-files, check-merge-conflict, check-case-conflict, go-fmt, go-unit-tests, go-build, go-mod-tidy, golangci-lint (with 5m timeout)."
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "docker-build",
+        "command": "docker bake (builds apiserver and processor images)",
+        "required": false,
+        "notes": "Runs on push to main and tags only, not on PRs. Uses docker-bake.hcl for multi-image builds."
+      }
+    ],
+    "notes": "The main gating check is the pre-commit workflow which validates code formatting, linting, builds, and unit tests. Prow commands are available for PR management (/lgtm, /approve, etc). Integration and E2E tests do not run automatically in CI - they require infrastructure (mock servers for integration, deployed cluster for E2E)."
+  },
+  "build": {
+    "system": "make + go",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "build_targets": {
+      "all": "make build (builds both binaries)",
+      "apiserver": "make build-apiserver",
+      "processor": "make build-processor"
+    },
+    "container_build": "make image-build (or image-build-apiserver / image-build-processor)",
+    "notes": "Go 1.25.0 required (from go.mod). Builds two binaries: batch-gateway-apiserver and batch-gateway-processor. Build uses -ldflags '-s -w' for size optimization. Binaries output to ./bin/ directory."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "TestFunctionName for test functions, using table-driven tests with subtests (t.Run)",
+    "import_style": "Standard Go import grouping: stdlib, external, internal",
+    "integration_test_tag": "//go:build integration",
+    "notes": "Standard Go project layout with cmd/, internal/, pkg/ directories. Uses klog/v2 for logging. Test mocks are in internal/database/mock, internal/files_store/mock. Integration tests spawn their own mock servers."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25",
+    "system_deps": ["make", "git"],
+    "setup_commands": [
+      "go mod download",
+      "make build",
+      "go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.4"
+    ],
+    "lint_commands": [
+      {
+        "command": "golangci-lint run ./...",
+        "validated": true,
+        "exit_code": 1,
+        "notes": "Linter ran successfully but found legitimate issues (errcheck violations). Exit code 1 indicates linting violations found, not a broken command."
+      },
+      {
+        "command": "go fmt ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Code formatting validated successfully."
+      },
+      {
+        "command": "go vet ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Go vet checks passed."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "go test -race -v ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All 206 unit tests passed. Took ~30 seconds with race detector enabled."
+      }
+    ],
+    "test_single_file": "go test -race ./path/to/package/...",
+    "test_single_test": "go test -race -run '^TestName$' ./path/to/package/...",
+    "test_integration": "go test -v -tags=integration ./internal/inference/...",
+    "test_e2e": "cd test/e2e && go test -v -count=1 ./...",
+    "env_vars": [],
+    "notes": "Container setup is straightforward - golang:1.25 base image with make and git installed. All dependencies download cleanly. Build succeeds. Unit tests pass completely. Golangci-lint has some legitimate findings that should be fixed but doesn't block patch validation."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - success)",
+        "notes": "Dependencies installed cleanly."
+      },
+      {
+        "step": "build",
+        "command": "make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Building batch-gateway-apiserver...\nBinary built at ./bin/batch-gateway-apiserver\nBuilding batch-gateway-processor...\nBinary built at ./bin/batch-gateway-processor\nAll binaries built successfully",
+        "notes": "Both binaries built successfully."
+      },
+      {
+        "step": "lint",
+        "command": "golangci-lint run ./...",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "pkg/clients/http/http_client_test.go:157:28: Error return value of `(*encoding/json.Encoder).Encode` is not checked (errcheck)\ninternal/database/redis/redis_ds_client_test.go:1276:23: Error return value of `exchClient.PQEnqueue` is not checked (errcheck)\ncmd/batch-processor/main.go:63:10: Error return value of `fs.Parse` is not checked (errcheck)",
+        "notes": "Linter found legitimate errcheck violations (unchecked error returns). These are code quality issues, not broken linter config. The command itself works correctly."
+      },
+      {
+        "step": "test",
+        "command": "go test -race -v ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/llm-d-incubation/batch-gateway/internal/apiserver/batch\t1.028s\nok  \tgithub.com/llm-d-incubation/batch-gateway/pkg/clients/inference\t6.724s\n(206 test cases total)",
+        "notes": "All tests passed. 206 individual test cases across multiple packages."
+      }
+    ],
+    "summary": "install OK, build OK, lint OK (found 15+ errcheck warnings), tests OK (206 passed)"
+  },
+  "gaps": [
+    "Integration tests (with '//go:build integration' tag) require running mock inference servers - not validated in container",
+    "E2E tests require a deployed cluster with batch-gateway running - cannot be run in basic container",
+    "No custom golangci-lint configuration - using defaults, which found several errcheck violations that should be addressed",
+    "Pre-commit hooks not validated in container (would require pre-commit framework installation)"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high",
+  "notes": "This repository has excellent test infrastructure and clear build/lint/test commands. An agent can easily validate patches by: (1) spinning up a golang:1.25 container, (2) running go mod download, (3) building with make build, (4) linting with golangci-lint, (5) running unit tests with go test -race ./.... The unit tests are comprehensive (206 test cases) and pass cleanly. The existing linting violations are legitimate code quality issues that should be fixed, but they don't prevent patch validation. Integration and E2E tests require additional infrastructure and cannot be run in a basic container, but the unit test coverage is strong. The Makefile provides convenient targets for all common operations. CI is well-configured with pre-commit hooks as the primary gating check."
+}

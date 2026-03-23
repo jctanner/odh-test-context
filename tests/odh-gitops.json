@@ -1,0 +1,255 @@
+{
+  "repo": "odh-gitops",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:36:50Z",
+  "languages": ["YAML", "Helm", "Kustomize", "Shell"],
+  "linting": {
+    "tools": [
+      {
+        "name": "yamllint",
+        "version": "1.37.1",
+        "config_file": ".yamllint.yaml",
+        "run_command": "make validate-yaml",
+        "run_command_direct": "bin/yamllint -c .yamllint.yaml .",
+        "fix_command": null,
+        "scope": "full project (excludes bin/, .git/, docs/, scripts/, .github/, .claude/, charts/)"
+      },
+      {
+        "name": "kube-linter",
+        "version": "v0.7.6",
+        "config_file": ".kube-linter.yaml",
+        "run_command": "make validate-lint",
+        "run_command_direct": "kustomize build . | bin/kube-linter lint -",
+        "fix_command": null,
+        "scope": "full project (excludes bin/, .git/, docs/, .tekton/)"
+      },
+      {
+        "name": "helm lint",
+        "version": "included with helm",
+        "config_file": null,
+        "run_command": "for chart in $(find charts -name Chart.yaml -exec dirname {} \\;); do helm lint \"$chart\"; done",
+        "fix_command": null,
+        "scope": "all helm charts in charts/ directory"
+      },
+      {
+        "name": "chart-testing (ct)",
+        "version": "determined by helm/chart-testing-action@v2.8.0",
+        "config_file": ".github/configs/ct.yaml",
+        "run_command": "ct lint --debug --config ./.github/configs/ct.yaml --lint-conf ./.github/configs/lintconf.yaml",
+        "fix_command": null,
+        "scope": "helm charts"
+      }
+    ],
+    "notes": "All linters passed validation. YAML linter produced one warning about line length (non-blocking). Kube-linter found no issues."
+  },
+  "testing": {
+    "framework": "Helm chart snapshot testing + Kustomize build validation",
+    "test_directory": "charts/*/test/snapshots/",
+    "run_command": "make validate-all",
+    "run_single_file": "N/A - not applicable for manifest validation",
+    "run_single_test": "make chart-test CHART_NAME=<chart_name>",
+    "setup_required": [
+      "make tools"
+    ],
+    "env_vars": [
+      "GOTOOLCHAIN=auto (required for installing kustomize and yq with Go 1.22)"
+    ],
+    "fixtures_location": "charts/*/test/snapshots/*.snap.yaml",
+    "mock_patterns": "Snapshot-based testing - helm template output is compared against golden snapshots",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Testing validates that Kustomize manifests build correctly and Helm charts produce expected output. Chart snapshot tests ensure helm template output matches expected snapshots. All 10 chart snapshots passed (7 for odh-rhoai, 3 for rhaii-helm-chart)."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/testing.yaml",
+      ".github/workflows/helm.yaml",
+      ".tekton/cluster-validation-ocp-4.19.yaml",
+      ".tekton/cluster-validation-ocp-4.20.yaml",
+      ".tekton/helm-chart-validation-ocp-4.19.yaml",
+      ".tekton/pipelines/cluster-validation-pipeline.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "YAML Lint",
+        "command": "make validate-yaml",
+        "required": true
+      },
+      {
+        "name": "Kustomize Build",
+        "command": "make validate-kustomize",
+        "required": true
+      },
+      {
+        "name": "Best Practices Lint",
+        "command": "make validate-lint",
+        "required": true,
+        "notes": "Uses continue-on-error but still fails workflow if exit code != 0"
+      },
+      {
+        "name": "Helm Chart Lint",
+        "command": "helm lint + ct lint",
+        "required": true,
+        "trigger": "only on changes to charts/**"
+      },
+      {
+        "name": "Helm Chart Snapshot Tests",
+        "command": "make chart-test",
+        "required": true,
+        "trigger": "only on changes to charts/**"
+      },
+      {
+        "name": "Helm Documentation Check",
+        "command": "make helm-docs && git diff --exit-code",
+        "required": true,
+        "trigger": "only on changes to charts/**"
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "GitHub Actions workflow testing.yaml runs on pull_request and push to main (excluding .md, LICENSE, .gitignore). Helm.yaml workflow runs only on changes to charts/**. Tekton pipelines appear to be for cluster validation (requires OpenShift cluster). All GitHub Actions checks are gating for PR merges."
+  },
+  "build": {
+    "system": "make",
+    "install_command": "make tools",
+    "build_command": "make validate-kustomize",
+    "notes": "No traditional 'build' step - this is a GitOps manifest repository. 'make tools' installs validation tools (kustomize, kube-linter, yamllint, yq). Helm must be installed separately. Validation commands verify manifests are correct."
+  },
+  "conventions": {
+    "test_file_pattern": "charts/*/test/snapshots/*.snap.yaml",
+    "test_naming": "Snapshot files use descriptive names like 'default.snap.yaml', 'all-components-managed.snap.yaml'",
+    "import_style": "N/A - YAML manifest repository",
+    "notes": "YAML files use 2-space indentation. Kustomize overlays organized in components/, configurations/, dependencies/. Helm charts in charts/ directory. Scripts for automation in scripts/ directory."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.22",
+    "system_deps": [
+      "make",
+      "curl",
+      "python3",
+      "python3-pip",
+      "git"
+    ],
+    "additional_installs": [
+      "Helm (via https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3)"
+    ],
+    "setup_commands": [
+      "export GOTOOLCHAIN=auto",
+      "make tools"
+    ],
+    "lint_commands": [
+      {
+        "command": "make validate-yaml",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Passed with 1 warning about line length (non-blocking)"
+      },
+      {
+        "command": "make validate-lint",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "No lint errors found"
+      },
+      {
+        "command": "helm lint for each chart",
+        "validated": false,
+        "notes": "Not directly validated but covered by ct lint in Helm workflow"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make validate-kustomize",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All 34 kustomizations built successfully"
+      },
+      {
+        "command": "make chart-test",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All 10 snapshot tests passed (7 for odh-rhoai, 3 for rhaii-helm-chart)"
+      },
+      {
+        "command": "make validate-all",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Runs all validations: YAML lint, Kustomize build, best practices lint. All passed."
+      }
+    ],
+    "test_single_file": "N/A - validation is at kustomization or chart level",
+    "test_single_test": "make chart-test CHART_NAME=<chart_name>",
+    "env_vars": [
+      "GOTOOLCHAIN=auto"
+    ],
+    "notes": "Container must have Go >= 1.22 with GOTOOLCHAIN=auto to allow automatic download of newer Go toolchains required by kustomize v5.8.0 and yq v4.49.2. Python3 is required for yamllint. Helm must be installed separately from apt/yum."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install_system_deps",
+        "command": "apt-get install -y make curl python3 python3-pip git && curl -fsSL ... | bash (helm install)",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All system dependencies installed",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "install_tools",
+        "command": "GOTOOLCHAIN=auto make tools",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Downloading sigs.k8s.io/kustomize...\ngo1.25.8 downloaded\nAll validation tools installed in /app/bin",
+        "notes": "Go auto-downloaded v1.25.8 to satisfy kustomize/yq requirements. All tools installed successfully."
+      },
+      {
+        "step": "yaml_lint",
+        "command": "make validate-yaml",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Validating YAML syntax...\n./.tekton/pipelines/cluster-validation-pipeline.yaml\n  212:181   warning  line too long (206 > 180 characters)  (line-length)\n YAML validation passed",
+        "notes": "Passed with 1 non-blocking warning"
+      },
+      {
+        "step": "kustomize_build",
+        "command": "make validate-kustomize",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Building all kustomizations...\n  ✓ .\n  ✓ components/operators/cert-manager\n  [... 32 more kustomizations ...]\nAll kustomizations built successfully! ✓",
+        "notes": "All 34 kustomizations built successfully"
+      },
+      {
+        "step": "best_practices_lint",
+        "command": "make validate-lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Linting Kubernetes manifests...\nKubeLinter 0.7.6\n\nNo lint errors found!\n Linting completed",
+        "notes": "No lint errors found"
+      },
+      {
+        "step": "chart_test",
+        "command": "make chart-test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Processing chart: odh-rhoai (7 snapshots)\n  ==> default PASS\n  ==> skip-crd-check-odh PASS\n  [...]\nProcessing chart: rhaii-helm-chart (3 snapshots)\n  [...]\nAll snapshot tests passed!",
+        "notes": "All 10 chart snapshot tests passed"
+      },
+      {
+        "step": "validate_all",
+        "command": "make validate-all",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "==========================================\n All validations passed successfully!\n==========================================",
+        "notes": "Combined run of all validations succeeded"
+      }
+    ],
+    "summary": "All validations passed: YAML lint OK (1 warning), Kustomize build OK (34 kustomizations), best practices lint OK (0 errors), chart tests OK (10 snapshots passed)"
+  },
+  "gaps": [
+    "No unit tests - this is a manifest repository, validation is via linting and Kustomize/Helm builds",
+    "Tekton pipelines require OpenShift cluster access and cannot be validated locally",
+    "No automated integration tests - cluster validation requires actual Kubernetes/OpenShift cluster",
+    "Some Makefile targets like 'helm-install-verify' require cluster access and cannot be tested in container"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

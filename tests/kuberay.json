@@ -1,0 +1,261 @@
+{
+  "repo": "kuberay",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:34:00Z",
+  "languages": ["Go", "Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v1.64.8",
+        "config_file": ".golangci.yml",
+        "run_command": "golangci-lint run --exclude-files _generated.go --exclude='SA1019' --timeout 10m0s",
+        "fix_command": "golangci-lint run --fix --exclude-files _generated.go --exclude='SA1019' --timeout 10m0s",
+        "scope": "ray-operator, kubectl-plugin, apiserver, apiserversdk directories"
+      },
+      {
+        "name": "pre-commit",
+        "version": "v3.0.1",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": "pre-commit run --all-files",
+        "scope": "full project"
+      },
+      {
+        "name": "markdownlint",
+        "version": "v0.44.0",
+        "config_file": ".markdownlint.yaml",
+        "run_command": "markdownlint-fix --ignore=.github/pull_request_template.md --disable=MD033 .",
+        "fix_command": "markdownlint-fix --ignore=.github/pull_request_template.md --disable=MD033 .",
+        "scope": "markdown files"
+      },
+      {
+        "name": "shellcheck",
+        "version": "v0.10.0.1",
+        "config_file": null,
+        "run_command": "shellcheck **/*.sh",
+        "fix_command": null,
+        "scope": "shell scripts"
+      },
+      {
+        "name": "gitleaks",
+        "version": "v8.18.2",
+        "config_file": null,
+        "run_command": "gitleaks detect",
+        "fix_command": null,
+        "scope": "full project (secret scanning)"
+      }
+    ],
+    "notes": "Primary linting is via golangci-lint with comprehensive config. Pre-commit hooks enforce additional checks for markdown, yaml, shell scripts, and secrets. The lint.sh script runs golangci-lint across all Go component directories."
+  },
+  "testing": {
+    "framework": "Go testing + Ginkgo/Gomega",
+    "test_directory": "Multiple: ray-operator/test/, apiserver/test/, kubectl-plugin/test/",
+    "run_command": "go test ./...",
+    "run_single_file": "go test {file}",
+    "run_single_test": "go test -run '^{test_name}$' {package}",
+    "setup_required": [
+      "go mod download",
+      "For ray-operator: make manifests (generates CRDs)",
+      "For e2e tests: Kind cluster + operator deployment"
+    ],
+    "env_vars": [
+      "KUBERAY_TEST_TIMEOUT_SHORT=5m",
+      "KUBERAY_TEST_TIMEOUT_MEDIUM=12m",
+      "KUBERAY_TEST_TIMEOUT_LONG=15m",
+      "KUBERAY_TEST_RAY_IMAGE=rayproject/ray:2.52.1",
+      "KUBEBUILDER_ASSETS (for envtest)"
+    ],
+    "fixtures_location": "test/support/ directories in each component",
+    "mock_patterns": "Uses gomock for mocking in some tests",
+    "coverage_command": "go test ./... -coverprofile cover.out",
+    "coverage_threshold": null,
+    "notes": "Unit tests can run standalone. Integration/E2E tests require: (1) envtest for controller tests, (2) Kind cluster for full e2e tests. Test framework is standard Go testing for unit tests, Ginkgo/Gomega for e2e. Three main test suites: ray-operator (operator logic), apiserver (API server), kubectl-plugin (CLI tool)."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/test-job.yaml",
+      ".github/workflows/consistency-check.yaml",
+      ".github/workflows/e2e-tests.yaml",
+      ".github/workflows/helm.yaml",
+      ".tekton/odh-kuberay-operator-controller-push.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Lint (pre-commit)",
+        "command": "pre-commit run --all-files",
+        "required": true
+      },
+      {
+        "name": "Build ray-operator",
+        "command": "cd ray-operator && make build",
+        "required": true
+      },
+      {
+        "name": "Test ray-operator",
+        "command": "cd ray-operator && make test",
+        "required": true
+      },
+      {
+        "name": "Build apiserver",
+        "command": "cd apiserver && go build ./...",
+        "required": true
+      },
+      {
+        "name": "Test apiserver",
+        "command": "cd apiserver && go test ./pkg/... ./cmd/... -race -parallel 4",
+        "required": true
+      },
+      {
+        "name": "Build kubectl-plugin",
+        "command": "cd kubectl-plugin && go build -o kubectl-ray -a ./cmd/kubectl-ray.go",
+        "required": true
+      },
+      {
+        "name": "Test kubectl-plugin",
+        "command": "cd kubectl-plugin && go test ./pkg/... -race -parallel 4",
+        "required": true
+      },
+      {
+        "name": "Verify codegen",
+        "command": "cd ray-operator && ./hack/verify-codegen.sh",
+        "required": true
+      },
+      {
+        "name": "Verify CRD/RBAC manifests",
+        "command": "cd ray-operator && make manifests && git diff --exit-code",
+        "required": true
+      },
+      {
+        "name": "E2E tests (subset)",
+        "command": "cd ray-operator && go test -timeout 120m -p 1 -parallel 1 -v -run '^(TestRayJobWithClusterSelector|TestRayJob|TestRayJobSuspend|TestRayJobLightWeightMode)$' ./test/e2e",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI uses GitHub Actions for PRs and pushes. Tekton pipelines handle OpenShift-specific builds. E2E tests run in Kind cluster on GitHub Actions runners. All PR checks are gating - PRs must pass lint, build, unit tests, and consistency checks. Full e2e suite runs post-merge."
+  },
+  "build": {
+    "system": "Go modules + Makefile",
+    "install_command": "go mod download",
+    "build_command": "make build (in each component directory) or go build ./...",
+    "notes": "Multi-component project. Main components: ray-operator (Kubernetes operator), apiserver (gRPC/HTTP API), kubectl-plugin (CLI), apiserversdk (SDK). Each component has its own Makefile. Go version 1.24.0 required. Dockerfile present for containerized builds."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "func Test* for standard tests, Describe/It for Ginkgo tests",
+    "import_style": "gci enforces grouped imports: standard -> third-party -> kuberay packages",
+    "notes": "Code follows Go standard conventions. Controller-gen generates CRDs/RBAC from kubebuilder markers. Generated files (_generated.go) excluded from linting. All Go code must pass gofmt, gofumpt, goimports."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.24",
+    "system_deps": ["make", "git", "curl", "wget"],
+    "setup_commands": [
+      "go mod download",
+      "go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd ray-operator && golangci-lint run --exclude-files _generated.go --exclude='SA1019' --timeout 10m0s",
+        "validated": true,
+        "notes": "Found formatting issues (goimports) - expected behavior, linter working correctly"
+      },
+      {
+        "command": "cd apiserver && golangci-lint run --exclude-files _generated.go --exclude='SA1019' --timeout 10m0s",
+        "validated": true,
+        "notes": "Linter runs successfully"
+      },
+      {
+        "command": "cd kubectl-plugin && golangci-lint run --exclude-files _generated.go --exclude='SA1019' --timeout 10m0s",
+        "validated": true,
+        "notes": "Linter runs successfully"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd ray-operator && go test ./controllers/ray/utils/...",
+        "validated": true,
+        "notes": "Passed - 0.016s"
+      },
+      {
+        "command": "cd apiserver && go test ./pkg/... -parallel 4",
+        "validated": true,
+        "notes": "All packages passed"
+      },
+      {
+        "command": "cd kubectl-plugin && go test ./pkg/... -race -parallel 4",
+        "validated": true,
+        "notes": "All packages passed with race detector"
+      }
+    ],
+    "test_single_file": "go test {file}",
+    "test_single_test": "go test -run '^{TestName}$' {package}",
+    "env_vars": [],
+    "notes": "Unit tests run cleanly in container. E2E tests require Kind cluster and are not validated in simple container. Controller tests require envtest (setup-envtest) for fake Kubernetes API server."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(completed successfully, no output)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "cd ray-operator && go build -o bin/manager main.go",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(completed successfully, no output)",
+        "notes": "Binary built successfully"
+      },
+      {
+        "step": "lint",
+        "command": "cd ray-operator && golangci-lint run --exclude-files _generated.go --exclude='SA1019' --timeout 10m0s",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "test/support/client.go:5:1: File is not properly formatted (goimports)\npkg/webhooks/v1/webhook_suite_test.go:16:1: File is not properly formatted (goimports)",
+        "notes": "Linter found formatting issues - this is expected behavior, not a broken command. Exit code 1 means lint violations found."
+      },
+      {
+        "step": "test",
+        "command": "cd ray-operator && go test ./controllers/ray/utils/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "=== RUN   TestResourceNamer\n=== RUN   TestResourceNamer/ServiceAccountName_for_OAuth\n...\nok  \tgithub.com/ray-project/kuberay/ray-operator/controllers/ray/utils\t0.016s",
+        "notes": "All tests passed in 0.016s"
+      },
+      {
+        "step": "test",
+        "command": "cd apiserver && go test ./pkg/... -parallel 4",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/ray-project/kuberay/apiserver/pkg/http\t0.004s\nok  \tgithub.com/ray-project/kuberay/apiserver/pkg/interceptor\t0.105s\n...",
+        "notes": "All apiserver tests passed"
+      },
+      {
+        "step": "test",
+        "command": "cd kubectl-plugin && go test ./pkg/... -race -parallel 4",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/ray-project/kuberay/kubectl-plugin/pkg/cmd/create\t1.794s\nok  \tgithub.com/ray-project/kuberay/kubectl-plugin/pkg/cmd/delete\t1.311s\n...",
+        "notes": "All kubectl-plugin tests passed with race detector"
+      }
+    ],
+    "summary": "install OK, build OK, lint OK (found 2 formatting issues), unit tests OK (ray-operator utils, apiserver, kubectl-plugin all passed)"
+  },
+  "gaps": [
+    "E2E tests require Kind/Kubernetes cluster - cannot validate in simple container",
+    "Controller integration tests require envtest setup (not validated)",
+    "Python client tests not validated (require Kind cluster)",
+    "Pre-commit hooks not fully validated (would need Python env and all tools)",
+    "Helm chart validation not tested",
+    "No coverage threshold configured in CI",
+    "RBAC/CRD generation verification requires git for diff checking"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

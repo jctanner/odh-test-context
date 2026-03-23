@@ -1,0 +1,181 @@
+{
+  "repo": "fms-guardrails-orchestrator",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:14:00Z",
+  "languages": ["Rust"],
+  "linting": {
+    "tools": [
+      {
+        "name": "rustfmt",
+        "config_file": "rustfmt.toml",
+        "run_command": "cargo +nightly fmt --check --all",
+        "fix_command": "cargo +nightly fmt --all",
+        "scope": "full project"
+      },
+      {
+        "name": "clippy",
+        "config_file": null,
+        "run_command": "cargo clippy --no-deps --all-targets --all-features",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "cargo-check",
+        "config_file": null,
+        "run_command": "cargo check",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "RUSTFLAGS=\"-Dwarnings\" is set in CI to treat warnings as errors. Pre-commit hooks run fmt (nightly), cargo check, and clippy. rustfmt config uses grouped imports (StdExternalCrate) with crate-level granularity."
+  },
+  "testing": {
+    "framework": "Rust native test framework with tokio::test for async",
+    "test_directory": "tests/",
+    "run_command": "cargo test",
+    "run_single_file": "cargo test --test {file_stem}",
+    "run_single_test": "cargo test {test_name}",
+    "setup_required": [
+      "Install protoc (protocol buffer compiler) version 26.0+",
+      "Install Rust toolchain 1.92.0",
+      "Install nightly rustfmt: rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt"
+    ],
+    "env_vars": [
+      "CARGO_TERM_COLOR=always (optional, for colored output)",
+      "RUSTFLAGS=\"-Dwarnings\" (in CI, treats warnings as errors)"
+    ],
+    "fixtures_location": "tests/resources/",
+    "mock_patterns": "Uses mocktail crate for HTTP server mocking. Tests create TestOrchestratorServer instances with mock detector servers.",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are integration tests using #[test(tokio::test)] attribute for async. Common test utilities in tests/common/. Test config in tests/test_config.yaml. 120 total tests across unit tests and 12 integration test files."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/test.yml"],
+    "gating_checks": [
+      {
+        "name": "Build",
+        "command": "cargo build",
+        "required": true
+      },
+      {
+        "name": "Run formatter",
+        "command": "cargo +nightly fmt --check --all",
+        "required": true
+      },
+      {
+        "name": "Run linter",
+        "command": "cargo clippy --no-deps --all-targets --all-features",
+        "required": true
+      },
+      {
+        "name": "Run tests",
+        "command": "cargo test",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on ubuntu-latest for push/pull_request on main, incubation, stable branches. Installs protoc 26.0 and nightly rustfmt before checks. Uses Rust dependency caching. RUSTFLAGS=\"-Dwarnings\" ensures compilation warnings fail CI."
+  },
+  "build": {
+    "system": "Cargo (Rust package manager)",
+    "install_command": "cargo fetch (dependencies auto-installed on first build)",
+    "build_command": "cargo build",
+    "notes": "Requires protoc (protocol buffer compiler) to be installed system-wide. Uses tonic-build for gRPC code generation from protos/ directory. Release build: cargo build --release. Run server: cargo run --bin fms-guardrails-orchestr8"
+  },
+  "conventions": {
+    "test_file_pattern": "tests/*.rs (integration tests), src/**/*_test.rs or #[test] in source files (unit tests)",
+    "test_naming": "Integration test files named descriptively (e.g., chat_detection.rs). Test functions use #[test] or #[test(tokio::test)] attributes. Functions named descriptively (e.g., no_detections, input_detectors).",
+    "import_style": "Grouped imports with StdExternalCrate style, crate-level granularity per rustfmt.toml",
+    "notes": "Rust edition 2024. Authors listed in Cargo.toml. Uses Apache 2.0 license. Code follows standard Rust conventions with clippy as linter."
+  },
+  "container_recipe": {
+    "base_image": "rust:1.92",
+    "system_deps": ["protobuf-compiler", "curl", "unzip"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y curl unzip protobuf-compiler",
+      "rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt",
+      "cargo build"
+    ],
+    "lint_commands": [
+      {
+        "command": "cargo +nightly fmt --check --all",
+        "validated": true,
+        "notes": "Passed with no formatting issues"
+      },
+      {
+        "command": "cargo clippy --no-deps --all-targets --all-features",
+        "validated": true,
+        "notes": "Passed with no warnings"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cargo test",
+        "validated": true,
+        "notes": "All 120 tests passed across 12 integration test files + unit tests"
+      }
+    ],
+    "test_single_file": "cargo test --test {file_stem_without_extension}",
+    "test_single_test": "cargo test {test_function_name}",
+    "env_vars": [],
+    "notes": "Build takes ~30 seconds with caching. Tests complete in ~10 seconds. Nightly toolchain needed only for rustfmt. Protoc from Debian repos (3.21.12) works fine despite CI using 26.0."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y protobuf-compiler",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Setting up protobuf-compiler (3.21.12-11) ...\nlibprotoc 3.21.12",
+        "notes": "Protoc installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "info: latest update on 2026-03-22, rust version 1.96.0-nightly\ninfo: installing component 'rustfmt'",
+        "notes": "Nightly rustfmt installed successfully"
+      },
+      {
+        "step": "build",
+        "command": "cargo build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Compiling fms-guardrails-orchestr8 v0.18.3 (/app)\nFinished `dev` profile [unoptimized + debuginfo] target(s) in 29.56s",
+        "notes": "Build completed successfully in ~30 seconds"
+      },
+      {
+        "step": "lint",
+        "command": "cargo +nightly fmt --check --all",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - formatting is correct)",
+        "notes": "Format check passed"
+      },
+      {
+        "step": "lint",
+        "command": "cargo clippy --no-deps --all-targets --all-features",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Checking fms-guardrails-orchestr8 v0.18.3 (/app)\nFinished `dev` profile [unoptimized + debuginfo] target(s) in 16.32s",
+        "notes": "Clippy passed with no warnings"
+      },
+      {
+        "step": "test",
+        "command": "cargo test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "test result: ok. 34 passed (unit tests)\ntest result: ok. 16 passed (chat_completions_streaming)\ntest result: ok. 8 passed (chat_completions_unary)\n...\nTotal: 120 tests passed",
+        "notes": "All tests passed: 34 unit tests + 86 integration tests across 12 files"
+      }
+    ],
+    "summary": "All validation steps passed: install OK, build OK (29s), fmt OK, clippy OK, tests OK (120 passed in ~10s)"
+  },
+  "gaps": [],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

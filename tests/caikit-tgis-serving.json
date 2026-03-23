@@ -1,0 +1,141 @@
+{
+  "repo": "caikit-tgis-serving",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:47:00Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. No .flake8, .pylintrc, ruff.toml, or .pre-commit-config.yaml. No linting steps in CI workflows."
+  },
+  "testing": {
+    "framework": "custom smoke tests (no pytest/unittest)",
+    "test_directory": "test/",
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [
+      "poetry install --no-root",
+      "Requires either docker-compose (caikit + TGIS containers) OR KServe cluster"
+    ],
+    "env_vars": [
+      "ISVC_URL - Inference service URL for KServe tests (optional)",
+      "CI - Set to 'true' in CI environment (optional)"
+    ],
+    "fixtures_location": "test/kserve/ and test/compose/",
+    "mock_patterns": "No mocks - only integration tests against real services",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "This repo has NO traditional unit tests. Only integration/smoke tests that require running infrastructure: (1) Docker Compose test: requires caikit-tgis-serving container + TGIS container + converted model files. Run via test/compose/smoke-test.sh. (2) KServe test: requires full Kubernetes cluster with KServe, Istio, and Knative. The smoke-test.py script tests HTTP/gRPC inference endpoints by making actual inference requests. Cannot be run in isolation without infrastructure."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/build-and-test.yml",
+      ".github/workflows/kserve-test.yml",
+      ".github/workflows/run-update.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Build image",
+        "command": "docker build -t kind.local/caikit-tgis-serving:dev .",
+        "required": true
+      },
+      {
+        "name": "Compose Smoke Test",
+        "command": "cd test/compose && bash -x smoke-test.sh",
+        "required": true
+      },
+      {
+        "name": "Kserve Smoke Test",
+        "command": "python test/smoke-test.py (after KServe cluster setup)",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "All gating checks require container/cluster infrastructure. The build-and-test.yml workflow runs on pull_request and is the main gating workflow. It builds a Docker image, then runs smoke tests in both docker-compose and KServe environments. The kserve-test.yml runs on schedule only (not gating). No linting or unit tests in CI."
+  },
+  "build": {
+    "system": "Poetry",
+    "install_command": "poetry install --no-root",
+    "build_command": "docker build -t caikit-tgis-serving:dev . (or podman build)",
+    "notes": "Uses Poetry for Python dependency management (Python 3.11). The Dockerfile uses a multi-stage build with UBI9 minimal base. Project has minimal Python code (only 2 .py files: test/smoke-test.py and utils/convert.py). Main deliverable is the container image, not a Python package."
+  },
+  "conventions": {
+    "test_file_pattern": "test/*.py, test/**/*.sh",
+    "test_naming": "Integration tests only: smoke-test.py (not pytest/unittest pattern)",
+    "import_style": "Standard Python imports",
+    "notes": "Very minimal codebase - only 2 Python source files. No traditional test file naming conventions (no test_*.py or *_test.py pattern with unit tests). The smoke test is an integration test that makes real inference requests."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["make", "git"],
+    "setup_commands": [
+      "pip install poetry",
+      "poetry install --no-root"
+    ],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No linting configured. Tests cannot be run in a simple container - they require full infrastructure (docker-compose with TGIS container, or KServe cluster). Can only validate that Python files compile and imports work. Dependency installation takes several minutes due to large ML packages (torch, transformers, caikit)."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "poetry install --no-root",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Installing dependencies from lock file\nPackage operations: 117 installs, 0 updates, 0 removals\n...\nInstalling caikit-nlp (0.5.14)",
+        "notes": "Successfully installed all dependencies including caikit, caikit-nlp, caikit-tgis-backend, torch, transformers, and other ML packages."
+      },
+      {
+        "step": "syntax-check",
+        "command": "poetry run python -m py_compile test/smoke-test.py utils/convert.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Python files compile successfully",
+        "notes": "Both Python files have valid syntax."
+      },
+      {
+        "step": "import-test",
+        "command": "poetry run python -c 'import caikit; import caikit_nlp; import caikit_tgis_backend'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "<function register_backend_type at 0x7f364e0d2fc0> is still in the BETA phase and subject to change!\nCaikit imports successful",
+        "notes": "All caikit packages import successfully."
+      },
+      {
+        "step": "lint",
+        "command": null,
+        "exit_code": null,
+        "success": false,
+        "output_snippet": "N/A",
+        "notes": "No linting configured in the repository."
+      },
+      {
+        "step": "test",
+        "command": null,
+        "exit_code": null,
+        "success": false,
+        "output_snippet": "N/A",
+        "notes": "Tests require external infrastructure (docker-compose or KServe cluster) and cannot be run in a simple container."
+      }
+    ],
+    "summary": "Install OK, syntax check OK, imports OK. No linting configured. Tests require infrastructure (cannot validate)."
+  },
+  "gaps": [
+    "No linting configuration or linting in CI (no flake8, ruff, black, mypy, etc.)",
+    "No traditional unit tests - only integration/smoke tests",
+    "Tests require external infrastructure (cannot run in isolation):",
+    "  - Docker Compose test requires running caikit + TGIS containers",
+    "  - KServe test requires full Kubernetes cluster with KServe/Istio/Knative",
+    "Cannot validate patches locally without setting up full environment",
+    "Very minimal Python codebase (only 2 .py files)",
+    "No README in repository root (only in subdirectories)",
+    "No coverage measurement configured"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

@@ -1,0 +1,337 @@
+{
+  "repo": "mlflow",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T19:09:00Z",
+  "languages": [
+    "Python",
+    "JavaScript/TypeScript",
+    "Java"
+  ],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "version": "0.15.0",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run --only-group lint ruff check --output-format=concise .",
+        "fix_command": "uv run --only-group lint ruff check --fix .",
+        "scope": "full project",
+        "notes": "Primary linter with extensive rule set (E, F, W, C4, I, PERF, PT, RUF, UP, etc.)"
+      },
+      {
+        "name": "ruff format",
+        "version": "0.15.0",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run --only-group lint ruff format --check .",
+        "fix_command": "uv run --only-group lint ruff format .",
+        "scope": "full project",
+        "notes": "Code formatter (replaces black for formatting checks)"
+      },
+      {
+        "name": "clint",
+        "version": "custom",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run --only-group lint clint .",
+        "fix_command": null,
+        "scope": "full project",
+        "notes": "Custom MLflow-specific linter for project conventions"
+      },
+      {
+        "name": "mypy",
+        "version": "1.17.1",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run --only-group lint mypy dev/clint .claude/skills",
+        "fix_command": null,
+        "scope": "dev/clint and .claude/skills directories only",
+        "notes": "Type checker enabled only for specific directories"
+      },
+      {
+        "name": "pre-commit",
+        "version": "4.0.1",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "uv run --only-group lint pre-commit run --all-files",
+        "fix_command": null,
+        "scope": "full project",
+        "notes": "Orchestrates multiple hooks: ruff, format, clint, mypy, blacken-docs, typos, prettier, etc."
+      }
+    ],
+    "notes": "Comprehensive linting setup with pre-commit hooks. CI runs: uv sync --locked --only-group lint --only-group pytest; then pre-commit run --all-files"
+  },
+  "testing": {
+    "framework": "pytest",
+    "version": "9.0.2",
+    "test_directory": "tests/",
+    "run_command": "uv run --no-sync pytest tests/",
+    "run_single_file": "uv run --no-sync pytest {file}",
+    "run_single_test": "uv run --no-sync pytest {file}::{test_name}",
+    "setup_required": [
+      "uv sync --locked --only-group test",
+      "uv pip install -e ."
+    ],
+    "env_vars": [
+      "MLFLOW_HOME=${{ github.workspace }}",
+      "PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu",
+      "PIP_CONSTRAINT=${{ github.workspace }}/requirements/constraints.txt",
+      "PYTHONUTF8=1",
+      "_MLFLOW_TESTING_TELEMETRY=true"
+    ],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Standard pytest mocking with unittest.mock",
+    "coverage_command": "uv run --no-sync pytest --cov=mlflow --cov-report=xml tests/",
+    "coverage_threshold": null,
+    "pytest_options": [
+      "--strict-markers",
+      "--color=yes",
+      "--durations=10",
+      "--showlocals",
+      "--no-header",
+      "-v"
+    ],
+    "test_organization": {
+      "splits": "Tests can be split into N groups for parallel execution",
+      "split_command": "pytest --splits=4 --group=1 tests/",
+      "ignore_patterns": [
+        "--ignore=tests/examples",
+        "--ignore=tests/evaluate",
+        "--ignore=tests/genai",
+        "--ignore=tests/docker"
+      ]
+    },
+    "notes": "Large test suite with parallel execution support. Tests require full mlflow installation. Timeout set to 1200s. Tests organized by feature/flavor in subdirectories."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/lint.yml",
+      ".github/workflows/master.yml",
+      ".tekton/mlflow-pull-request.yaml",
+      ".tekton/mlflow-push.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "lint",
+        "workflow": "lint.yml",
+        "command": "uv run --no-sync pre-commit run --all-files",
+        "required": true,
+        "notes": "Runs on ubuntu-latest and macos-latest; includes ruff, format, clint, mypy, prettier, etc."
+      },
+      {
+        "name": "python tests",
+        "workflow": "master.yml",
+        "command": "uv run --no-sync pytest --splits=4 --group=N --quiet --requires-ssh --ignore-flavors tests/",
+        "required": true,
+        "notes": "Split into 4 groups for parallel execution; 120min timeout"
+      },
+      {
+        "name": "python-skinny",
+        "workflow": "master.yml",
+        "command": "./dev/run-python-skinny-tests.sh",
+        "required": true,
+        "notes": "Tests minimal dependency footprint"
+      },
+      {
+        "name": "database",
+        "workflow": "master.yml",
+        "command": "./tests/db/compose.sh run --rm --no-TTY mlflow-postgresql pytest tests/store/...",
+        "required": true,
+        "notes": "Tests against PostgreSQL, MySQL, MSSQL via docker-compose"
+      },
+      {
+        "name": "java",
+        "workflow": "master.yml",
+        "command": "mvn clean package -q",
+        "required": true,
+        "notes": "Java client tests in mlflow/java/"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "docs",
+        "workflow": "docs.yml",
+        "command": "dev/build-docs.sh",
+        "required": false
+      },
+      {
+        "name": "js",
+        "workflow": "js.yml",
+        "command": "dev/js.sh test",
+        "required": false
+      }
+    ],
+    "tekton_notes": "Tekton pipelines build container images for OpenShift/Konflux deployment. Uses multi-arch builds (amd64, arm64, ppc64le, s390x).",
+    "notes": "CI is comprehensive with multiple gating checks. Pull requests must pass lint + python tests + database tests + java tests. Uses uv for dependency management throughout."
+  },
+  "build": {
+    "system": "uv (Python package manager)",
+    "python_version": "3.10",
+    "install_command": "uv sync --locked",
+    "install_dev_command": "uv sync --locked --only-group dev",
+    "install_editable_command": "uv pip install -e .",
+    "build_command": "uv build",
+    "dependency_groups": [
+      "dev (includes lint, test, build)",
+      "lint (ruff, black, mypy, pre-commit, clint)",
+      "test (pytest + test dependencies)",
+      "pytest (core pytest packages)",
+      "build (pip, setuptools, wheel, build)",
+      "docs (sphinx and doc dependencies)"
+    ],
+    "notes": "Uses uv for fast, reliable dependency management. Lock file (uv.lock) ensures reproducible installs. Workspace includes dev/clint, tests/resources/mlflow-test-plugin, .claude/skills."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/**/*.py (test_*.py pattern)",
+    "test_naming": "Functions named test_* in test_*.py files",
+    "import_style": "Absolute imports enforced by ruff (ban-relative-imports = 'all')",
+    "code_style": {
+      "line_length": 100,
+      "target_version": "py310",
+      "formatter": "ruff format",
+      "docstring_convention": "google"
+    },
+    "notes": "Strong emphasis on code quality with extensive linting. Pre-commit hooks enforce style before commit. Tests use pytest fixtures heavily (see tests/conftest.py)."
+  },
+  "container_recipe": {
+    "base_image": "python:3.10",
+    "system_deps": [
+      "make",
+      "git",
+      "curl"
+    ],
+    "uv_install": "curl -LsSf https://astral.sh/uv/install.sh | sh",
+    "setup_commands": [
+      "export PATH=\"$HOME/.local/bin:$PATH\"",
+      "uv sync --locked --only-group lint --only-group pytest",
+      "uv pip install -e ."
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run --only-group lint ruff check --output-format=concise .",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All checks passed!"
+      },
+      {
+        "command": "uv run --only-group lint ruff format --check .",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "2317 files already formatted"
+      },
+      {
+        "command": "uv run --only-group lint clint .",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "No errors found!"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "uv run --no-sync pytest tests/test_version.py -v",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "1 passed in 6.53s"
+      },
+      {
+        "command": "uv run --no-sync pytest tests/test_import.py -v",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "1 passed in 16.56s"
+      }
+    ],
+    "test_single_file": "uv run --no-sync pytest {file} -v",
+    "test_single_test": "uv run --no-sync pytest {file}::{test_name} -v",
+    "env_vars": [
+      "PATH=$HOME/.local/bin:$PATH"
+    ],
+    "notes": "Container validated successfully. Lint passes cleanly, tests execute properly. uv provides fast dependency resolution. Full test suite requires additional dependencies (extras, gateway, genai)."
+  },
+  "validation": {
+    "container_name": "test-context-mlflow",
+    "results": [
+      {
+        "step": "install-uv",
+        "command": "curl -LsSf https://astral.sh/uv/install.sh | sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "uv 0.10.12 (x86_64-unknown-linux-gnu)",
+        "notes": "uv package manager installed successfully"
+      },
+      {
+        "step": "install-lint-deps",
+        "command": "uv sync --locked --only-group lint --only-group pytest",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Installed 87 packages",
+        "notes": "All lint and pytest dependencies installed cleanly"
+      },
+      {
+        "step": "install-test-deps",
+        "command": "uv sync --only-group test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Added psutil, pyspark, opentelemetry packages",
+        "notes": "Test dependencies installed successfully"
+      },
+      {
+        "step": "install-mlflow",
+        "command": "uv pip install -e .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Installed mlflow and core dependencies",
+        "notes": "MLflow installed in editable mode successfully"
+      },
+      {
+        "step": "lint-ruff-check",
+        "command": "uv run --only-group lint ruff check --output-format=concise .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Ruff linter found no issues"
+      },
+      {
+        "step": "lint-ruff-format",
+        "command": "uv run --only-group lint ruff format --check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "2317 files already formatted",
+        "notes": "All files properly formatted"
+      },
+      {
+        "step": "lint-clint",
+        "command": "uv run --only-group lint clint .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "No errors found!",
+        "notes": "Custom MLflow linter passed"
+      },
+      {
+        "step": "test-version",
+        "command": "uv run --no-sync pytest tests/test_version.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "1 passed in 6.53s",
+        "notes": "Basic test execution works"
+      },
+      {
+        "step": "test-import",
+        "command": "uv run --no-sync pytest tests/test_import.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "1 passed in 16.56s",
+        "notes": "Import tests pass, mlflow loads correctly"
+      }
+    ],
+    "summary": "All validation steps passed: uv installed, dependencies resolved, lint clean (ruff + clint), tests executable and passing"
+  },
+  "gaps": [
+    "Full test suite requires additional dependencies (ML frameworks like tensorflow, pytorch, transformers, etc.) which are heavy and time-consuming to install",
+    "Database tests require docker-compose with PostgreSQL/MySQL/MSSQL containers",
+    "Some tests require SSH keys configured (--requires-ssh flag)",
+    "JavaScript/TypeScript frontend tests (mlflow/server/js) require node/npm/yarn setup",
+    "Java client tests require JDK 11 and Maven",
+    "Some integration tests may require external services or credentials",
+    "Full CI takes 120+ minutes due to extensive test matrix"
+  ],
+  "agent_readiness": "high",
+  "agent_readiness_justification": "Lint and core test commands validated successfully in clean container. Standard Python workflow with uv package manager. All linters pass cleanly. Pytest executes correctly. Clear command structure for both full project and single file/test execution.",
+  "confidence": "high"
+}

@@ -1,0 +1,168 @@
+{
+  "repo": "llama-stack-provider-trustyai-garak",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:58:00-04:00",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "black",
+        "config_file": null,
+        "run_command": "black --check .",
+        "fix_command": "black .",
+        "scope": "full project",
+        "notes": "Installed in dev dependencies but NOT used in CI. Would fail with 41 files needing reformatting."
+      },
+      {
+        "name": "isort",
+        "config_file": null,
+        "run_command": "isort --check-only .",
+        "fix_command": "isort .",
+        "scope": "full project",
+        "notes": "Installed in dev dependencies but NOT used in CI. Would fail with import sorting violations."
+      }
+    ],
+    "notes": "Linters are installed but not configured or enforced in CI. No gating lint checks."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "pytest tests -v",
+    "run_single_file": "pytest {file} -v",
+    "run_single_test": "pytest {file}::{test_name} -v",
+    "setup_required": [
+      "python -m pip install --upgrade pip",
+      "python -m pip install -e \".[dev,inline,server]\""
+    ],
+    "env_vars": [
+      "PYTHONPATH=src (set in CI, but not strictly required due to editable install)"
+    ],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Uses unittest.mock with Mock, AsyncMock, and patch decorators",
+    "coverage_command": "pytest tests --cov=src/llama_stack_provider_trustyai_garak --cov-report=html",
+    "coverage_threshold": null,
+    "notes": "318 tests total. Uses pytest-asyncio for async tests. Tests are fast (~2-4 seconds total)."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/run-tests.yml",
+      ".github/workflows/security.yml",
+      ".github/workflows/build-and-publish.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Run Tests",
+        "command": "pytest tests -v",
+        "required": true,
+        "workflow": "run-tests.yml",
+        "triggers": "pull_request and push to main"
+      },
+      {
+        "name": "Trivy Security Scan (CRITICAL only)",
+        "command": "trivy fs --severity CRITICAL --exit-code 1 .",
+        "required": true,
+        "workflow": "security.yml",
+        "triggers": "pull_request and push to main"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Trivy Filesystem Scan (all severities)",
+        "command": "trivy fs --severity CRITICAL,HIGH,MEDIUM,LOW --format sarif .",
+        "required": false,
+        "workflow": "security.yml"
+      }
+    ],
+    "notes": "CI uses Python 3.12. Security scans upload SARIF results to GitHub Security tab. Build workflow publishes container images but is not a PR gate."
+  },
+  "build": {
+    "system": "pip/setuptools",
+    "install_command": "python -m pip install -e \".[dev,inline,server]\"",
+    "build_command": "python -m pip install build && python -m build",
+    "container_build": "podman build -f Containerfile -t llama-stack-provider-trustyai-garak .",
+    "notes": "Uses pyproject.toml with setuptools build backend. Container uses UBI9 Python 3.12 base image."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py",
+    "test_naming": "Test functions: test_* or class-based: TestClassName with test_* methods",
+    "import_style": "Absolute imports from src/. Pytest fixtures for mocking dependencies.",
+    "notes": "Follows standard pytest conventions. Uses pydantic for config validation."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": [],
+    "setup_commands": [
+      "python -m pip install --upgrade pip",
+      "python -m pip install -e \".[dev,inline,server]\""
+    ],
+    "lint_commands": [
+      {
+        "command": "black --check .",
+        "validated": true,
+        "notes": "NOT a gating check. Exits 1 with 41 files needing reformatting."
+      },
+      {
+        "command": "isort --check-only .",
+        "validated": true,
+        "notes": "NOT a gating check. Exits 1 with import sorting violations."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "pytest tests -v",
+        "validated": true,
+        "notes": "All 318 tests pass in ~2-4 seconds. Exit code 0."
+      }
+    ],
+    "test_single_file": "pytest {file} -v",
+    "test_single_test": "pytest {file}::{test_name} -v",
+    "env_vars": [],
+    "notes": "Container runs as root. Uses editable install so PYTHONPATH is automatically configured."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "python -m pip install -e \".[dev,inline,server]\"",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed llama-stack-provider-trustyai-garak-0.3.1 and 200+ dependencies",
+        "notes": "Clean install with all dev, inline, and server extras. Takes ~2-3 minutes."
+      },
+      {
+        "step": "lint (black)",
+        "command": "black --check .",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "41 files would be reformatted, 5 files would be left unchanged",
+        "notes": "Black finds formatting violations but is NOT enforced in CI."
+      },
+      {
+        "step": "lint (isort)",
+        "command": "isort --check-only .",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "ERROR: Imports are incorrectly sorted and/or formatted in 30+ files",
+        "notes": "Isort finds violations but is NOT enforced in CI."
+      },
+      {
+        "step": "test",
+        "command": "pytest tests -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "======================== 318 passed, 1 warning in 2.16s ========================",
+        "notes": "All tests pass cleanly. One FutureWarning from kfp library (not a failure)."
+      }
+    ],
+    "summary": "install OK, lint NOT enforced (black/isort fail but not gating), tests OK (318 passed)"
+  },
+  "gaps": [
+    "No linter enforcement in CI - black and isort are installed but not configured or run",
+    "No explicit coverage threshold configured",
+    "Tekton pipeline config exists but is for internal Red Hat workflows, not PR gates",
+    "No pre-commit hooks configured"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

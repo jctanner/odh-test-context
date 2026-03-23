@@ -1,0 +1,94 @@
+{
+  "repo": "Fraud-Detection-with-Business-Workflows-Tutorial",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:29:00Z",
+  "languages": ["Java", "Python"],
+  "linting": {
+    "tools": [],
+    "notes": "No linter configuration found. No checkstyle, PMD, spotbugs for Java. No flake8, pylint, black for Python."
+  },
+  "testing": {
+    "framework": "JUnit 5 (Jupiter) for Java, Maven Surefire",
+    "test_directory": "containers/ccfd-fuse/src/test/java, containers/ccfd-service/ccd-fraud-kjar/src/test/java",
+    "run_command": "cd containers/ccfd-fuse && mvn test",
+    "run_single_file": "cd containers/ccfd-fuse && mvn test -Dtest={TestClassName}",
+    "run_single_test": "cd containers/ccfd-fuse && mvn test -Dtest={TestClassName}#{testMethodName}",
+    "setup_required": ["mvn clean install -DskipTests (to download dependencies)"],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": "Tests use simple unit testing, no complex mocking infrastructure observed",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Only ccfd-fuse has actual tests (2 test classes, 3 tests total). ccfd-notification-service compiles but has no test sources. ccfd-service modules have test infrastructure but minimal tests. Python projects have no tests."
+  },
+  "ci": {
+    "system": "None",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows, .gitlab-ci.yml, Jenkinsfile, .tekton, or other CI configs."
+  },
+  "build": {
+    "system": "Maven for Java, pip for Python",
+    "install_command": "mvn clean install (for Java projects in containers/), pip install -r requirements.txt (for Python projects)",
+    "build_command": "mvn clean package",
+    "notes": "Multi-language repository with independent container-based applications. Each subdirectory in containers/ is a separate project. Java projects: ccfd-fuse (Spring Boot + Camel), ccfd-notification-service (Quarkus), ccfd-service (Spring Boot + KIE Server with multiple sub-modules). Python projects: ccfd-modelfull and ccfd-seldon-usertask-model (ML models with scikit-learn). No top-level parent pom.xml tying projects together."
+  },
+  "conventions": {
+    "test_file_pattern": "*Test.java for Java",
+    "test_naming": "Java: class names end with 'Test', methods annotated with @Test. Python: no tests found.",
+    "import_style": "Java: standard package imports. Python: standard imports.",
+    "notes": "This is a tutorial/demo repository for OpenDataHub fraud detection workflows. Primary focus is deployment and configuration rather than test coverage."
+  },
+  "container_recipe": {
+    "base_image": "docker.io/library/maven:3.6-jdk-8",
+    "system_deps": [],
+    "setup_commands": [
+      "cd /app/containers/ccfd-fuse && mvn clean install -DskipTests"
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {"command": "cd /app/containers/ccfd-fuse && mvn test", "validated": true, "notes": "Tests passed: 3 tests run, 0 failures"},
+      {"command": "cd /app/containers/ccfd-notification-service && mvn test", "validated": true, "notes": "No tests to run (compiles successfully but no test sources)"}
+    ],
+    "test_single_file": "cd /app/containers/ccfd-fuse && mvn test -Dtest={TestClassName}",
+    "test_single_test": "cd /app/containers/ccfd-fuse && mvn test -Dtest={TestClassName}#{testMethodName}",
+    "env_vars": [],
+    "notes": "Java 8 required as specified in pom.xml files. Maven downloads dependencies on first run (takes ~2 minutes). Python projects not tested in container but have minimal dependencies."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "test",
+        "command": "cd /app/containers/ccfd-fuse && mvn clean test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0\n[INFO] BUILD SUCCESS\n[INFO] Total time:  02:12 min",
+        "notes": "All 3 tests passed (PredictionRequestTest: 2 tests, PredictionResponseTest: 1 test)"
+      },
+      {
+        "step": "test",
+        "command": "cd /app/containers/ccfd-notification-service && mvn clean test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "[INFO] No tests to run.\n[INFO] BUILD SUCCESS\n[INFO] Total time:  35.178 s",
+        "notes": "Compiles successfully but has no test sources in src/test/java"
+      }
+    ],
+    "summary": "Java tests validated successfully in Maven container. ccfd-fuse: 3 tests passed. ccfd-notification-service: builds OK, no tests. Python projects not tested."
+  },
+  "gaps": [
+    "No CI/CD configuration - no automated testing on pull requests",
+    "No linting configuration for Java or Python",
+    "Minimal test coverage - only 3 tests in ccfd-fuse, no tests in other Java projects",
+    "No Python tests despite having 2 Python ML model projects",
+    "No integration tests found",
+    "No code coverage reporting configured",
+    "No test documentation or testing guidelines",
+    "Projects are independent - no unified build or test strategy",
+    "Container build profiles exist in pom.xml but not validated (docker-maven-plugin, fabric8-maven-plugin)",
+    "ccfd-service has complex multi-module structure but minimal test coverage"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

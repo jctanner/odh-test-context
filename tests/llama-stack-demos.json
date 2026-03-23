@@ -1,0 +1,165 @@
+{
+  "repo": "llama-stack-demos",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:42:00-04:00",
+  "languages": [
+    "Python"
+  ],
+  "linting": {
+    "tools": [
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": null,
+        "scope": "full project",
+        "hooks": [
+          {
+            "id": "trailing-whitespace",
+            "repo": "https://github.com/pre-commit/pre-commit-hooks",
+            "rev": "v5.0.0"
+          },
+          {
+            "id": "end-of-file-fixer",
+            "repo": "https://github.com/pre-commit/pre-commit-hooks",
+            "rev": "v5.0.0"
+          },
+          {
+            "id": "check-added-large-files",
+            "repo": "https://github.com/pre-commit/pre-commit-hooks",
+            "rev": "v5.0.0"
+          }
+        ]
+      }
+    ],
+    "notes": "Only basic pre-commit hooks configured. No Python-specific linters like ruff, flake8, pylint, or mypy configured."
+  },
+  "testing": {
+    "framework": "custom (not pytest)",
+    "test_directory": "tests/eval_tests",
+    "run_command": "python tests/eval_tests/tests.py",
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [
+      "uv sync"
+    ],
+    "env_vars": [
+      "REMOTE_BASE_URL=<llama-stack server endpoint>",
+      "ANSIBLE_MCP_SERVER_URL=<optional>",
+      "GITHUB_MCP_SERVER_URL=<optional>",
+      "OCP_MCP_SERVER_URL=<optional>",
+      "CUSTOM_MCP_SERVER_URL=<optional>"
+    ],
+    "fixtures_location": "tests/eval_tests/queries/*.json",
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are integration tests that require a running llama-stack server. Cannot be run in isolation. Tests load queries from JSON files and execute them against MCP tool servers. Not suitable for CI without infrastructure."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/pre-commit.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "pre-commit",
+        "command": "pre-commit run --all-files",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Only linting is gated. No test execution in CI. The pre-commit check runs on pull requests to main branch."
+  },
+  "build": {
+    "system": "uv + Makefile",
+    "install_command": "uv sync",
+    "build_command": null,
+    "notes": "Makefile contains container build targets (build_llamastack, build_mcp, build_ui) but no build step needed for Python code. Dependencies managed by uv (modern Python package manager)."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/**/*.py",
+    "test_naming": "Custom test framework, not following pytest conventions",
+    "import_style": "Standard Python imports",
+    "notes": "Project uses demonstration scripts in demos/ directory. Tests are integration tests in tests/eval_tests/."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": [
+      "git",
+      "make"
+    ],
+    "setup_commands": [
+      "pip install uv",
+      "uv sync"
+    ],
+    "lint_commands": [
+      {
+        "command": ".venv/bin/pre-commit run --all-files",
+        "validated": true,
+        "notes": "All pre-commit hooks passed: trailing-whitespace, end-of-file-fixer, check-added-large-files"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": ".venv/bin/python tests/eval_tests/tests.py",
+        "validated": false,
+        "notes": "Requires REMOTE_BASE_URL environment variable pointing to llama-stack server. Cannot run without external infrastructure."
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [
+      "REMOTE_BASE_URL=<llama-stack server endpoint>"
+    ],
+    "notes": "uv creates a virtual environment at .venv/. All Python commands must use .venv/bin/python or .venv/bin/<tool>. Git config safe.directory needed for pre-commit in container."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install_uv",
+        "command": "pip install uv",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed uv-0.10.12",
+        "notes": "uv package manager installed successfully"
+      },
+      {
+        "step": "install_deps",
+        "command": "uv sync",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Installed 143 packages in 1.93s",
+        "notes": "All dependencies installed successfully. Created virtual environment at .venv/"
+      },
+      {
+        "step": "lint",
+        "command": ".venv/bin/pre-commit run --all-files",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "trim trailing whitespace.................................................Passed\nfix end of files.........................................................Passed\ncheck for added large files..............................................Passed",
+        "notes": "All pre-commit hooks passed on existing code"
+      },
+      {
+        "step": "test",
+        "command": ".venv/bin/python tests/eval_tests/tests.py",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "REMOTE_BASE_URL environment variable not set\nERROR:mcp_test:REMOTE_BASE_URL environment variable not set",
+        "notes": "Tests require external llama-stack server infrastructure. Cannot run without REMOTE_BASE_URL environment variable."
+      }
+    ],
+    "summary": "Install OK, lint OK (all hooks passed), tests require infrastructure (llama-stack server not available)"
+  },
+  "gaps": [
+    "No Python-specific linters configured (ruff, flake8, pylint, mypy)",
+    "No unit tests - only integration tests that require external infrastructure",
+    "Tests cannot be run in standard CI environment without llama-stack server",
+    "No code coverage measurement configured",
+    "No type checking configured",
+    "No automated test execution in CI",
+    "README is minimal ('Coming soon......')"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

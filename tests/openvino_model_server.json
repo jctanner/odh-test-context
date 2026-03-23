@@ -1,0 +1,241 @@
+{
+  "repo": "openvino_model_server",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:07:00Z",
+  "languages": ["C++", "Python", "JavaScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "cpplint",
+        "version": "1.4.3",
+        "config_file": "Makefile (STYLE_CHECK_OPTS)",
+        "run_command": "make style",
+        "fix_command": null,
+        "scope": "src/ directory",
+        "notes": "C++ style checking with specific filters for line length, includes, namespaces, etc."
+      },
+      {
+        "name": "clang-format",
+        "version": "6.0.1",
+        "config_file": ".clang-format",
+        "run_command": "make clang-format-check",
+        "fix_command": "make clang-format",
+        "scope": "src/ directory (*.cpp, *.hpp, *.cc, *.cxx)",
+        "notes": "Auto-formats C++ code, check verifies changes are committed"
+      },
+      {
+        "name": "cppclean",
+        "version": ">=0.13",
+        "config_file": "ci/cppclean.sh",
+        "run_command": "make style",
+        "fix_command": null,
+        "scope": "src/ directory",
+        "notes": "Checks for unnecessary includes, forward declarations, unused code"
+      },
+      {
+        "name": "codespell",
+        "version": "2.3.0",
+        "config_file": "spelling-whitelist.txt",
+        "run_command": "make spell",
+        "fix_command": null,
+        "scope": "all tracked files",
+        "notes": "Spelling checker with whitelist, part of make style target"
+      },
+      {
+        "name": "bandit",
+        "version": "latest",
+        "config_file": "client/python/.bandit",
+        "run_command": "make sdl-check",
+        "fix_command": null,
+        "scope": "demos/*/python and client/python/",
+        "notes": "Python security linter, part of SDL security checks"
+      },
+      {
+        "name": "hadolint",
+        "version": "latest",
+        "config_file": "tests/hadolint.sh",
+        "run_command": "make sdl-check",
+        "fix_command": null,
+        "scope": "Dockerfile.redhat and Dockerfile.ubuntu",
+        "notes": "Dockerfile linter, part of SDL security checks"
+      },
+      {
+        "name": "flake8",
+        "version": "5.0.1",
+        "config_file": null,
+        "run_command": "cd client/python/ovmsclient/lib && make style",
+        "fix_command": null,
+        "scope": "client/python/ovmsclient/lib (ovmsclient tests/)",
+        "notes": "Python client library style check, max-line-length=100"
+      }
+    ],
+    "notes": "Style checks are comprehensive covering C++, Python, Dockerfiles, and spelling. Run 'make style' for main checks, 'make sdl-check' for security checks."
+  },
+  "testing": {
+    "framework": "Multiple: Bazel (C++ via gtest), pytest (Python)",
+    "test_directory": "src/test/ (C++), tests/functional/ (Python integration), client/python/ovmsclient/lib/tests/ (Python unit)",
+    "run_command": "RUN_TESTS=1 make docker_build (C++ unit tests in container) OR pytest tests/functional/ (Python integration tests)",
+    "run_single_file": "pytest {file} -v",
+    "run_single_test": "pytest {file}::{test_name} -v OR bazel test --test_filter='{TestName}.*' //src:ovms_test",
+    "setup_required": [
+      "Python 3.11+ environment",
+      "Install test dependencies: pip install -r tests/requirements.txt",
+      "For C++ tests: Bazel build environment with OpenVINO dependencies",
+      "For functional tests: Docker daemon running, model files, OVMS server image"
+    ],
+    "env_vars": [
+      "RUN_TESTS=1 (enable tests in docker build)",
+      "CHECK_COVERAGE=1 (enable coverage reporting)",
+      "RUN_GPU_TESTS=1 (enable GPU tests, requires GPU drivers)",
+      "PYTHON_CLIENT_TEST_GRPC_PORT=9279",
+      "PYTHON_CLIENT_TEST_REST_PORT=9280"
+    ],
+    "fixtures_location": "tests/functional/fixtures/",
+    "mock_patterns": "pytest fixtures, docker container mocking",
+    "coverage_command": "CHECK_COVERAGE=1 RUN_TESTS=1 make docker_build",
+    "coverage_threshold": null,
+    "notes": "C++ unit tests run inside Docker build via Bazel (//src:ovms_test target). Python functional tests require running OVMS server in Docker and model files. Client library tests in client/python/ovmsclient/lib/ use pytest. Functional tests use conftest.py with Docker fixtures."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/fast-checks.yml",
+      ".github/workflows/integration-tests.yml",
+      ".github/workflows/integration-tests-konflux.yml",
+      ".github/workflows/prow-merge-stable-to-rhoai.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Style Checks",
+        "command": "make style",
+        "required": true,
+        "workflow": "fast-checks.yml",
+        "notes": "Runs cpplint, clang-format, cppclean, codespell on stable* branches"
+      },
+      {
+        "name": "SDL Security Checks",
+        "command": "make sdl-check",
+        "required": true,
+        "workflow": "fast-checks.yml",
+        "notes": "Runs hadolint (Dockerfile), bandit (Python), license header checks, forbidden functions check"
+      },
+      {
+        "name": "Client Library Tests",
+        "command": "make test_client_lib",
+        "required": true,
+        "workflow": "fast-checks.yml",
+        "notes": "Only runs if client/python/ovmsclient/lib/** files changed. Includes style, build, test"
+      },
+      {
+        "name": "Integration Tests",
+        "command": "pytest tests/functional/ (after pulling pre-built image)",
+        "required": true,
+        "workflow": "integration-tests.yml, integration-tests-konflux.yml",
+        "notes": "Triggered by OpenShift CI/Konflux build completion. Uses pre-built container images from Quay.io"
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Fast-checks run on PR to stable* branches. Integration tests triggered by external CI (OpenShift CI, Konflux) status events. The project uses a complex build pipeline with Docker containers for C++ compilation."
+  },
+  "build": {
+    "system": "Bazel (primary), Make (wrapper), Docker (containerization)",
+    "install_command": "Docker-based build, no direct dependency install. For Python clients: pip install -r tests/requirements.txt OR cd client/python/ovmsclient/lib && make build",
+    "build_command": "make docker_build (builds Docker image with Bazel inside) OR bazel build //src:ovms (direct Bazel)",
+    "container_build": "docker build -f Dockerfile.ubuntu . OR docker build -f Dockerfile.redhat .",
+    "pre_build_steps": [
+      "Download OpenVINO toolkit binaries (or build from source)",
+      "Clone TensorFlow and TensorFlow Serving for protobuf definitions",
+      "Generate protobuf Python bindings for client libraries"
+    ],
+    "notes": "Complex multi-stage build. C++ code built with Bazel inside Docker. Default: make docker_build creates builder image, compiles with Bazel, packages into release image. Python client libraries have separate build (setup.py bdist_wheel). Supports Ubuntu and RedHat base images."
+  },
+  "conventions": {
+    "test_file_pattern": "C++: src/test/*_test.cpp, Python: tests/functional/test_*.py, client tests: */tests/test_*.py",
+    "test_naming": "C++: GoogleTest (TEST, TEST_F macros), Python: pytest (test_* functions, Test* classes)",
+    "import_style": "C++: manual include ordering disabled in .clang-format (SortIncludes: false). Python: standard imports",
+    "coverage_threshold": "No explicit threshold configured",
+    "notes": "C++ follows Google Test conventions. Python uses pytest with fixtures. Docker-based test infrastructure for integration tests."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["make", "git", "protobuf-compiler"],
+    "setup_commands": [
+      "python3 -m pip install --upgrade pip virtualenv"
+    ],
+    "lint_commands": [
+      {
+        "command": "make style",
+        "validated": true,
+        "notes": "Passed with exit code 0. Checks C++ style (cpplint, clang-format, cppclean) and spelling (codespell)"
+      },
+      {
+        "command": "make sdl-check",
+        "validated": true,
+        "notes": "Passed with exit code 0. Runs hadolint (Dockerfile), bandit (Python security), license headers, forbidden functions"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test_client_lib",
+        "validated": false,
+        "notes": "Failed with exit code 2. Requires NumPy compilation and has flake8 style issues in generated protobuf files. This is expected in minimal container - works in CI with proper build environment"
+      },
+      {
+        "command": "pytest tests/functional/",
+        "validated": false,
+        "notes": "Cannot run without Docker-in-Docker setup, system groups (render, video), OVMS server, and model files. Requires complex test infrastructure"
+      }
+    ],
+    "test_single_file": "pytest {file} -v",
+    "test_single_test": "pytest {file}::{test_name} -v",
+    "env_vars": [],
+    "notes": "Linting commands validate successfully. Testing requires either the full Docker build environment (for C++ tests) or Docker-in-Docker with OVMS server running (for Python integration tests). Client library tests need compilation dependencies. Use 'make style' and 'make sdl-check' for quick validation of code quality and security."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y make git protobuf-compiler && python3 -m pip install --upgrade pip virtualenv",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed distlib-0.4.0 filelock-3.25.2 pip-26.0.1 platformdirs-4.9.4 python-discovery-1.2.0 virtualenv-21.2.0",
+        "notes": "System dependencies and Python tools installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "make style",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Spelling check completed.\nFormatting files with clang-format..\nChecking if clang-format changes were committed ...\nStyle-checking codebase...\nChecking cppclean...\nNumber of warnings: 1\nNumber of warnings in tests: 0",
+        "notes": "All style checks passed: spell, clang-format-check, cpplint, cppclean"
+      },
+      {
+        "step": "sdl-check",
+        "command": "make sdl-check",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Checking SDL requirements...\nChecking docker files...\nScanning ./Dockerfile.redhat\nScanning ./Dockerfile.ubuntu\nChecking python files...\nChecking license headers in files...\nChecking forbidden functions in files...",
+        "notes": "All SDL security checks passed: hadolint, bandit, license headers, forbidden functions"
+      },
+      {
+        "step": "test",
+        "command": "make test_client_lib",
+        "exit_code": 2,
+        "success": false,
+        "output_snippet": "ERROR: Failed building wheel for numpy\nFailed to build numpy\nerror: failed-wheel-build-for-install\nmake[1]: *** [Makefile:60: test] Error 1\nmake: *** [Makefile:602: test_client_lib] Error 1",
+        "notes": "Client library tests failed due to NumPy build issues and flake8 errors in generated protobuf code. This is expected in minimal container - requires full build environment"
+      }
+    ],
+    "summary": "Linting validated successfully (make style: OK, make sdl-check: OK). Testing requires Docker build environment (C++) or Docker-in-Docker with OVMS server (Python integration tests). Client lib tests need compilation dependencies."
+  },
+  "gaps": [
+    "C++ unit tests require full Bazel build environment inside Docker - cannot be validated in minimal container",
+    "Python functional tests require Docker-in-Docker, running OVMS server, and model files - complex test infrastructure",
+    "Client library tests fail in minimal container due to NumPy compilation requirements",
+    "No simple unit tests that can run without external dependencies",
+    "Integration tests depend on pre-built images from external CI systems (OpenShift CI, Konflux)",
+    "Test documentation is minimal - test execution requires reading CI workflow files and Makefiles"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

@@ -1,0 +1,343 @@
+{
+  "repo": "kubeflow",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:36:15Z",
+  "languages": ["Go", "Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.8.0",
+        "config_file": "components/notebook-controller/.golang-ci.yaml",
+        "run_command": "cd components/notebook-controller && GOTOOLCHAIN=auto golangci-lint run --timeout=5m",
+        "fix_command": "cd components/notebook-controller && GOTOOLCHAIN=auto golangci-lint run --fix --timeout=5m",
+        "scope": "components/notebook-controller",
+        "validated": true,
+        "validation_notes": "Runs successfully, found 64 lines of lint issues (errcheck, staticcheck, etc.)"
+      },
+      {
+        "name": "golangci-lint",
+        "version": "v2.8.0",
+        "config_file": "components/odh-notebook-controller/.golang-ci.yaml",
+        "run_command": "cd components/odh-notebook-controller && GOTOOLCHAIN=auto golangci-lint run --timeout=5m",
+        "fix_command": "cd components/odh-notebook-controller && GOTOOLCHAIN=auto golangci-lint run --fix --timeout=5m",
+        "scope": "components/odh-notebook-controller",
+        "validated": true,
+        "validation_notes": "Runs successfully, found 3 issues (1 staticcheck, 2 unused)"
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "cd components/{component} && GOTOOLCHAIN=auto go fmt ./...",
+        "fix_command": "cd components/{component} && GOTOOLCHAIN=auto go fmt ./...",
+        "scope": "both components",
+        "validated": true,
+        "validation_notes": "Runs successfully, no issues found"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "cd components/{component} && GOTOOLCHAIN=auto go vet ./...",
+        "fix_command": null,
+        "scope": "both components",
+        "validated": true,
+        "validation_notes": "Runs successfully, no issues found"
+      },
+      {
+        "name": "go mod verify",
+        "config_file": null,
+        "run_command": "cd components/{component} && GOTOOLCHAIN=auto go mod verify",
+        "fix_command": null,
+        "scope": "both components",
+        "validated": true,
+        "validation_notes": "All modules verified successfully"
+      },
+      {
+        "name": "go mod tidy",
+        "config_file": null,
+        "run_command": "cd components/{component} && GOTOOLCHAIN=auto go mod tidy",
+        "fix_command": "cd components/{component} && GOTOOLCHAIN=auto go mod tidy",
+        "scope": "both components",
+        "validated": false,
+        "validation_notes": "Used in CI to check for uncommitted changes after running tidy"
+      },
+      {
+        "name": "flake8",
+        "config_file": ".flake8",
+        "run_command": "flake8 components/",
+        "fix_command": null,
+        "scope": "Python files (utility scripts only)",
+        "validated": true,
+        "validation_notes": "Found multiple style violations in concatenate_license.py files"
+      }
+    ],
+    "notes": "CI also runs govulncheck for vulnerability scanning and checks generated code hasn't changed"
+  },
+  "testing": {
+    "framework": "go test with ginkgo/gomega",
+    "test_directory": "components/*/controllers/ and components/odh-notebook-controller/e2e/",
+    "run_command": "cd components/notebook-controller && GOTOOLCHAIN=auto make test",
+    "run_single_file": "cd components/{component} && GOTOOLCHAIN=auto KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.32 -p path)\" go test -v {file}",
+    "run_single_test": "cd components/{component} && GOTOOLCHAIN=auto KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.32 -p path)\" go test -v ./controllers/... -ginkgo.focus=\"{test_name}\"",
+    "setup_required": [
+      "GOTOOLCHAIN=auto go mod download",
+      "make controller-gen",
+      "make envtest",
+      "make manifests generate fmt vet"
+    ],
+    "env_vars": [
+      "GOTOOLCHAIN=auto (required for Go 1.25.7)",
+      "KUBEBUILDER_ASSETS=$(./bin/setup-envtest use 1.32 -p path)",
+      "SET_PIPELINE_RBAC=true or false (for odh-notebook-controller only)"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": "Uses envtest for Kubernetes API mocking",
+    "coverage_command": "cd components/{component} && GOTOOLCHAIN=auto make test (generates cover.out or cover-rbac-{true,false}.out)",
+    "coverage_threshold": null,
+    "notes": "Tests use kubebuilder's envtest which creates a lightweight Kubernetes API. notebook-controller runs a single test suite. odh-notebook-controller runs two: test-with-rbac-false and test-with-rbac-true (104 specs total). Integration tests exist but require KinD cluster. E2E tests in odh-notebook-controller require full cluster access."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/code-quality.yaml",
+      ".github/workflows/notebook_controller_unit_test.yaml",
+      ".github/workflows/odh_notebook_controller_unit_test.yaml",
+      ".github/workflows/notebook_controller_integration_test.yaml",
+      ".github/workflows/odh_notebook_controller_integration_test.yaml",
+      ".tekton/odh-notebook-controller-pull-request.yaml",
+      ".tekton/odh-kf-notebook-controller-pull-request.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "golangci-lint (notebook-controller)",
+        "command": "cd components/notebook-controller && golangci-lint run --timeout=5m",
+        "required": true,
+        "workflow": "code-quality.yaml"
+      },
+      {
+        "name": "golangci-lint (odh-notebook-controller)",
+        "command": "cd components/odh-notebook-controller && golangci-lint run --timeout=5m",
+        "required": true,
+        "workflow": "code-quality.yaml"
+      },
+      {
+        "name": "go mod verify",
+        "command": "cd components/{component} && go mod verify",
+        "required": true,
+        "workflow": "code-quality.yaml"
+      },
+      {
+        "name": "go mod tidy -diff",
+        "command": "cd components/{component} && go mod tidy && git diff --exit-code",
+        "required": true,
+        "workflow": "code-quality.yaml"
+      },
+      {
+        "name": "govulncheck",
+        "command": "cd components/{component} && make govulncheck",
+        "required": true,
+        "workflow": "code-quality.yaml"
+      },
+      {
+        "name": "check-generated-code",
+        "command": "bash ci/generate_code.sh && git diff --exit-code",
+        "required": true,
+        "workflow": "code-quality.yaml"
+      },
+      {
+        "name": "code-static-analysis",
+        "command": "./ci/kustomize.sh",
+        "required": true,
+        "workflow": "code-quality.yaml"
+      },
+      {
+        "name": "notebook-controller unit tests",
+        "command": "cd components/notebook-controller && make test",
+        "required": true,
+        "workflow": "notebook_controller_unit_test.yaml"
+      },
+      {
+        "name": "odh-notebook-controller unit tests",
+        "command": "cd components/odh-notebook-controller && make test",
+        "required": true,
+        "workflow": "odh_notebook_controller_unit_test.yaml"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "integration tests",
+        "command": "Requires KinD cluster - see integration test workflows",
+        "required": false
+      }
+    ],
+    "notes": "GitHub Actions runs on pull_request to main and v1.10-branch. Tekton runs on OpenShift for multi-arch container builds. Integration tests build containers and deploy to KinD clusters."
+  },
+  "build": {
+    "system": "make + go build",
+    "install_command": "cd components/{component} && GOTOOLCHAIN=auto go mod download",
+    "build_command": "cd components/{component} && GOTOOLCHAIN=auto make build",
+    "container_build_command": "cd components/{component} && make docker-build",
+    "code_generation_command": "cd components/{component} && make manifests generate",
+    "notes": "Uses kubebuilder controller-gen for CRD and RBAC manifest generation. Requires GOTOOLCHAIN=auto for Go 1.25.7. Container builds use podman by default. Pre-build steps: make manifests generate fmt vet."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Go: Test* functions and ginkgo Describe/It blocks. Ginkgo uses BDD-style naming.",
+    "import_style": "Standard Go import style with controller-runtime patterns",
+    "notes": "Two main components: notebook-controller (upstream Kubeflow) and odh-notebook-controller (OpenDataHub variant). Both follow kubebuilder project structure."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.22",
+    "system_deps": ["make", "git", "curl", "python3", "python3-pip"],
+    "setup_commands": [
+      "apt-get update -qq && apt-get install -y -qq make git curl python3 python3-pip",
+      "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v2.8.0",
+      "pip3 install flake8 --break-system-packages -q"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd components/notebook-controller && GOTOOLCHAIN=auto golangci-lint run --timeout=5m",
+        "validated": true,
+        "notes": "Found 64 lines of issues (errcheck, staticcheck, etc.) - working correctly"
+      },
+      {
+        "command": "cd components/odh-notebook-controller && GOTOOLCHAIN=auto golangci-lint run --timeout=5m",
+        "validated": true,
+        "notes": "Found 3 issues - working correctly"
+      },
+      {
+        "command": "cd components/notebook-controller && GOTOOLCHAIN=auto go fmt ./...",
+        "validated": true,
+        "notes": "No issues found"
+      },
+      {
+        "command": "cd components/notebook-controller && GOTOOLCHAIN=auto go vet ./...",
+        "validated": true,
+        "notes": "No issues found"
+      },
+      {
+        "command": "flake8 components/",
+        "validated": true,
+        "notes": "Found style violations in Python utility scripts - working correctly"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd components/notebook-controller && GOTOOLCHAIN=auto make test",
+        "validated": true,
+        "notes": "All tests pass (1 spec), coverage 34.8%"
+      },
+      {
+        "command": "cd components/odh-notebook-controller && GOTOOLCHAIN=auto make test",
+        "validated": true,
+        "notes": "All tests pass (102+104 specs in two runs), coverage 69.8-71.1%"
+      }
+    ],
+    "test_single_file": "cd components/{component} && GOTOOLCHAIN=auto KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.32 -p path)\" go test -v {file}",
+    "test_single_test": "cd components/{component} && GOTOOLCHAIN=auto KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.32 -p path)\" go test -v ./controllers/... -ginkgo.focus=\"{test_name}\"",
+    "env_vars": ["GOTOOLCHAIN=auto"],
+    "notes": "Go 1.25.7 is required but not available in standard golang:1.22 image. Using GOTOOLCHAIN=auto automatically downloads the correct version. Tests use envtest which downloads Kubernetes API binaries on first run. Some 'no such tool covdata' warnings appear but don't affect test execution."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y make git curl python3 python3-pip",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "System deps installed",
+        "notes": "All system dependencies installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "cd components/notebook-controller && GOTOOLCHAIN=auto go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go: downloading go1.25.7 (linux/amd64)\nDependencies downloaded successfully",
+        "notes": "GOTOOLCHAIN=auto automatically downloaded Go 1.25.7 and all dependencies"
+      },
+      {
+        "step": "build",
+        "command": "cd components/notebook-controller && GOTOOLCHAIN=auto go build -o bin/manager main.go",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Build successful",
+        "notes": "Binary builds without errors"
+      },
+      {
+        "step": "lint",
+        "command": "cd components/notebook-controller && GOTOOLCHAIN=auto golangci-lint run --timeout=5m",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "controllers/culling_controller.go:285:23: Error return value of `resp.Body.Close` is not checked (errcheck)\n...\n64 lines total",
+        "notes": "Exit code 1 means lint found issues (expected). Linter working correctly."
+      },
+      {
+        "step": "lint",
+        "command": "cd components/odh-notebook-controller && GOTOOLCHAIN=auto golangci-lint run --timeout=5m",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "3 issues:\n* staticcheck: 1\n* unused: 2",
+        "notes": "Found 3 minor issues. Linter working correctly."
+      },
+      {
+        "step": "lint",
+        "command": "cd components/notebook-controller && GOTOOLCHAIN=auto go fmt ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go fmt: OK",
+        "notes": "No formatting issues"
+      },
+      {
+        "step": "lint",
+        "command": "cd components/notebook-controller && GOTOOLCHAIN=auto go vet ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go vet: OK",
+        "notes": "No vet issues"
+      },
+      {
+        "step": "lint",
+        "command": "flake8 components/",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "components/odh-notebook-controller/third_party/concatenate_license.py:19:3: E121 continuation line under-indented...",
+        "notes": "Found Python style violations. Linter working correctly."
+      },
+      {
+        "step": "test",
+        "command": "cd components/notebook-controller && GOTOOLCHAIN=auto make test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Ran 1 of 1 Specs in 6.202 seconds\nSUCCESS! -- 1 Passed | 0 Failed | 0 Pending | 0 Skipped\ncoverage: 34.8% of statements",
+        "notes": "All tests pass. Some 'no such tool covdata' warnings don't affect execution."
+      },
+      {
+        "step": "test",
+        "command": "cd components/odh-notebook-controller && GOTOOLCHAIN=auto make test-with-rbac-false",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Ran 102 of 104 Specs in 88.580 seconds\nSUCCESS! -- 102 Passed | 0 Failed | 0 Pending | 2 Skipped\ncoverage: 69.8% of statements",
+        "notes": "102 specs passed with RBAC false"
+      },
+      {
+        "step": "test",
+        "command": "cd components/odh-notebook-controller && GOTOOLCHAIN=auto make test-with-rbac-true",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Ran 104 of 104 Specs in 102.938 seconds\nSUCCESS! -- 104 Passed | 0 Failed | 0 Pending | 0 Skipped\ncoverage: 71.1% of statements",
+        "notes": "All 104 specs passed with RBAC true"
+      }
+    ],
+    "summary": "All validation successful: deps install OK, build OK, lint OK (found legitimate issues), tests OK (all pass with good coverage)"
+  },
+  "gaps": [
+    "Integration tests require KinD cluster - not runnable in basic container",
+    "E2E tests require full Kubernetes/OpenShift cluster with deployed controllers",
+    "semgrep.yaml config exists but not executed in GitHub Actions CI (may be used locally or in Tekton)",
+    "No pre-commit hooks configured - code generation and linting must be run manually",
+    "Python code is minimal (only utility scripts) with lint violations that appear to be accepted"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

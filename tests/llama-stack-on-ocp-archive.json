@@ -1,0 +1,103 @@
+{
+  "repo": "llama-stack-on-ocp-archive",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:48:00-04:00",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. No ruff, flake8, black, mypy, or pre-commit hooks configured."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [
+      "REMOTE_BASE_URL - URL for Llama Stack server",
+      "REMOTE_MCP_URL - URL for MCP server",
+      "REMOTE_VDB_PROVIDER - Vector database provider"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No tests found. No test directories, no test files, no testing framework configured."
+  },
+  "ci": {
+    "system": "None",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. This is an archived repository with no GitHub Actions, Tekton, Jenkins, or other CI systems."
+  },
+  "build": {
+    "system": "make + podman",
+    "install_command": "pip install -r mcp-servers/llamastack/requirements.txt && pip install streamlit llama-stack-client python-dotenv fire",
+    "build_command": "make build_ui (builds Streamlit container) or make build_mcp (builds MCP server container)",
+    "notes": "Build system uses podman to build containers. Multiple Containerfiles for different components. Dependencies are installed via pip in Containerfiles. Missing 'fire' dependency not listed in requirements files."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": "Standard Python imports, mix of absolute and relative",
+    "notes": "Python code includes type hints in some files (e.g., mcp_server.py). Docstrings present in class definitions. No consistent code formatting enforced."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install --no-cache-dir -r mcp-servers/llamastack/requirements.txt",
+      "pip install --no-cache-dir streamlit llama-stack-client python-dotenv",
+      "pip install --no-cache-dir fire",
+      "pip install --no-cache-dir mcp"
+    ],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No lint or test commands available. Container recipe only validates that dependencies install and Python files have valid syntax. The mcp package from requirements.txt may need explicit installation. The 'fire' package is a missing runtime dependency not listed in requirements files."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install -r mcp-servers/llamastack/requirements.txt && pip install streamlit llama-stack-client python-dotenv fire mcp",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed packages including streamlit, llama-stack-client, mcp, fire, and dependencies",
+        "notes": "Dependencies installed successfully. Note: 'fire' and explicit 'mcp' installation were needed beyond what's in requirements.txt"
+      },
+      {
+        "step": "syntax_check",
+        "command": "python -m py_compile app/src/*.py mcp-servers/llamastack/*.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - success)",
+        "notes": "All Python files have valid syntax"
+      },
+      {
+        "step": "import_test",
+        "command": "python -c 'import client_tools; import mcp_server'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "✓ client_tools imported successfully\n✓ mcp_server imported successfully",
+        "notes": "Python modules can be imported. streamlit_app.py attempts runtime connection to Llama Stack service on import (expected to fail without .env and running service)"
+      }
+    ],
+    "summary": "install OK, syntax check OK, imports OK (with runtime connection errors for streamlit_app)"
+  },
+  "gaps": [
+    "No tests - no test files, no test directories, no testing framework",
+    "No linting - no pre-commit hooks, no ruff/flake8/black/mypy configuration",
+    "No CI/CD - no GitHub Actions, no automated checks on pull requests",
+    "Incomplete dependency specification - 'fire' package required but not in requirements files",
+    "This is an archived repository - not under active development",
+    "Application requires external Llama Stack and MCP services to run - cannot be tested standalone",
+    "No documentation on development workflow or contribution guidelines"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

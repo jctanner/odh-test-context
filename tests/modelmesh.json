@@ -1,0 +1,156 @@
+{
+  "repo": "modelmesh",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:35:40Z",
+  "languages": ["Java", "Python"],
+  "linting": {
+    "tools": [],
+    "notes": "No Java linters configured in pom.xml. The .pre-commit-config.yaml file references golangci-lint and prettier, but there is no Go code in the repository. Prettier may be intended for YAML/JSON formatting but is not actively used. No checkstyle, spotbugs, or PMD plugins configured."
+  },
+  "testing": {
+    "framework": "JUnit 5 (Jupiter)",
+    "test_directory": "src/test/java",
+    "run_command": "mvn -B test",
+    "run_single_file": "mvn test -Dtest={TestClassName}",
+    "run_single_test": "mvn test -Dtest={TestClassName}#{methodName}",
+    "setup_required": [
+      "Install etcd v3.5.0+ (required for most tests)",
+      "mvn -B package -DskipTests (generate sources and resolve dependencies)"
+    ],
+    "env_vars": [
+      "MM_INFO_METRICS=assistant_deployment_info:relabel;deployment=DEPLOYMENT_NAME,slot=SLOT_NAME,component=COMPONENT_NAME,group=GROUP_NAME",
+      "DEPLOYMENT_NAME=ga-tf-mm",
+      "SLOT_NAME=ga",
+      "COMPONENT_NAME=tf-mm",
+      "GROUP_NAME=clu"
+    ],
+    "fixtures_location": "src/test/resources",
+    "mock_patterns": "Mock model loaders in com.ibm.watson.modelmesh.example package. Tests use embedded etcd (curator-test) and zookeeper for KV store testing.",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests use maven-surefire-plugin 3.0.0-M5. Tests do not run in parallel (forkCount=1, reuseForks=false). Full test suite takes >5 minutes to run. Individual tests run quickly (e.g., ProtoSplicerTest completes in <1 second). Many tests require etcd to be available on the system path."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/build.yml",
+      ".github/workflows/codeql.yml",
+      ".github/workflows/create-release-tag.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "test",
+        "command": "mvn -B package --file pom.xml",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "CodeQL Analysis",
+        "command": "Autobuild (Maven)",
+        "required": false
+      }
+    ],
+    "notes": "CI runs on pull_request and push to main/release branches. Tests require etcd installation via .github/install-etcd.sh script. Build job creates multi-arch Docker images (amd64, arm64, ppc64le, s390x) but only runs after tests pass. Java 21 (Temurin distribution) is used in CI."
+  },
+  "build": {
+    "system": "Maven",
+    "install_command": "mvn -B dependency:resolve",
+    "build_command": "mvn -B package -DskipTests",
+    "notes": "Project uses protobuf code generation via protobuf-maven-plugin. Generated sources are created in target/generated-sources/protobuf. Full build with tests: mvn -B package. Java 21 is required (configured in maven-compiler-plugin with <release>21</release>)."
+  },
+  "conventions": {
+    "test_file_pattern": "src/test/java/**/*Test.java",
+    "test_naming": "JUnit 5 conventions: class names end with 'Test', test methods annotated with @Test",
+    "import_style": "Standard Java imports, grouped by package",
+    "notes": "41 test classes found. Test classes extend AbstractModelMeshTest or AbstractModelMeshClusterTest base classes. Example test runners in com.ibm.watson.modelmesh.example package."
+  },
+  "container_recipe": {
+    "base_image": "docker.io/library/maven:3.9-eclipse-temurin-21",
+    "system_deps": [
+      "wget",
+      "tar",
+      "gzip",
+      "etcd (from github.com/etcd-io/etcd/releases)"
+    ],
+    "setup_commands": [
+      "wget -q https://github.com/etcd-io/etcd/releases/download/v3.5.4/etcd-v3.5.4-linux-amd64.tar.gz",
+      "tar xzf etcd-v3.5.4-linux-amd64.tar.gz --no-same-owner",
+      "mv etcd-v3.5.4-linux-amd64/etcd /usr/local/bin/",
+      "mv etcd-v3.5.4-linux-amd64/etcdctl /usr/local/bin/",
+      "mvn -B dependency:resolve",
+      "mvn -B package -DskipTests"
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {
+        "command": "mvn -B test",
+        "validated": false,
+        "notes": "Full test suite times out after 5 minutes. Tests start but take very long to complete all 41 test classes."
+      },
+      {
+        "command": "mvn test -Dtest=ProtoSplicerTest",
+        "validated": true,
+        "notes": "Single test SUCCESS: 2 tests run, 0 failures, 0 errors, 0 skipped in 0.363s"
+      }
+    ],
+    "test_single_file": "mvn test -Dtest={TestClassName}",
+    "test_single_test": "mvn test -Dtest={TestClassName}#{methodName}",
+    "env_vars": [],
+    "notes": "etcd must be installed but does not need to be running as a service - tests start their own embedded instances. Full test suite is very slow (>5 min), recommend running individual test classes or specific tests for faster feedback."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install_system_deps",
+        "command": "apt-get update && apt-get install -y wget tar gzip",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "wget is already the newest version (1.21.4-1ubuntu4.1)\ntar is already the newest version (1.35+dfsg-3build1)\ngzip is already the newest version (1.12-1ubuntu3.1)\n0 upgraded, 0 newly installed, 0 to remove and 16 not upgraded.",
+        "notes": "System dependencies already present in maven:3.9-eclipse-temurin-21 image"
+      },
+      {
+        "step": "install_etcd",
+        "command": "wget etcd v3.5.4 tarball, extract and install to /usr/local/bin",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "etcd Version: 3.5.4\nGit SHA: 08407ff76\nGo Version: go1.16.15\nGo OS/Arch: linux/amd64",
+        "notes": "etcd installed successfully"
+      },
+      {
+        "step": "build",
+        "command": "mvn -B package -DskipTests",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "[INFO] Building jar: /app/target/dockerhome/lib/model-mesh-0.4.2-SNAPSHOT.jar\n[INFO] BUILD SUCCESS\n[INFO] Total time:  12.069 s",
+        "notes": "Build completed successfully, generates protobuf sources and compiles Java code"
+      },
+      {
+        "step": "test_single",
+        "command": "mvn test -Dtest=ProtoSplicerTest",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "[INFO] Running com.ibm.watson.modelmesh.ProtoSplicerTest\n[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.363 s\n[INFO] BUILD SUCCESS",
+        "notes": "Single test class runs successfully in under 1 second"
+      },
+      {
+        "step": "test_all",
+        "command": "mvn -B test",
+        "exit_code": null,
+        "success": false,
+        "output_snippet": "[INFO] --- dependency:3.1.2:copy-dependencies (default) @ model-mesh ---\n[dependencies being resolved...]",
+        "notes": "Full test suite timed out after 5 minutes. Tests appear to start but take very long to complete all 41 test classes."
+      }
+    ],
+    "summary": "Dependencies OK, build OK, single tests OK, full test suite SLOW (>5min)"
+  },
+  "gaps": [
+    "No linting or code formatting tools configured in Maven build",
+    ".pre-commit-config.yaml references golangci-lint for a Java project (likely outdated)",
+    "Full test suite is very slow (>5 minutes), may not be practical for quick validation",
+    "No documented coverage threshold or coverage reporting configured",
+    "Tests require etcd binary on PATH but this is not enforced by Maven configuration"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

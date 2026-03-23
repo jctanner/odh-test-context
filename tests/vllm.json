@@ -1,0 +1,247 @@
+{
+  "repo": "vllm",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:36:55-04:00",
+  "languages": [
+    "Python",
+    "C++",
+    "CUDA"
+  ],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff check --output-format github .",
+        "fix_command": "ruff check --fix .",
+        "scope": "full project (excludes third_party)"
+      },
+      {
+        "name": "yapf",
+        "config_file": "pyproject.toml",
+        "run_command": "yapf --in-place --recursive .",
+        "fix_command": "yapf --in-place --recursive .",
+        "scope": "Python files (excludes build/, third_party)"
+      },
+      {
+        "name": "mypy",
+        "config_file": "pyproject.toml",
+        "run_command": "bash tools/mypy.sh 0 local",
+        "fix_command": null,
+        "scope": "Selected vllm subdirectories"
+      },
+      {
+        "name": "isort",
+        "config_file": "pyproject.toml",
+        "run_command": "isort .",
+        "fix_command": "isort .",
+        "scope": "Python files (skip_gitignore=true)"
+      },
+      {
+        "name": "codespell",
+        "config_file": "pyproject.toml",
+        "run_command": "codespell --toml pyproject.toml",
+        "fix_command": "codespell --toml pyproject.toml --write-changes",
+        "scope": "All text files (excludes tests/models/fixtures, build/, etc.)"
+      },
+      {
+        "name": "clang-format",
+        "config_file": ".clang-format",
+        "run_command": "clang-format --style=file --verbose [C++/CUDA files]",
+        "fix_command": "clang-format -i --style=file [C++/CUDA files]",
+        "scope": "C++ and CUDA files (excludes third_party, certain GGUF files)"
+      },
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files --hook-stage manual",
+        "fix_command": "pre-commit run --all-files --hook-stage manual",
+        "scope": "All configured hooks (yapf, ruff, mypy, isort, codespell, clang-format, etc.)"
+      }
+    ],
+    "notes": "Linting is enforced via pre-commit hooks. CI runs pre-commit with --hook-stage manual to run all hooks including mypy for multiple Python versions (3.9-3.12). Ruff found 472 lint violations in current codebase (mostly in third_party code)."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "pytest -v -s tests/",
+    "run_single_file": "pytest -v -s {file}",
+    "run_single_test": "pytest -v -s {file}::{test_name}",
+    "setup_required": [
+      "pip install -e '.[dev]'",
+      "Requires CUDA toolkit and GPU for most tests"
+    ],
+    "env_vars": [
+      "VLLM_TEST_ENABLE_ARTIFICIAL_PREEMPT=1 (for preemption tests)",
+      "VLLM_ATTENTION_BACKEND=XFORMERS or FLASH_ATTN (for attention backend tests)",
+      "VLLM_USE_V1=1 (for v1 engine tests)",
+      "VLLM_WORKER_MULTIPROC_METHOD=spawn (for some distributed tests)",
+      "NUM_SCHEDULER_STEPS=4 (for async engine tests)",
+      "TARGET_TEST_SUITE=L4 or A100 (for GPU-specific tests)"
+    ],
+    "fixtures_location": "tests/conftest.py and subdirectory conftest.py files",
+    "mock_patterns": "Uses pytest fixtures for model loading, fixtures defined in conftest.py",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are heavily GPU-dependent. Most tests require NVIDIA CUDA GPUs. Test suite is organized by Buildkite pipeline (not GitHub Actions). Tests use pytest markers: skip_global_cleanup, core_model, cpu_model, quant_model, distributed, skip_v1, optional. Tests can be sharded using pytest-shard: pytest --shard-id=X --num-shards=Y. Many tests require specific models to be downloaded from HuggingFace or S3."
+  },
+  "ci": {
+    "system": "Buildkite (primary) and GitHub Actions (pre-commit only)",
+    "config_files": [
+      ".buildkite/test-pipeline.yaml",
+      ".github/workflows/pre-commit.yml",
+      ".github/workflows/lint-and-deploy.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "pre-commit",
+        "command": "pre-commit run --all-files --hook-stage manual",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Buildkite tests",
+        "command": "Various pytest commands defined in .buildkite/test-pipeline.yaml",
+        "required": false,
+        "notes": "Buildkite tests are the authoritative test suite but run on specialized infrastructure with GPUs"
+      }
+    ],
+    "notes": "GitHub Actions only runs pre-commit checks and Helm chart validation. The real test suite runs on Buildkite with GPU infrastructure. Buildkite pipeline includes ~60 test jobs covering: fast checks (basic correctness, core, entrypoints), distributed tests (2-4 GPUs), model tests, LoRA tests, kernel tests, quantization tests, etc. Most tests require L4 or A100 GPUs. Some tests are marked 'optional' and only run on nightly builds or when manually triggered."
+  },
+  "build": {
+    "system": "setuptools with CMake/ninja for C++/CUDA extensions",
+    "install_command": "pip install -e '.[dev]'",
+    "build_command": "python setup.py build_ext --inplace",
+    "notes": "Build requires CUDA toolkit (12.4.1 in Dockerfile), CMake >=3.26, ninja, GCC 10+, and PyTorch. Build is complex with C++/CUDA kernels. For development without GPU, can use python-only mode. Full build creates wheels with --build-option flags. Different requirements files for different platforms: requirements-cuda.txt, requirements-rocm.txt, requirements-cpu.txt, requirements-tpu.txt, requirements-hpu.txt, requirements-neuron.txt, requirements-openvino.txt, requirements-xpu.txt."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py or *_test.py in tests/ directory",
+    "test_naming": "Functions named test_* (pytest convention)",
+    "import_style": "Absolute imports, grouped and sorted by isort. Third-party code in vllm/third_party/ is excluded from linting.",
+    "notes": "Code requires SPDX license headers (checked by pre-commit hook). All commits must be signed off (enforced by pre-commit hook). No spaces allowed in filenames. C++/CUDA code formatted with clang-format. Shell scripts checked with shellcheck. PNG files checked for excalidraw exports. Markdown files checked with pymarkdown."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": [
+      "git",
+      "make",
+      "gcc",
+      "g++",
+      "cmake",
+      "ninja-build",
+      "curl"
+    ],
+    "setup_commands": [
+      "pip install pre-commit==4.0.1",
+      "pip install ruff yapf isort mypy codespell",
+      "pip install pytest==8.3.3 pytest-asyncio pytest-forked pytest-mock"
+    ],
+    "lint_commands": [
+      {
+        "command": "ruff check --output-format github .",
+        "validated": true,
+        "notes": "Found 472 lint errors (mostly in third_party code). Returns exit code 0 despite errors, which is expected behavior."
+      },
+      {
+        "command": "yapf --version",
+        "validated": true,
+        "notes": "yapf 0.43.0 installed successfully"
+      },
+      {
+        "command": "isort --version",
+        "validated": true,
+        "notes": "isort 8.0.1 installed successfully"
+      },
+      {
+        "command": "mypy --version",
+        "validated": true,
+        "notes": "mypy 1.19.1 installed successfully"
+      },
+      {
+        "command": "pre-commit run --all-files --hook-stage manual",
+        "validated": false,
+        "notes": "Not fully validated - requires all hook dependencies and potentially CUDA for some checks"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "pytest --version",
+        "validated": true,
+        "notes": "pytest 8.3.3 installed successfully"
+      },
+      {
+        "command": "pytest --collect-only tests/",
+        "validated": false,
+        "notes": "Cannot collect tests without full vllm installation, which requires CUDA build"
+      },
+      {
+        "command": "pytest -v -s tests/",
+        "validated": false,
+        "notes": "Cannot run tests - requires vllm to be built and installed with CUDA support"
+      }
+    ],
+    "test_single_file": "pytest -v -s {file}",
+    "test_single_test": "pytest -v -s {file}::{test_name}",
+    "env_vars": [],
+    "notes": "Full test validation requires CUDA GPU and building vllm from source with CUDA extensions. Linting can be validated without GPU. The project is designed for GPU/CUDA environments and most functionality requires NVIDIA GPUs (L4, A100, etc.). CPU-only testing is very limited."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "system_deps_install",
+        "command": "apt-get update && apt-get install -y git make gcc g++ cmake ninja-build curl",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Setting up cmake (3.31.6-2) ...\nProcessing triggers for libc-bin (2.41-12+deb13u2) ...",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "lint_tools_install",
+        "command": "pip install pre-commit ruff yapf isort mypy codespell",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed cfgv-3.5.0 codespell-2.4.2 distlib-0.4.0 ... yapf-0.43.0",
+        "notes": "All linting tools installed successfully"
+      },
+      {
+        "step": "lint_ruff",
+        "command": "ruff check --output-format github .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Found 472 errors.\n[*] 43 fixable with the `--fix` option (10 hidden fixes can be enabled with the `--unsafe-fixes` option).",
+        "notes": "Ruff found 472 lint violations (expected in current codebase, mostly in third_party code). Exit code 0 indicates the command ran successfully."
+      },
+      {
+        "step": "test_framework_install",
+        "command": "pip install pytest==8.3.3 pytest-asyncio pytest-forked pytest-mock",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed iniconfig-2.3.0 packaging-26.0 pluggy-1.6.0 py-1.11.0 pytest-8.3.3 ...",
+        "notes": "Pytest and plugins installed successfully"
+      },
+      {
+        "step": "test_collect",
+        "command": "pytest --collect-only tests/",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "ImportError while loading conftest '/app/tests/conftest.py'.\nModuleNotFoundError: No module named 'PIL'",
+        "notes": "Test collection requires full vllm dependencies (numpy, PIL, transformers, etc.) and ultimately requires vllm to be built with CUDA"
+      }
+    ],
+    "summary": "Lint tools validated OK (ruff found 472 violations). Tests require CUDA/GPU infrastructure - cannot validate in standard container."
+  },
+  "gaps": [
+    "Full test suite requires NVIDIA GPU (L4 or A100) and CUDA toolkit - cannot be validated in CPU-only container",
+    "Building vllm from source requires CUDA 12.4.1, CMake, ninja, and is a complex multi-stage process",
+    "Many tests require downloading large models from HuggingFace (meta-llama/Llama models, etc.)",
+    "Buildkite CI pipeline is the authoritative test suite but is not publicly accessible",
+    "No simple way to run a subset of tests without GPU - most tests import vllm which requires CUDA build",
+    "Pre-commit hooks include mypy checks that run in CI for Python 3.9-3.12 but require environment setup",
+    "Some tests require multi-GPU setup (2-4 GPUs) or even multi-node distributed setup",
+    "Documentation tests require sphinx and building docs",
+    "Some tests are marked 'optional' and only run in nightly builds or require manual triggering"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

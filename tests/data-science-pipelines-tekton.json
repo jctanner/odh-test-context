@@ -1,0 +1,242 @@
+{
+  "repo": "data-science-pipelines-tekton",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:59:00Z",
+  "languages": ["Python", "Go", "TypeScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "flake8",
+        "config_file": "Makefile (inline configuration)",
+        "run_command": "flake8 sdk/python --show-source --statistics --select=E9,E2,E3,E5,F63,F7,F82,F4,F841,W291,W292 --per-file-ignores sdk/python/tests/compiler/testdata/*:F841,F821 --max-line-length=140",
+        "fix_command": null,
+        "scope": "sdk/python directory only"
+      },
+      {
+        "name": "pylint",
+        "config_file": ".pylintrc",
+        "run_command": "pylint sdk/python",
+        "fix_command": null,
+        "scope": "full project (but not used in CI)"
+      },
+      {
+        "name": "eslint",
+        "config_file": "frontend/.eslintrc.yaml",
+        "run_command": "cd frontend && npm run lint",
+        "fix_command": null,
+        "scope": "frontend directory only"
+      },
+      {
+        "name": "prettier",
+        "config_file": "frontend/.prettierrc.yaml",
+        "run_command": "cd frontend && npm run format:check",
+        "fix_command": "cd frontend && npm run format",
+        "scope": "frontend directory only"
+      }
+    ],
+    "notes": "Python linting uses flake8 with limited error codes (E9,E2,E3,E5,F63,F7,F82,F4,F841,W291,W292). A .pylintrc file exists but is not actively used in CI. Frontend has ESLint and Prettier but frontend tests are not gating checks in PR workflow."
+  },
+  "testing": {
+    "framework": "unittest (Python), go test (Go), Jest (TypeScript)",
+    "test_directory": "sdk/python/tests (Python), backend/**/*_test.go (Go), frontend/src/**/*.test.{ts,tsx} (TypeScript)",
+    "run_command": "VENV=$VIRTUAL_ENV make unit_test (Python), make run-go-unittests (Go), cd frontend && npm test (TypeScript)",
+    "run_single_file": "cd sdk/python/tests && python3 -m unittest {module_path}",
+    "run_single_test": "cd sdk/python/tests && python3 -m unittest {module_path}.{ClassName}.{test_name}",
+    "setup_required": [
+      "python -m pip install -e sdk/python",
+      "pip install 'urllib3<2' (for compatibility)"
+    ],
+    "env_vars": [
+      "VENV=$VIRTUAL_ENV (optional, for Make targets)",
+      "GITHUB_ACTION=true (set in CI)",
+      "SETUPTOOLS_USE_DISTUTILS=stdlib (set in CI)"
+    ],
+    "fixtures_location": "sdk/python/tests/compiler/testdata",
+    "mock_patterns": "Test files use unittest.TestCase classes",
+    "coverage_command": "cd frontend && npm run test:coverage (for frontend only)",
+    "coverage_threshold": null,
+    "notes": "Python tests use unittest framework and run via sdk/python/tests/run_tests.sh script. 113 tests in compiler module. Go tests are standard Go test files with *_test.go pattern. Frontend tests exist but are not gating in main CI workflow. Backend integration tests require Kubernetes cluster."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/kfp-tekton-unittests.yml",
+      ".github/workflows/build-prs.yml",
+      ".github/workflows/build-master.yml",
+      ".github/workflows/build-images.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "python-unittest",
+        "command": "python -m pip install -e sdk/python && VENV=$VIRTUAL_ENV make ci_unit_test",
+        "required": true
+      },
+      {
+        "name": "python-lint",
+        "command": "VENV=$VIRTUAL_ENV make lint",
+        "required": true
+      },
+      {
+        "name": "check-license",
+        "command": "make check_license",
+        "required": true
+      },
+      {
+        "name": "check-mdtoc",
+        "command": "make check_mdtoc",
+        "required": true
+      },
+      {
+        "name": "check-doc-links",
+        "command": "make check_doc_links",
+        "required": true
+      },
+      {
+        "name": "run-go-unittests",
+        "command": "make run-go-unittests",
+        "required": true
+      },
+      {
+        "name": "build-backend",
+        "command": "make build-backend",
+        "required": true
+      },
+      {
+        "name": "validate-testdata",
+        "command": "make validate-testdata",
+        "required": true
+      },
+      {
+        "name": "progress-report",
+        "command": "VENV=$VIRTUAL_ENV make report PRINT_ERRORS=TRUE",
+        "required": true
+      },
+      {
+        "name": "run-pipelineloop-unittests",
+        "command": "cd tekton-catalog/pipeline-loops && make test-all",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "backend-integration",
+        "command": "Requires Kubernetes cluster - see .github/workflows/kfp-tekton-unittests.yml lines 116-159",
+        "required": false
+      }
+    ],
+    "notes": "Main gating workflow is kfp-tekton-unittests.yml which runs on all PRs. Tests Python 3.7, 3.8, 3.9. Uses Go 1.19.x in CI (but go.mod specifies 1.21). Backend integration tests only run if backend files changed and require Kind cluster."
+  },
+  "build": {
+    "system": "make (primary), npm (frontend), go (backend)",
+    "install_command": "python -m pip install -e sdk/python (Python SDK), cd frontend && npm ci (frontend), go mod download (Go)",
+    "build_command": "make build-backend (builds all Go components: apiserver, agent, workflow, cacheserver)",
+    "notes": "Multi-language project. Python SDK is installed in development mode. Go backend has multiple binaries. Frontend is React app built with react-scripts. Container images defined in multiple Dockerfiles."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go (Go), compiler_tests.py, k8s_helper_tests.py (Python), *.test.ts, *.test.tsx (TypeScript)",
+    "test_naming": "Test* functions (Go), test_* methods in TestCase classes (Python), describe/it blocks (Jest)",
+    "import_style": "Python uses relative imports within kfp_tekton package. Go uses standard import paths.",
+    "notes": "Python code organized under sdk/python/kfp_tekton/. Go backend under backend/src/. Frontend in frontend/src/. Test data fixtures in sdk/python/tests/compiler/testdata/."
+  },
+  "container_recipe": {
+    "base_image": "python:3.9",
+    "system_deps": ["make", "git", "wget"],
+    "setup_commands": [
+      "wget -q https://go.dev/dl/go1.21.0.linux-amd64.tar.gz && tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz",
+      "export PATH=$PATH:/usr/local/go/bin",
+      "python -m pip install -e sdk/python",
+      "pip install 'urllib3<2'",
+      "pip install flake8 pytest"
+    ],
+    "lint_commands": [
+      {
+        "command": "flake8 sdk/python --show-source --statistics --select=E9,E2,E3,E5,F63,F7,F82,F4,F841,W291,W292 --per-file-ignores sdk/python/tests/compiler/testdata/*:F841,F821 --max-line-length=140",
+        "validated": true,
+        "notes": "Passed with exit code 0, no lint violations found"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd sdk/python/tests && python3 -m unittest compiler.compiler_tests compiler.k8s_helper_tests --verbose",
+        "validated": true,
+        "notes": "113 tests passed in 6.4s"
+      },
+      {
+        "command": "go test -v -cover ./backend/src/common/...",
+        "validated": true,
+        "notes": "All common package tests passed"
+      },
+      {
+        "command": "go build -o apiserver ./backend/src/apiserver",
+        "validated": true,
+        "notes": "Build successful, 59MB binary created"
+      }
+    ],
+    "test_single_file": "cd sdk/python/tests && python3 -m unittest {module_path}",
+    "test_single_test": "cd sdk/python/tests && python3 -m unittest {module_path}.{ClassName}.{test_name}",
+    "env_vars": ["PATH=$PATH:/usr/local/go/bin"],
+    "notes": "urllib3<2 required for compatibility with kfp dependencies. Go installation needed for backend tests. Container validation confirmed all core commands work."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "python -m pip install -e sdk/python",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed... kfp-tekton-1.3.1",
+        "notes": "Installed kfp-tekton and all dependencies successfully"
+      },
+      {
+        "step": "install",
+        "command": "pip install 'urllib3<2'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed urllib3-1.26.20",
+        "notes": "Downgrade needed for compatibility with requests-toolbelt in kfp dependencies"
+      },
+      {
+        "step": "lint",
+        "command": "flake8 sdk/python --show-source --statistics --select=E9,E2,E3,E5,F63,F7,F82,F4,F841,W291,W292 --per-file-ignores sdk/python/tests/compiler/testdata/*:F841,F821 --max-line-length=140",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "No output - lint passed with no violations"
+      },
+      {
+        "step": "test",
+        "command": "cd sdk/python/tests && python3 -m unittest compiler.compiler_tests compiler.k8s_helper_tests --verbose",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Ran 113 tests in 6.376s\n\nOK",
+        "notes": "All 113 Python tests passed"
+      },
+      {
+        "step": "test",
+        "command": "go test -v ./backend/src/common/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "PASS\nok  \tgithub.com/kubeflow/pipelines/backend/src/common/util\t0.015s",
+        "notes": "Go common tests passed"
+      },
+      {
+        "step": "build",
+        "command": "go build -o apiserver ./backend/src/apiserver",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "-rwxr-xr-x. 1 root root 59M apiserver",
+        "notes": "Backend apiserver built successfully"
+      }
+    ],
+    "summary": "install OK, lint OK (0 violations), Python tests OK (113 passed in 6.4s), Go tests OK, Go build OK"
+  },
+  "gaps": [
+    "Frontend tests exist but are not part of main CI gating workflow - no validation performed",
+    "Backend integration tests require Kubernetes cluster - cannot validate without infrastructure",
+    "Go version mismatch: CI uses Go 1.19.x but go.mod specifies 1.21 - validated with 1.21",
+    "Some Make targets (e2e_test, backend-integration) require kubectl, tkn CLI, and active Kubernetes cluster",
+    "License check, mdtoc check, and doc links check targets not validated (require specific tools/network access)"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

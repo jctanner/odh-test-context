@@ -1,0 +1,68 @@
+{
+  "repo": "feast-demo",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:06:32Z",
+  "languages": [],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. This is a documentation-only repository."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test framework or test files found. This repository contains only documentation."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows/, .tekton/, or other CI system configs present."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system detected. This repository contains only markdown documentation and images."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Documentation-only repository. Contains README.md with Feast demo setup instructions and supporting images."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No container recipe needed. Repository contains no executable code."
+  },
+  "validation": {
+    "results": [],
+    "summary": "No validation performed - repository contains only documentation (README.md and images)"
+  },
+  "gaps": [
+    "No source code - repository is documentation-only",
+    "No test infrastructure of any kind",
+    "No CI/CD configuration",
+    "No linting tools configured",
+    "No build system",
+    "Repository consists of a single README.md file and three PNG images in images/ directory"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

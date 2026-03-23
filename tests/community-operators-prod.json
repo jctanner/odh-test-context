@@ -1,0 +1,149 @@
+{
+  "repo": "community-operators-prod",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": ["YAML"],
+  "linting": {
+    "tools": [
+      {
+        "name": "opm",
+        "config_file": null,
+        "run_command": "opm validate <catalog_dir>",
+        "fix_command": null,
+        "scope": "catalog directories"
+      }
+    ],
+    "notes": "This repository contains Kubernetes operator manifests (YAML files), not application code. Validation is performed via `opm validate` on generated catalogs and through external CI pipelines from redhat-openshift-ecosystem/operator-pipelines. No traditional YAML linting configuration (.yamllint, etc.) is present."
+  },
+  "testing": {
+    "framework": "operator-framework scorecard",
+    "test_directory": "operators/<operator-name>/<version>/tests/scorecard/",
+    "run_command": "operator-sdk scorecard <bundle-path>",
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [
+      "Install opm: curl -sLO https://github.com/operator-framework/operator-registry/releases/download/v1.46.0/<os>-<arch>-opm",
+      "Install operator-sdk (for scorecard): https://sdk.operatorframework.io/docs/installation/",
+      "Requires Kubernetes cluster or Kind/Minikube for actual scorecard execution"
+    ],
+    "env_vars": [],
+    "fixtures_location": "operators/<operator-name>/<version>/tests/scorecard/config.yaml",
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are operator scorecard tests that validate OLM bundle structure and metadata. Scorecard tests require a Kubernetes cluster to execute. Each operator bundle can have its own scorecard configuration. The tests validate: basic-check-spec, olm-bundle-validation, olm-crds-have-validation, olm-crds-have-resources, olm-spec-descriptors, olm-status-descriptors. Most validation happens in external CI pipelines, not locally."
+  },
+  "ci": {
+    "system": "External (redhat-openshift-ecosystem/operator-pipelines) + GitHub Actions",
+    "config_files": [
+      ".github/workflows/pr-label-command.yml",
+      ".github/workflows/stale_issues.yaml",
+      "config.yaml",
+      "operators/<operator-name>/ci.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "DeployableByOLM",
+        "command": "External pipeline test - verifies operator can be deployed via OLM",
+        "required": true
+      },
+      {
+        "name": "check_dangling_bundles",
+        "command": "External pipeline test - verifies no orphaned operator bundles",
+        "required": true
+      },
+      {
+        "name": "check_operator_name",
+        "command": "External pipeline test - validates operator naming conventions",
+        "required": true
+      },
+      {
+        "name": "preflight-trigger",
+        "command": "External pipeline test - Red Hat certification checks",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Primary CI/CD validation happens through external pipelines managed by redhat-openshift-ecosystem/operator-pipelines. The GitHub Actions in this repo only handle administrative tasks (PR labels, stale issues). Actual operator validation (bundle structure, deployability, OLM compatibility) is performed by external pipelines triggered on PR creation. Test configuration is in config.yaml (repo-level) and operators/<name>/ci.yaml (operator-level). The external pipeline validates operator bundles can be deployed to OpenShift/OKD and generates catalogs for different OCP versions."
+  },
+  "build": {
+    "system": "make + opm (Operator Package Manager)",
+    "install_command": "make -C operators/<operator-name>/ ${BINDIR}/opm ${BINDIR}/yq",
+    "build_command": "make -C operators/<operator-name>/ catalogs",
+    "notes": "Individual operators with Makefiles support catalog generation using opm. The Makefile downloads opm v1.46.0 and yq v4.45.1, then renders FBC (File-Based Catalogs) from templates. Build outputs go to catalogs/ directory. Not all operators have Makefiles - some are manifest-only. The fbc-onboarding target uses a container image (quay.io/redhat-isv/operator-pipelines-images:released) to onboard operators to FBC format."
+  },
+  "conventions": {
+    "test_file_pattern": "operators/<operator-name>/<version>/tests/scorecard/*.yaml",
+    "test_naming": "Operator bundles follow OLM conventions: manifests/ for CRDs and CSVs, metadata/ for bundle metadata, tests/scorecard/ for validation",
+    "import_style": "N/A - YAML manifests, not code",
+    "notes": "Operator structure: operators/<operator-name>/<version>/{manifests/,metadata/,tests/}. CSV files follow naming: <operator-name>.clusterserviceversion.yaml. CRDs follow: <group>_<plural>.yaml. Each operator has ci.yaml at operators/<operator-name>/ci.yaml defining reviewers and FBC catalog mappings. Version directories use semver (1.2.3) or date-based (2025.01.15) naming."
+  },
+  "container_recipe": {
+    "base_image": "quay.io/redhat-isv/operator-pipelines-images:released",
+    "system_deps": ["opm", "yq", "operator-sdk", "kubectl"],
+    "setup_commands": [
+      "Tools are pre-installed in the operator-pipelines image",
+      "For local validation: download opm and yq via Makefile targets",
+      "For scorecard: install operator-sdk from https://sdk.operatorframework.io/"
+    ],
+    "lint_commands": [
+      {
+        "command": "opm validate <catalog_path>",
+        "validated": false,
+        "notes": "Requires catalogs to be generated first via `make catalogs`. Cannot validate without Makefile and operator-specific configuration."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "operator-sdk scorecard <bundle-path>",
+        "validated": false,
+        "notes": "Requires Kubernetes cluster and operator-sdk installation. Scorecard tests verify OLM bundle structure and operator metadata."
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "This repository is a catalog of operator manifests, not executable code. Validation requires: (1) opm for catalog validation, (2) operator-sdk for scorecard tests, (3) Kubernetes cluster for actual operator deployment testing. The external CI pipeline (operator-pipelines) handles full validation. Local validation is limited to static checks (opm validate) and scorecard tests."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "repository_scan",
+        "command": "Analyzed repository structure",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Repository contains 300+ operator bundles in operators/ directory. Primary content is YAML manifests for OLM operator bundles. No traditional code (Python, Go, JS) found. GitHub workflows are administrative only (labels, stale issues).",
+        "notes": "This is a manifest catalog repository, not a code repository. Traditional linting/testing does not apply."
+      },
+      {
+        "step": "makefile_discovery",
+        "command": "Found Makefiles in operator directories",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "opendatahub-operator/Makefile and 3scale-community-operator/Makefile support catalog generation via opm. Targets: catalogs, validate-catalogs, fbc-onboarding, clean.",
+        "notes": "Makefiles provide catalog generation and validation, but require operator-specific setup and external tools."
+      },
+      {
+        "step": "scorecard_discovery",
+        "command": "Found scorecard test configurations",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "opendatahub-operator/2.35.0/tests/scorecard/config.yaml defines 6 test suites: basic-check-spec, olm-bundle-validation, olm-crds-have-validation, olm-crds-have-resources, olm-spec-descriptors, olm-status-descriptors.",
+        "notes": "Scorecard tests validate OLM bundle compliance. Require operator-sdk and Kubernetes cluster to execute."
+      }
+    ],
+    "summary": "Repository structure validated. No traditional linting/testing infrastructure. Validation happens via external pipelines and requires specialized tools (opm, operator-sdk, K8s cluster)."
+  },
+  "gaps": [
+    "No local CI workflow - all validation is external via redhat-openshift-ecosystem/operator-pipelines",
+    "No YAML linting configured (.yamllint, pre-commit hooks, etc.)",
+    "Scorecard tests require Kubernetes cluster to execute - cannot run in simple container",
+    "OPM validation requires generated catalogs - cannot validate manifests directly",
+    "No unit tests - this is a manifest repository, not code",
+    "Documentation points to external pipelines - local validation steps are undocumented",
+    "Individual operator Makefiles have different capabilities - not standardized across all operators",
+    "Many operators lack Makefiles entirely - manifest-only contributions"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

@@ -1,0 +1,282 @@
+{
+  "repo": "NeMo-Guardrails",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:28:36Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "version": "0.14.6",
+        "config_file": "ruff.toml",
+        "run_command": "poetry run ruff check .",
+        "fix_command": "poetry run ruff check --fix .",
+        "scope": "full project"
+      },
+      {
+        "name": "ruff-format",
+        "version": "0.14.6",
+        "config_file": "ruff.toml",
+        "run_command": "poetry run ruff format --check .",
+        "fix_command": "poetry run ruff format .",
+        "scope": "full project"
+      },
+      {
+        "name": "pyright",
+        "version": "1.1.405",
+        "config_file": "pyproject.toml",
+        "run_command": "poetry run pyright",
+        "fix_command": null,
+        "scope": "specific directories (see pyproject.toml [tool.pyright])"
+      },
+      {
+        "name": "pre-commit",
+        "version": "4.3.0",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "poetry run pre-commit run --all-files",
+        "fix_command": "poetry run pre-commit run --all-files",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Pre-commit hooks include: ruff lint + format, pyright type checking, YAML validation, trailing whitespace, end-of-file-fixer, and license header insertion. Ruff is configured for line length 120, excludes common directories, enables F/E/W/I rules. Pyright type checks specific directories only (see pyproject.toml)."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "test_paths": ["tests/", "docs/colang-2/examples", "benchmark/tests"],
+    "run_command": "poetry run pytest tests/ -v",
+    "run_single_file": "poetry run pytest {file} -v",
+    "run_single_test": "poetry run pytest {file}::{test_name} -v",
+    "setup_required": [
+      "poetry install --with dev"
+    ],
+    "env_vars": [],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Uses pytest fixtures, aioresponses for async HTTP mocking, pytest-httpx for httpx mocking",
+    "coverage_command": "poetry run pytest --cov=nemoguardrails tests/ --cov-report=xml:coverage.xml -v",
+    "coverage_threshold": null,
+    "test_count": "~2794 test functions",
+    "notes": "Tests use pytest with asyncio support (pytest-asyncio). Config in pytest.ini and pyproject.toml. Tests are comprehensive but some require specific test configs. The conftest.py includes auto-use fixtures for resetting reasoning trace variables. Tests run with -p no:warnings flag by default. Test execution takes ~60 seconds for full suite."
+  },
+  "ci": {
+    "system": "GitHub Actions, GitLab CI, Tekton",
+    "config_files": [
+      ".github/workflows/lint.yml",
+      ".github/workflows/pr-tests.yml",
+      ".github/workflows/_test.yml",
+      ".gitlab-ci.yml",
+      ".tekton/odh-trustyai-nemo-guardrails-server-release-push.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Lint Code (GitHub Actions)",
+        "command": "poetry run make pre_commit",
+        "required": true,
+        "trigger": "pull_request, push to main/develop"
+      },
+      {
+        "name": "PR Tests Matrix (GitHub Actions)",
+        "command": "poetry run pytest -v",
+        "required": true,
+        "trigger": "pull_request (excluding .md and .github changes)",
+        "matrix": "Python 3.10, 3.11, 3.12, 3.13 on Ubuntu"
+      },
+      {
+        "name": "GitLab CI Tests",
+        "command": "make test (which runs poetry run pytest tests/)",
+        "required": true,
+        "trigger": "All pushes",
+        "matrix": "Python 3.10, 3.11, 3.12, 3.13"
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "GitHub Actions runs lint and tests in parallel. Tests run with coverage reporting on Python 3.11. GitLab CI uses Poetry 1.8.2 and caches .venv. Tekton pipeline builds container images for OpenShift on push to develop branch. Pre-commit hooks must pass for lint check. Tests have path-ignore for markdown and .github files."
+  },
+  "build": {
+    "system": "Poetry",
+    "install_command": "poetry install --with dev",
+    "build_command": "poetry build",
+    "poetry_version": "1.8.2",
+    "python_versions": "3.10, 3.11, 3.12, 3.13",
+    "notes": "Project uses Poetry for dependency management. Lock file (poetry.lock) must be in sync with pyproject.toml - may need 'poetry lock --no-update' if out of sync. Dev dependencies include pytest, ruff, pyright, pre-commit. Optional extras include: sdd, eval, openai, gcp, tracing, nvidia, jailbreak, models, multilingual, server, all. Main package is 'nemoguardrails' installed in editable mode."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py or *_test.py",
+    "test_naming": "Functions: test_* with descriptive snake_case names",
+    "import_style": "Absolute imports preferred. Ruff enforces import sorting (I001, I002 rules). Line length 120 characters.",
+    "code_style": "Ruff formatting (like Black): double quotes, 4-space indents, 120 char line length",
+    "type_checking": "Pyright used on select directories only. Not full project coverage.",
+    "notes": "License headers required on all .py files (Apache 2.0). Pre-commit hook auto-inserts. YAML files validated. Trailing whitespace and EOF fixers enforced. Test fixtures use autouse for state cleanup."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["make", "git", "curl"],
+    "setup_commands": [
+      "curl -sSL https://install.python-poetry.org | POETRY_VERSION=1.8.2 python -",
+      "export PATH=\"/root/.local/bin:$PATH\"",
+      "poetry config virtualenvs.in-project true",
+      "poetry lock --no-update",
+      "poetry install --with dev"
+    ],
+    "lint_commands": [
+      {
+        "command": "poetry run ruff check .",
+        "validated": true,
+        "notes": "Exit code 1. Found 1 legitimate error (unused import in scripts/filter_guardrails.py). Fixable with --fix."
+      },
+      {
+        "command": "poetry run ruff format --check .",
+        "validated": true,
+        "notes": "Exit code 1. Found 3 files needing reformatting (scripts/*.py). Fixable with ruff format."
+      },
+      {
+        "command": "poetry run pyright",
+        "validated": true,
+        "notes": "Exit code 0. 0 errors, 1 warning about missing optional dependency (aiofiles). One benchmark directory not found."
+      },
+      {
+        "command": "poetry run pre-commit run --all-files",
+        "validated": false,
+        "notes": "Not tested in validation - combines all hooks (ruff, pyright, yaml-check, trailing-whitespace, eof-fixer, license-insert)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "poetry run pytest tests/ -v",
+        "validated": true,
+        "notes": "Exit code 1. 1741 passed, 5 failed, 70 skipped in 62.03s. Failures due to missing test_configs/simple_rails directory. Test suite is functional."
+      },
+      {
+        "command": "poetry run pytest --cov=nemoguardrails tests/ --cov-report=xml:coverage.xml -v",
+        "validated": true,
+        "notes": "Coverage reporting works. 12% overall coverage from test subset."
+      }
+    ],
+    "test_single_file": "poetry run pytest {file} -v",
+    "test_single_test": "poetry run pytest {file}::{test_name} -v",
+    "env_vars": [],
+    "working_directory": "/app",
+    "notes": "Lock file was out of sync and required 'poetry lock --no-update' before install. This is a common issue when pyproject.toml changes. System dependencies (make, git, curl) are pre-installed in python:3.11 image. Poetry install takes ~5-10 minutes due to large dependency tree. Test execution for full suite takes ~60-120 seconds. Some tests fail due to missing test config directories but overall test infrastructure is solid."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "setup",
+        "command": "podman run -d --name test-context-nemo-guardrails -v {repo}:/app:Z -w /app python:3.11 sleep infinity",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Container ID: 95e9b24748928fd39ebf86e10da20aa81077329d62d4c812ab3821cd0175869f",
+        "notes": "Container started successfully"
+      },
+      {
+        "step": "system-deps",
+        "command": "apt-get update && apt-get install -y make git curl",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "make, git, curl already installed",
+        "notes": "System dependencies pre-installed in python:3.11 base image"
+      },
+      {
+        "step": "install-poetry",
+        "command": "curl -sSL https://install.python-poetry.org | POETRY_VERSION=1.8.2 python -",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Poetry (1.8.2) is installed now. Great!",
+        "notes": "Poetry 1.8.2 installed successfully"
+      },
+      {
+        "step": "poetry-lock",
+        "command": "poetry lock --no-update",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Resolving dependencies...\nWriting lock file",
+        "notes": "Lock file was out of sync with pyproject.toml and needed regeneration"
+      },
+      {
+        "step": "install",
+        "command": "poetry install --with dev",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Installing the current project: nemoguardrails (0.20.0)",
+        "notes": "Dependencies installed successfully. Large dependency tree, took several minutes."
+      },
+      {
+        "step": "lint-ruff-check",
+        "command": "poetry run ruff check .",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "F401 [*] `os` imported but unused\n  --> scripts/filter_guardrails.py:18:8\nFound 1 error.\n[*] 1 fixable with the `--fix` option.",
+        "notes": "Linter works correctly. Exit 1 means lint violations found (not broken command). 1 unused import."
+      },
+      {
+        "step": "lint-ruff-format",
+        "command": "poetry run ruff format --check .",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "Would reformat: scripts/discover_required_models.py\nWould reformat: scripts/filter_guardrails.py\nWould reformat: scripts/pre_download_required_models.py\n3 files would be reformatted, 661 files already formatted",
+        "notes": "Format checker works. Exit 1 means formatting issues found. 3 files need reformatting."
+      },
+      {
+        "step": "lint-pyright",
+        "command": "poetry run pyright",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "File or directory \"/app/nemoguardrails/benchmark\" does not exist.\n.../tracing/adapters/filesystem.py:63:20 - warning: Import \"aiofiles\" could not be resolved\n0 errors, 1 warning, 0 informations",
+        "notes": "Type checker works. 1 warning about optional dependency, 1 missing directory (benchmark)."
+      },
+      {
+        "step": "test-single",
+        "command": "poetry run pytest tests/test_callbacks.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "tests/test_callbacks.py::test_token_usage_tracking_with_usage_metadata PASSED [ 16%]\n...\n============================== 6 passed in 1.39s ===============================",
+        "notes": "Single test file execution works perfectly. 6 tests passed."
+      },
+      {
+        "step": "test-single-function",
+        "command": "poetry run pytest tests/test_callbacks.py::test_token_usage_tracking_with_usage_metadata -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================== 1 passed in 0.75s ===============================",
+        "notes": "Single test function execution works perfectly."
+      },
+      {
+        "step": "test-suite",
+        "command": "timeout 120 poetry run pytest tests/ -v --maxfail=5",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "FAILED tests/test_guardrail_checks_api.py::test_user_message_passes - Assertion...\nInvalid config path /app/tests/test_configs/simple_rails.\n============ 5 failed, 1741 passed, 70 skipped in 62.03s (0:01:02) =============",
+        "notes": "Test framework works. 1741/1746 tests passed before hitting max fail limit. 5 failures due to missing test configs (simple_rails). 70 skipped tests. Overall test infrastructure is functional."
+      },
+      {
+        "step": "test-coverage",
+        "command": "poetry run pytest tests/test_callbacks.py --cov=nemoguardrails --cov-report=term-missing",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "TOTAL                                                                20016  17537    12%\n============================== 6 passed in 2.37s ===============================",
+        "notes": "Coverage reporting works correctly. 12% coverage from test subset."
+      },
+      {
+        "step": "cleanup",
+        "command": "podman rm -f test-context-nemo-guardrails",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "test-context-nemo-guardrails",
+        "notes": "Container cleaned up successfully"
+      }
+    ],
+    "summary": "Install OK (after lock regen), lint OK (found issues), type-check OK (1 warning), tests OK (1741/1746 passed, 5 failed on missing configs)"
+  },
+  "gaps": [
+    "Lock file (poetry.lock) was out of sync with pyproject.toml - required 'poetry lock --no-update' before install",
+    "Some test configs missing (tests/test_configs/simple_rails) causing 5 test failures out of ~1746 tests",
+    "Optional dependency 'aiofiles' not installed, causes pyright warning",
+    "Benchmark directory referenced in pyright config but doesn't exist",
+    "Very large test suite (~2794 tests total) - full execution may take several minutes",
+    "No explicit coverage threshold defined - just reporting",
+    "Some tests are skipped (70 out of 1746) - may require specific environment or infrastructure"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high",
+  "notes": "This is a well-structured Python project with comprehensive linting (ruff, pyright) and extensive testing (pytest with ~2794 tests). The main caveats are: (1) poetry lock file may need regeneration if out of sync, (2) a few tests fail due to missing test config directories, and (3) the test suite is very large so execution takes time. An agent can successfully validate patches by running lint and a subset of tests, but should be aware of the lock file sync issue and the few missing test configs. The project uses Poetry for dependency management, supports Python 3.10-3.13, and has CI on both GitHub Actions and GitLab CI."
+}

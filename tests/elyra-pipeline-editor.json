@@ -1,0 +1,180 @@
+{
+  "repo": "elyra-pipeline-editor",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:07:00Z",
+  "languages": ["TypeScript", "JavaScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "eslint",
+        "config_file": ".eslintrc.js",
+        "run_command": "yarn lint",
+        "fix_command": "yarn lint:fix",
+        "scope": "full project"
+      },
+      {
+        "name": "prettier",
+        "config_file": ".prettierrc",
+        "run_command": "yarn format:check",
+        "fix_command": "yarn format",
+        "scope": "full project"
+      }
+    ],
+    "notes": "ESLint uses react-app config extended with jest, testing-library, and jest-dom plugins. Custom rules enforce Apache 2.0 license headers and import ordering. Prettier uses default config. Both run with --max-warnings=0 in CI, treating all warnings as errors."
+  },
+  "testing": {
+    "framework": "jest + cypress",
+    "test_directory": "packages/*/src/**/*.test.{ts,tsx}, cypress/integration/**/*.ts",
+    "run_command": "yarn test",
+    "run_single_file": "yarn test {file}",
+    "run_single_test": "yarn test -t '{test_name}'",
+    "setup_required": [
+      "yarn install --frozen-lockfile",
+      "yarn build"
+    ],
+    "env_vars": [],
+    "fixtures_location": "cypress/fixtures",
+    "mock_patterns": "Jest mocks and @testing-library/react for component tests",
+    "coverage_command": "yarn test:cover",
+    "coverage_threshold": null,
+    "notes": "Jest tests run in two projects (pipeline-editor uses jsdom, pipeline-services uses node). Cypress integration tests require Storybook server running (yarn test:cypress handles this via start-server-and-test). Test pattern: **/*.test.{ts,tsx}. 203 unit tests pass in 31s."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/build.yaml"],
+    "gating_checks": [
+      {
+        "name": "lint",
+        "command": "yarn lint",
+        "required": true
+      },
+      {
+        "name": "format:check",
+        "command": "yarn format:check",
+        "required": true
+      },
+      {
+        "name": "test",
+        "command": "yarn test",
+        "required": true
+      },
+      {
+        "name": "test-coverage",
+        "command": "yarn test:cover",
+        "required": true
+      },
+      {
+        "name": "test-integration",
+        "command": "yarn test:cypress",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on push and pull_request. Tests matrix: Node 12, 14, 15. Cypress integration tests require NODE_OPTIONS=--openssl-legacy-provider. Build must succeed before tests. Yarn cache is shared across jobs."
+  },
+  "build": {
+    "system": "lerna + yarn workspaces",
+    "install_command": "yarn install --frozen-lockfile",
+    "build_command": "yarn build",
+    "notes": "Monorepo with 2 packages: @elyra/pipeline-editor (built with microbundle) and @elyra/pipeline-services (built with tsc). Build takes ~20s. Uses force-resolutions preinstall hook to override security vulnerabilities."
+  },
+  "conventions": {
+    "test_file_pattern": "**/*.test.{ts,tsx}",
+    "test_naming": "Jest standard: describe() blocks and test()/it() functions",
+    "import_style": "Alphabetically ordered, grouped by builtin/external/internal/parent/sibling, with newlines between groups. React imports first.",
+    "notes": "All source files require Apache 2.0 license header (enforced by eslint-plugin-header). TypeScript strict mode enabled."
+  },
+  "container_recipe": {
+    "base_image": "node:14",
+    "system_deps": [],
+    "setup_commands": [
+      "yarn install --frozen-lockfile",
+      "yarn build"
+    ],
+    "lint_commands": [
+      {
+        "command": "yarn lint",
+        "validated": true,
+        "notes": "Passed with 0 warnings in 6.65s"
+      },
+      {
+        "command": "yarn format:check",
+        "validated": true,
+        "notes": "Passed in 2.30s - all files use Prettier code style"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "yarn test",
+        "validated": true,
+        "notes": "203 tests passed in 22 suites, 31.64s total. 9 snapshots passed."
+      },
+      {
+        "command": "yarn test:cover",
+        "validated": false,
+        "notes": "Not validated (would run same tests with coverage)"
+      },
+      {
+        "command": "yarn test:cypress",
+        "validated": false,
+        "notes": "Not validated - requires Storybook server and Cypress binary"
+      }
+    ],
+    "test_single_file": "yarn test {file}",
+    "test_single_test": "yarn test -t '{test_name}'",
+    "env_vars": [],
+    "notes": "Node 14 chosen to match CI matrix middle version. Peer dependency warnings are expected and safe to ignore. Build must complete before tests can run."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "yarn install --frozen-lockfile",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "yarn install v1.22.19\n$ npx force-resolutions -y\n...\n[4/4] Building fresh packages...\nDone in 82.44s.",
+        "notes": "Installed successfully with expected peer dependency warnings (Storybook/React version mismatches are non-blocking)"
+      },
+      {
+        "step": "build",
+        "command": "yarn build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "lerna notice cli v3.22.1\nlerna info Executing command in 2 packages: \"yarn run build\"\n...\nlerna success run Ran npm script 'build' in 2 packages in 19.7s",
+        "notes": "Build successful - both packages built in 19.7s total"
+      },
+      {
+        "step": "lint",
+        "command": "yarn lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "$ eslint . --ignore-path .gitignore --ext .ts,.tsx,.js,.jsx --max-warnings=0\nDone in 6.65s.",
+        "notes": "Linting passed with 0 warnings (strict mode enforced)"
+      },
+      {
+        "step": "format",
+        "command": "yarn format:check",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "$ prettier --ignore-path .gitignore --check \"**/*.{tsx,ts,js,css,html,json}\"\nChecking formatting...\nAll matched files use Prettier code style!\nDone in 2.30s.",
+        "notes": "All files properly formatted"
+      },
+      {
+        "step": "test",
+        "command": "yarn test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "PASS packages/pipeline-services/src/migration/migrateV3/index.test.ts\nPASS packages/pipeline-services/src/migration/migrateV2/index.test.ts\n...\nTest Suites: 22 passed, 22 total\nTests:       203 passed, 203 total\nSnapshots:   9 passed, 9 total\nTime:        31.145 s",
+        "notes": "All 203 tests passed across 22 test suites in 31s. Some expected console warnings from form validation tests."
+      }
+    ],
+    "summary": "install OK (82s), build OK (20s), lint OK (7s, 0 warnings), format OK (2s), test OK (203 passed in 31s)"
+  },
+  "gaps": [
+    "Cypress integration tests not validated in container (require Storybook server and Cypress binary)",
+    "No explicit coverage threshold configured - coverage is collected but no enforcement",
+    "Many peer dependency warnings during install (Storybook/React version conflicts) - warnings are safe to ignore but could be cleaned up"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

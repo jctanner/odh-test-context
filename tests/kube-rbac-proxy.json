@@ -1,0 +1,174 @@
+{
+  "repo": "kube-rbac-proxy",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:30:15Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "config_file": ".golangci.yaml",
+        "run_command": "golangci-lint run",
+        "fix_command": null,
+        "scope": "full project, excludes test/, third_party, builtin, examples"
+      }
+    ],
+    "notes": "golangci-lint version 2 config with lax exclusions for generated code. CI uses golangci-lint-action with latest version."
+  },
+  "testing": {
+    "framework": "Go testing package",
+    "test_directory": "cmd/*/app/*_test.go, pkg/*_test.go, test/e2e/*_test.go",
+    "run_command": "make test-unit",
+    "run_single_file": "go test -v {file}",
+    "run_single_test": "go test -v -run {test_name} {package}",
+    "setup_required": ["go mod download"],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": "Uses httptest for HTTP mocking, k8s client-go for Kubernetes API mocking",
+    "coverage_command": "go test -coverprofile=coverage.out ./...",
+    "coverage_threshold": null,
+    "notes": "Unit tests use -race flag for race detection. E2E tests require a Kubernetes cluster (kind) and are excluded from PKGS variable. Tests run with -count=1 to disable caching."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/build.yml"],
+    "gating_checks": [
+      {
+        "name": "check-license",
+        "command": "make check-license",
+        "required": true
+      },
+      {
+        "name": "generate",
+        "command": "make generate && git diff --exit-code",
+        "required": true
+      },
+      {
+        "name": "lint",
+        "command": "golangci-lint run (via golangci-lint-action)",
+        "required": true
+      },
+      {
+        "name": "build",
+        "command": "make build",
+        "required": true
+      },
+      {
+        "name": "unit-tests",
+        "command": "make test-unit",
+        "required": true
+      },
+      {
+        "name": "e2e-tests",
+        "command": "make test-e2e (requires kind cluster)",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Publish job requires all checks to pass. E2E tests run in kind v0.30.0 cluster with custom config at test/e2e/kind-config/kind-config.yaml. Go version 1.25.8 used in CI."
+  },
+  "build": {
+    "system": "Make + Go",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "notes": "Build creates _output/kube-rbac-proxy binary. Supports crossbuild for multiple architectures. Uses CGO_ENABLED=0 for static binary. Version info embedded via ldflags."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Test* functions (Go standard), subtests use t.Run()",
+    "import_style": "Standard Go import grouping: stdlib, external, internal",
+    "notes": "All Go files require license header (Apache 2.0). Generated files exempt from license check."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25",
+    "system_deps": ["make", "git", "curl"],
+    "setup_commands": [
+      "go mod download",
+      "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin latest"
+    ],
+    "lint_commands": [
+      {
+        "command": "golangci-lint run",
+        "validated": true,
+        "notes": "0 issues found"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test-unit",
+        "validated": true,
+        "notes": "All unit tests passed (8 packages tested)"
+      },
+      {
+        "command": "make test-e2e",
+        "validated": false,
+        "notes": "Requires kind cluster - not validated in basic container"
+      }
+    ],
+    "test_single_file": "go test -v {file}",
+    "test_single_test": "go test -v -run {test_name} {package}",
+    "env_vars": [],
+    "notes": "golangci-lint requires version 2.11.4+ to support Go 1.25.7. E2E tests need KUBECONFIG and a running Kubernetes cluster."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": ">> building for linux/amd64 to _output/kube-rbac-proxy-linux-amd64\ncp _output/kube-rbac-proxy-linux-amd64 _output/kube-rbac-proxy",
+        "notes": "Build completed successfully, binary created at _output/kube-rbac-proxy"
+      },
+      {
+        "step": "check-license",
+        "command": "make check-license",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": ">> checking license headers",
+        "notes": "All Go files have proper license headers"
+      },
+      {
+        "step": "lint",
+        "command": "golangci-lint run",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 issues.",
+        "notes": "No linting issues found"
+      },
+      {
+        "step": "test",
+        "command": "make test-unit",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/brancz/kube-rbac-proxy/pkg/proxy\t1.078s\nok  \tgithub.com/brancz/kube-rbac-proxy/pkg/tls\t2.003s",
+        "notes": "All unit tests passed across 8 packages with race detection enabled"
+      },
+      {
+        "step": "generate",
+        "command": "make generate",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": ">> generating examples\n>> generating docs",
+        "notes": "Code generation completed successfully"
+      }
+    ],
+    "summary": "install OK, build OK, check-license OK, lint OK (0 issues), test-unit OK (all passed), generate OK"
+  },
+  "gaps": [
+    "E2E tests require Kubernetes cluster (kind) and cannot be validated in basic container",
+    "No coverage threshold configured in codebase",
+    "No pre-commit hooks configured",
+    "Generate command modifies files - CI checks for uncommitted changes with git diff --exit-code"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

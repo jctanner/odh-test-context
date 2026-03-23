@@ -1,0 +1,132 @@
+{
+  "repo": "odh-s2i-project-simple",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:44:33Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. No .flake8, ruff config, pylint, mypy, or other linter configs present."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No automated tests found. This is a template/example project for deploying Flask apps on OpenShift via s2i. Manual testing via Jupyter notebooks (2_test_flask.ipynb) shows how to test the Flask endpoints by running the app locally and making HTTP requests."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows, .tekton, Jenkinsfile, or other CI configs."
+  },
+  "build": {
+    "system": "pip",
+    "install_command": "pip install -r requirements.txt",
+    "build_command": null,
+    "notes": "Simple Python project. No build step required. Install dependencies with pip, run with Flask (dev) or gunicorn (production). Designed for OpenShift s2i deployment."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": "Standard Python imports",
+    "notes": "Project follows standard Flask application structure. prediction.py contains the model prediction logic, wsgi.py contains the Flask app. Designed as a template to be customized."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install -r requirements.txt"
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {
+        "command": "python -c 'from prediction import predict; print(predict({\"test\": \"data\"}))'",
+        "validated": true,
+        "notes": "Prediction module imports and executes successfully. Returns {'prediction': 'not implemented'} as expected for the template."
+      },
+      {
+        "command": "python -c 'from wsgi import application; print(\"Flask app imported successfully\")'",
+        "validated": true,
+        "notes": "Flask application imports successfully."
+      },
+      {
+        "command": "timeout 5 python -m flask --app wsgi.py run",
+        "validated": true,
+        "notes": "Flask development server starts successfully on port 5000."
+      },
+      {
+        "command": "timeout 3 gunicorn -c gunicorn_config.py wsgi:application",
+        "validated": true,
+        "notes": "Gunicorn production server starts successfully with 2 workers on port 8080."
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "This is a template repository with minimal functionality. All validated commands pass, but there are no actual tests or linting to run. Validation confirms the Flask app structure is correct and can be deployed."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install -r requirements.txt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed Flask-3.1.3 blinker-1.9.0 click-8.3.1 gunicorn-25.1.0 itsdangerous-2.2.0 jinja2-3.1.6 markupsafe-3.0.3 packaging-26.0 werkzeug-3.1.6",
+        "notes": "Dependencies installed successfully. Only Flask and gunicorn required."
+      },
+      {
+        "step": "test",
+        "command": "python -c 'from prediction import predict; print(predict({\"test\": \"data\"}))'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "{'prediction': 'not implemented'}",
+        "notes": "Prediction module works. Returns expected stub response."
+      },
+      {
+        "step": "test",
+        "command": "python -c 'from wsgi import application; print(\"Flask app imported successfully\")'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Flask app imported successfully",
+        "notes": "Flask application structure is valid."
+      },
+      {
+        "step": "test",
+        "command": "timeout 5 python -m flask --app wsgi.py run",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": " * Serving Flask app 'wsgi.py'\n * Debug mode: off\nWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.\n * Running on http://127.0.0.1:5000",
+        "notes": "Flask dev server starts successfully."
+      },
+      {
+        "step": "test",
+        "command": "timeout 3 gunicorn -c gunicorn_config.py wsgi:application",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "[2026-03-22 23:44:12 +0000] [18] [INFO] Starting gunicorn 25.1.0\n[2026-03-22 23:44:12 +0000] [18] [INFO] Listening at: http://0.0.0.0:8080 (18)\n[2026-03-22 23:44:12 +0000] [18] [INFO] Using worker: sync",
+        "notes": "Gunicorn production server starts successfully with configured workers."
+      }
+    ],
+    "summary": "install OK, imports OK, Flask OK, gunicorn OK. No tests or linting to validate."
+  },
+  "gaps": [
+    "No automated tests - this is a template/example project",
+    "No linting configuration",
+    "No CI/CD pipelines",
+    "No type checking (mypy)",
+    "No code quality tools configured",
+    "prediction.py contains only a stub implementation"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

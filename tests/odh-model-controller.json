@@ -1,0 +1,213 @@
+{
+  "repo": "odh-model-controller",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:46:21Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.11.3",
+        "config_file": ".golangci.yml",
+        "run_command": "make lint",
+        "fix_command": "make lint-fix",
+        "scope": "full project",
+        "direct_command": "./bin/golangci-lint run",
+        "direct_fix_command": "./bin/golangci-lint run --fix"
+      },
+      {
+        "name": "gofmt",
+        "config_file": null,
+        "run_command": "make fmt",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "make vet",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "golangci-lint runs 25+ linters including: copyloopvar, dupl, errcheck, ginkgolinter, goconst, gocyclo, govet, ineffassign, lll, misspell, nakedret, prealloc, revive, staticcheck, unconvert, unparam, unused. Also includes formatters: gofmt and goimports."
+  },
+  "testing": {
+    "framework": "Ginkgo v2 + Gomega + envtest",
+    "test_directory": "internal/*/test, internal/*/*_test.go, test/",
+    "test_count": "48 test files across 17 packages",
+    "run_command": "make test",
+    "run_single_file": "KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.31.0 --bin-dir ./bin -p path)\" POD_NAMESPACE=default go test {file}",
+    "run_single_test": "KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.31.0 --bin-dir ./bin -p path)\" POD_NAMESPACE=default go test {package} -ginkgo.focus '{test_name}'",
+    "setup_required": [
+      "make envtest",
+      "./bin/setup-envtest use 1.31.0 --bin-dir ./bin"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS=$(./bin/setup-envtest use 1.31.0 --bin-dir ./bin -p path)",
+      "POD_NAMESPACE=default",
+      "GOTOOLCHAIN=auto"
+    ],
+    "fixtures_location": "test/data, internal/controller/*/testdata/",
+    "mock_patterns": "Uses Ginkgo BeforeSuite/AfterSuite for test environment setup. envtest provides a real Kubernetes API server for controller tests.",
+    "coverage_command": "make test",
+    "coverage_threshold": null,
+    "notes": "Tests use envtest which requires downloading Kubernetes control plane binaries (etcd, kube-apiserver, kubectl) via setup-envtest. The test suite includes both unit tests and controller integration tests. E2E tests are excluded from 'make test' (located in test/e2e/)."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/lint.yml",
+      ".github/workflows/test.yml",
+      ".github/workflows/validate-manifests.yml",
+      ".github/workflows/build.yaml",
+      ".github/workflows/test-e2e.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Lint",
+        "command": "golangci-lint run (via golangci/golangci-lint-action@v7)",
+        "required": true,
+        "workflow": ".github/workflows/lint.yml"
+      },
+      {
+        "name": "Tests",
+        "command": "go mod tidy && git diff --exit-code && make test",
+        "required": true,
+        "workflow": ".github/workflows/test.yml",
+        "notes": "Checks that go.mod is tidy before running tests"
+      },
+      {
+        "name": "Validate Kustomize manifests",
+        "command": "./hack/validate-manifests.sh",
+        "required": true,
+        "workflow": ".github/workflows/validate-manifests.yml"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "E2E Tests",
+        "command": "make test-e2e",
+        "required": false,
+        "workflow": ".github/workflows/test-e2e.yml",
+        "notes": "Requires Kind cluster, not run on every PR"
+      }
+    ],
+    "notes": "All workflows trigger on both push and pull_request events. The test workflow verifies go.mod is tidy as part of the check. E2E tests require a Kubernetes cluster (Kind) and test the full controller deployment."
+  },
+  "build": {
+    "system": "Make + Go modules",
+    "go_version": "1.25.7",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "build_output": "bin/manager",
+    "container_build_command": "make container-build",
+    "additional_targets": {
+      "generate": "make generate - generates DeepCopy methods",
+      "manifests": "make manifests - generates CRDs, webhooks, RBAC",
+      "build-server": "make build-server - builds model-serving-api binary"
+    },
+    "notes": "Build requires controller-gen and kustomize tools (automatically downloaded via Makefile). The 'make build' target runs manifests, generate, fmt, and vet before building. Container build uses multi-stage Dockerfile with ubi9/go-toolset:1.25 as builder."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go, */*_test.go",
+    "test_naming": "Ginkgo BDD style: Describe/Context/It blocks. Test functions named TestXxx using Ginkgo RunSpecs",
+    "import_style": "Standard library, third-party, internal packages separated by blank lines. Uses goimports for formatting.",
+    "code_organization": "Kubernetes operator pattern: api/, internal/controller/, internal/webhook/, cmd/, config/",
+    "notes": "Follows Kubebuilder project structure. Controller reconcilers in internal/controller/, webhooks in internal/webhook/. API types in api/. Uses controller-runtime for Kubernetes interactions."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.23",
+    "system_deps": ["make", "git", "wget", "curl"],
+    "setup_commands": [
+      "export GOTOOLCHAIN=auto",
+      "cd /app",
+      "go mod download",
+      "make envtest",
+      "./bin/setup-envtest use 1.31.0 --bin-dir ./bin",
+      "make golangci-lint"
+    ],
+    "lint_commands": [
+      {
+        "command": "make lint",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "0 issues found"
+      },
+      {
+        "command": "make fmt",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "go fmt ./... - no changes needed"
+      },
+      {
+        "command": "make vet",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "go vet ./... - no issues"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test",
+        "validated": true,
+        "exit_code": 1,
+        "notes": "All 17 test packages passed. Exit code 1 due to 'no such tool covdata' warnings (informational, not test failures). Coverage: ~6-18% per package."
+      }
+    ],
+    "test_single_file": "GOTOOLCHAIN=auto KUBEBUILDER_ASSETS=$(./bin/setup-envtest use 1.31.0 --bin-dir ./bin -p path) POD_NAMESPACE=default go test {file}",
+    "test_single_test": "GOTOOLCHAIN=auto KUBEBUILDER_ASSETS=$(./bin/setup-envtest use 1.31.0 --bin-dir ./bin -p path) POD_NAMESPACE=default go test {package} -ginkgo.focus '{test_name}'",
+    "env_vars": [
+      "GOTOOLCHAIN=auto",
+      "KUBEBUILDER_ASSETS=/app/bin/k8s/1.31.0-linux-amd64",
+      "POD_NAMESPACE=default"
+    ],
+    "notes": "GOTOOLCHAIN=auto is required because the project uses Go 1.25.7, which is downloaded automatically by the Go toolchain. The base golang:1.23 image includes Go 1.23.12 by default, but GOTOOLCHAIN=auto allows it to download and use Go 1.25.7. envtest downloads real Kubernetes binaries (etcd, kube-apiserver) for controller testing."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Downloaded all dependencies successfully",
+        "notes": "Required GOTOOLCHAIN=auto to use Go 1.25.7"
+      },
+      {
+        "step": "build",
+        "command": "make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go build -o bin/manager cmd/main.go",
+        "notes": "Built successfully, binary created at bin/manager"
+      },
+      {
+        "step": "lint",
+        "command": "make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "/app/bin/golangci-lint run\n0 issues.",
+        "notes": "Linter found 0 issues - code is clean"
+      },
+      {
+        "step": "test",
+        "command": "make test",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/opendatahub-io/odh-model-controller/internal/controller/comparators\t0.163s\tcoverage: 0.2% of statements in ./...\nok  \tgithub.com/opendatahub-io/odh-model-controller/internal/controller/core\t36.834s\tcoverage: 6.3% of statements in ./...\nok  \tgithub.com/opendatahub-io/odh-model-controller/internal/controller/nim\t10.957s\tcoverage: 6.0% of statements in ./...\n[...17 packages total...]\nmake: *** [Makefile:112: test] Error 1",
+        "notes": "All 17 test packages passed. Exit code 1 is due to 'no such tool covdata' warnings (Go 1.25 feature not fully supported), but tests themselves succeeded. Coverage ranges from 0.2% to 18.5% per package."
+      }
+    ],
+    "summary": "install OK, build OK, lint OK (0 issues), tests OK (17/17 packages passed). Exit code 1 on tests is due to covdata tool warnings, not test failures."
+  },
+  "gaps": [
+    "E2E tests (test/e2e/) require a running Kubernetes cluster and are not included in 'make test'",
+    "The validate-manifests.sh script requires kustomize to be installed separately",
+    "Some generated code (manifests, CRDs) requires controller-gen tool",
+    "Coverage percentages are relatively low (0.2-18.5% per package), though this is common for controller code",
+    "Test exit code is non-zero due to 'covdata' tool warnings in Go 1.25, which may cause CI confusion"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

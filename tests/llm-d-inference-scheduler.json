@@ -1,0 +1,260 @@
+{
+  "repo": "llm-d-inference-scheduler",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:56:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "config_file": ".golangci.yml",
+        "run_command": "golangci-lint run --config=./.golangci.yml",
+        "fix_command": "golangci-lint fmt",
+        "scope": "full project",
+        "version": "v2.8.0"
+      },
+      {
+        "name": "typos",
+        "config_file": ".typos.toml",
+        "run_command": "typos --format brief",
+        "fix_command": null,
+        "scope": "full project",
+        "version": "v1.34.0"
+      }
+    ],
+    "notes": "Linting is enforced via GitHub Actions (ci-pr-checks.yaml). golangci-lint has extensive rules including bodyclose, errcheck, govet, staticcheck, revive, and custom formatters (goimports, gofmt). The Makefile supports LINT_NEW_ONLY=true to only check new code, but CI defaults to checking all code."
+  },
+  "testing": {
+    "framework": "Ginkgo/Gomega + standard Go testing",
+    "test_directory": "Multiple: pkg/**/*, test/e2e/, test/integration/, test/sidecar/e2e/, test/config/",
+    "run_command": "go test $(go list ./... | grep -v /test/ | grep -v ./pkg/sidecar/)",
+    "run_single_file": "go test -v {file}",
+    "run_single_test": "go test -v -run '{test_name}' {package}",
+    "setup_required": [
+      "apt-get update && apt-get install -y libzmq3-dev g++ make git pkg-config",
+      "export CGO_ENABLED=1",
+      "export PKG_CONFIG_PATH=/usr/lib/pkgconfig",
+      "export GOTOOLCHAIN=auto",
+      "go mod download"
+    ],
+    "env_vars": [
+      "CGO_ENABLED=1 (required for ZMQ)",
+      "PKG_CONFIG_PATH=/usr/lib/pkgconfig",
+      "GOTOOLCHAIN=auto (to download Go 1.25.7)"
+    ],
+    "fixtures_location": "test/e2e/yaml/, test/sidecar/config/",
+    "mock_patterns": "Uses Ginkgo BeforeSuite/AfterSuite for test setup/teardown. E2E tests create Kind clusters or use existing K8s contexts.",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "test_types": {
+      "unit_epp": "go test $(go list ./... | grep -v /test/ | grep -v ./pkg/sidecar/)",
+      "unit_sidecar": "go test $(go list ./pkg/sidecar/...)",
+      "unit_all": "make test-unit",
+      "integration": "go test -v -tags=integration_tests ./test/integration/",
+      "e2e": "make test-e2e (requires Kind cluster, Docker/Podman, images)"
+    },
+    "notes": "Unit tests are fast and self-contained. E2E tests require a Kubernetes cluster (creates Kind cluster by default) and container images. Integration tests use the integration_tests build tag. Tests use Ginkgo v2 framework for BDD-style testing. The project has two main components: epp (endpoint picker) and sidecar (routing proxy), each with separate test suites."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci-pr-checks.yaml",
+      ".github/workflows/check-typos.yaml",
+      ".github/workflows/ci-signed-commits.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "lint-and-test / Run lint checks",
+        "command": "golangci-lint run --config=./.golangci.yml",
+        "required": true,
+        "workflow": "ci-pr-checks.yaml"
+      },
+      {
+        "name": "lint-and-test / Run make build",
+        "command": "make build",
+        "required": true,
+        "workflow": "ci-pr-checks.yaml"
+      },
+      {
+        "name": "lint-and-test / Run make test",
+        "command": "make test",
+        "required": true,
+        "workflow": "ci-pr-checks.yaml"
+      },
+      {
+        "name": "typos / Check typos",
+        "command": "typos (via crate-ci/typos@v1.43.5 action)",
+        "required": true,
+        "workflow": "check-typos.yaml"
+      },
+      {
+        "name": "check-signed-commits",
+        "command": "Uses 1Password/check-signed-commits-action@v1",
+        "required": true,
+        "workflow": "ci-signed-commits.yaml"
+      }
+    ],
+    "advisory_checks": [],
+    "triggers": {
+      "pull_request": ["main"],
+      "push": ["main"]
+    },
+    "ci_setup": [
+      "Extract Go version from go.mod",
+      "Install system dependencies: libzmq3-dev, g++, pkg-config",
+      "Set CGO_ENABLED=1 and PKG_CONFIG_PATH=/usr/lib/pkgconfig",
+      "Run go mod tidy",
+      "Run make install-dependencies"
+    ],
+    "notes": "CI uses paths-filter to skip lint/test when no source code changes. Uses golangci/golangci-lint-action@v9 with version v2.8.0. The workflow requires signed commits via GPG/SSH. E2E tests are run via 'make test' which includes both unit and e2e tests. CI also uses Tekton pipelines (.tekton/) for container builds in production."
+  },
+  "build": {
+    "system": "Makefile + Go",
+    "install_command": "go mod download",
+    "build_command": "make build (builds both epp and sidecar: go build -o bin/epp cmd/epp/main.go && go build -o bin/pd-sidecar cmd/pd-sidecar/main.go)",
+    "build_individual": {
+      "epp": "make build-epp OR go build -o bin/epp cmd/epp/main.go",
+      "sidecar": "make build-sidecar OR go build -o bin/pd-sidecar cmd/pd-sidecar/main.go"
+    },
+    "container_build": {
+      "epp": "make image-build-epp OR podman/docker build -f Dockerfile.epp -t ghcr.io/llm-d/llm-d-inference-scheduler:dev .",
+      "sidecar": "make image-build-sidecar OR podman/docker build -f Dockerfile.sidecar -t ghcr.io/llm-d/llm-d-routing-sidecar:dev .",
+      "all": "make image-build"
+    },
+    "dependencies": {
+      "system": ["libzmq3-dev (Debian/Ubuntu) or zeromq-devel (RHEL/Fedora)", "g++ or gcc-c++", "pkg-config", "make", "git"],
+      "go_version": "1.25.7",
+      "cgo": "CGO_ENABLED=1 required for ZMQ bindings"
+    },
+    "notes": "The project requires ZeroMQ for message passing between components. Build artifacts are placed in bin/. The Makefile includes separate files: Makefile.tools.mk (tooling), Makefile.cluster.mk (K8s deployment), Makefile.kind.mk (Kind cluster management). Container images can be built for multiple platforms via PLATFORMS variable."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Go standard: TestXxx for test functions, uses Ginkgo Describe/Context/It blocks for BDD-style tests",
+    "import_style": "Grouped imports: standard library, external packages, internal packages. Uses goimports for auto-formatting.",
+    "package_structure": {
+      "cmd/": "Main entry points (epp, pd-sidecar)",
+      "pkg/": "Internal packages (plugins, scheduling, metrics, sidecar)",
+      "test/": "E2E, integration, and component tests",
+      "deploy/": "Kubernetes deployment manifests",
+      "scripts/": "Automation scripts"
+    },
+    "code_style": "Enforced via golangci-lint with gofmt and goimports formatters",
+    "commit_requirements": "Signed commits required (GPG or SSH signatures)",
+    "notes": "Uses OWNERS files for code review assignments. Follows standard Go project layout. Heavy use of Kubernetes client-go patterns and controller-runtime."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.22",
+    "system_deps": ["libzmq3-dev", "g++", "make", "git", "pkg-config"],
+    "setup_commands": [
+      "export GOTOOLCHAIN=auto",
+      "export CGO_ENABLED=1",
+      "export PKG_CONFIG_PATH=/usr/lib/pkgconfig",
+      "go mod download"
+    ],
+    "build_commands": [
+      {"command": "go build -o bin/epp cmd/epp/main.go", "validated": true, "notes": "SUCCESS - binary built (88MB)"}
+    ],
+    "lint_commands": [
+      {"command": "golangci-lint run --config=./.golangci.yml", "validated": true, "notes": "SUCCESS - 0 issues found"},
+      {"command": "typos --format brief", "validated": true, "notes": "SUCCESS - no typos found"}
+    ],
+    "test_commands": [
+      {
+        "command": "go test $(go list ./... | grep -v /test/ | grep -v ./pkg/sidecar/)",
+        "validated": true,
+        "notes": "SUCCESS - All epp unit tests passed (7 packages, ~5s total)"
+      },
+      {
+        "command": "go test $(go list ./pkg/sidecar/...)",
+        "validated": true,
+        "notes": "SUCCESS - All sidecar unit tests passed (1 package, ~20s)"
+      }
+    ],
+    "test_single_file": "go test -v {file}",
+    "test_single_test": "go test -v -run '{test_name}' {package}",
+    "env_vars": ["GOTOOLCHAIN=auto", "CGO_ENABLED=1", "PKG_CONFIG_PATH=/usr/lib/pkgconfig"],
+    "notes": "The Go 1.25.7 requirement is handled automatically via GOTOOLCHAIN=auto. ZMQ headers and libraries are required at build time due to CGO_ENABLED=1. Unit tests are fast and require no external infrastructure. E2E tests (not validated here) require Kind cluster and container images."
+  },
+  "validation": {
+    "container_used": "test-context-llm-d-inference-scheduler",
+    "base_image": "golang:1.22 (auto-upgraded to 1.25.7 via GOTOOLCHAIN=auto)",
+    "results": [
+      {
+        "step": "install_system_deps",
+        "command": "apt-get update && apt-get install -y libzmq3-dev g++ make git pkg-config",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "23 newly installed packages including libzmq3-dev, libzmq5, g++",
+        "notes": "All system dependencies installed successfully"
+      },
+      {
+        "step": "install_go_modules",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "No errors, all modules downloaded",
+        "notes": "Go 1.25.7 auto-downloaded via GOTOOLCHAIN=auto"
+      },
+      {
+        "step": "build",
+        "command": "go build -o bin/epp cmd/epp/main.go",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Binary created: bin/epp (88MB)",
+        "notes": "Build completed without warnings or errors"
+      },
+      {
+        "step": "lint_golangci",
+        "command": "golangci-lint run --config=./.golangci.yml",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 issues.",
+        "notes": "Linting passed with no issues found"
+      },
+      {
+        "step": "lint_typos",
+        "command": "typos --format brief",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "No output (no typos found)",
+        "notes": "Typo checking passed"
+      },
+      {
+        "step": "test_unit_epp",
+        "command": "go test $(go list ./... | grep -v /test/ | grep -v ./pkg/sidecar/)",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok github.com/llm-d/llm-d-inference-scheduler/pkg/metrics 0.004s\nok github.com/llm-d/llm-d-inference-scheduler/pkg/plugins/datalayer/models 0.003s\nok github.com/llm-d/llm-d-inference-scheduler/pkg/plugins/filter 0.004s\nok github.com/llm-d/llm-d-inference-scheduler/pkg/plugins/profile 0.010s\nok github.com/llm-d/llm-d-inference-scheduler/pkg/plugins/scorer 2.022s\nok github.com/llm-d/llm-d-inference-scheduler/pkg/scheduling/pd 3.026s",
+        "notes": "All unit tests passed for epp component (6 test packages)"
+      },
+      {
+        "step": "test_unit_sidecar",
+        "command": "go test $(go list ./pkg/sidecar/...)",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok github.com/llm-d/llm-d-inference-scheduler/pkg/sidecar/proxy 19.829s",
+        "notes": "All unit tests passed for sidecar component (1 test package)"
+      }
+    ],
+    "summary": "All validation steps passed: deps install OK, build OK, lint OK (0 issues), typos OK, unit tests OK (7 packages, all passed in ~25s total). E2E tests not run (require Kubernetes cluster)."
+  },
+  "gaps": [
+    "E2E tests require a Kubernetes cluster (Kind or existing cluster) and cannot be validated in a simple container without significant infrastructure",
+    "Integration tests use build tag 'integration_tests' and were not validated",
+    "No coverage threshold configured or enforced",
+    "Container image build was not validated (requires multi-stage build with specific base images)",
+    "The test-e2e Makefile target has additional dependencies (images, Kind cluster setup) that make it unsuitable for quick validation"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high",
+  "additional_notes": {
+    "kubernetes_dependency": "This project is a Kubernetes-native application that implements an inference scheduler/router for LLM workloads. It uses Gateway API and custom CRDs. Full testing requires a K8s cluster.",
+    "components": {
+      "epp": "Endpoint Picker - schedules inference requests across multiple backends",
+      "sidecar": "Routing sidecar proxy - handles request routing and profiling"
+    },
+    "external_dependencies": "Requires external services for full functionality: Istio/Envoy for routing, Gateway API implementation, vLLM inference backends, UDS tokenizer service",
+    "test_infrastructure": "E2E tests create ephemeral Kind clusters and load container images. Tests are well-structured with clear separation between unit, integration, and e2e tests."
+  }
+}

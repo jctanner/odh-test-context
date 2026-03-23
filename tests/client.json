@@ -1,0 +1,208 @@
+{
+  "repo": "client",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:49:00Z",
+  "languages": ["C++", "Python", "Go", "Java", "JavaScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": "pre-commit run --all-files",
+        "scope": "full project"
+      },
+      {
+        "name": "isort",
+        "config_file": "pyproject.toml",
+        "run_command": "pre-commit run isort --all-files",
+        "fix_command": "isort .",
+        "scope": "Python files"
+      },
+      {
+        "name": "black",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run black --all-files",
+        "fix_command": "black .",
+        "scope": "Python and Cython files"
+      },
+      {
+        "name": "flake8",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run flake8 --all-files",
+        "fix_command": null,
+        "scope": "Python and Cython files"
+      },
+      {
+        "name": "clang-format",
+        "config_file": ".clang-format",
+        "run_command": "pre-commit run clang-format --all-files",
+        "fix_command": "clang-format -i -style=file <files>",
+        "scope": "C, C++, CUDA, proto, textproto, Java files"
+      },
+      {
+        "name": "codespell",
+        "config_file": "pyproject.toml",
+        "run_command": "pre-commit run codespell --all-files",
+        "fix_command": null,
+        "scope": "all text files"
+      },
+      {
+        "name": "mypy",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run mypy --all-files",
+        "fix_command": null,
+        "scope": "Python files in src/c++/perf_analyzer/genai-perf/ only"
+      }
+    ],
+    "notes": "All linting is orchestrated via pre-commit hooks. The configuration excludes src/grpc_generated directory. Flake8 uses max-line-length=88 (black compatible) with specific ignores (E203, E501). Mypy only runs on genai-perf subdirectory."
+  },
+  "testing": {
+    "framework": "unittest (Python) and Google Test (C++)",
+    "test_directory": "src/python/library/tests/ and src/c++/tests/",
+    "run_command": "python -m unittest discover -s src/python/library/tests -p 'test_*.py'",
+    "run_single_file": "python -m unittest tests.{module_name}",
+    "run_single_test": "python -m unittest tests.{module_name}.{TestClass}.{test_method}",
+    "setup_required": [
+      "Build and install tritonclient package via CMake",
+      "Install Python dependencies: pip install -r src/python/library/requirements/requirements.txt -r src/python/library/requirements/requirements_http.txt",
+      "Start Triton Inference Server",
+      "For CUDA tests: install PyTorch"
+    ],
+    "env_vars": [
+      "VERSION=<version> (required for setup.py)",
+      "TRITON_ENABLE_CC_HTTP=ON (CMake option)",
+      "TRITON_ENABLE_CC_GRPC=ON (CMake option)",
+      "TRITON_ENABLE_PYTHON_HTTP=ON (CMake option)",
+      "TRITON_ENABLE_PYTHON_GRPC=ON (CMake option)"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": "Uses unittest.mock.MagicMock and @patch decorators",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are integration tests that require: (1) the tritonclient package to be built and installed via CMake build process, (2) a running Triton Inference Server instance. Python tests: test_inference_server_client.py (HTTP client), test_shared_memory.py (shared memory), test_cuda_shared_memory.py (CUDA shared memory, requires PyTorch). C++ tests: cc_client_test.cc (gtest), client_timeout_test.cc, memory_leak_test.cc. Tests cannot run without full build infrastructure and external Triton server."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/pre-commit.yml", ".github/workflows/codeql.yml"],
+    "gating_checks": [
+      {
+        "name": "pre-commit",
+        "command": "pre-commit run --all-files",
+        "required": true
+      },
+      {
+        "name": "CodeQL Analysis (Python)",
+        "command": "github/codeql-action/analyze",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Two workflows run on pull_request events. The pre-commit workflow runs all pre-commit hooks (isort, black, flake8, clang-format, codespell, mypy, and various file checks). CodeQL analyzes Python code for security issues. Both are gating checks required for merge. No test execution in CI - tests require Triton server infrastructure."
+  },
+  "build": {
+    "system": "CMake",
+    "install_command": "pip install pre-commit && pip install -r src/python/library/requirements/requirements.txt -r src/python/library/requirements/requirements_http.txt",
+    "build_command": "cmake -B build -DTRITON_ENABLE_CC_HTTP=ON -DTRITON_ENABLE_CC_GRPC=ON -DTRITON_ENABLE_PYTHON_HTTP=ON -DTRITON_ENABLE_PYTHON_GRPC=ON && cmake --build build",
+    "notes": "Complex CMake-based build system for multi-language client libraries. Requires C++17, various dependencies (grpc, protobuf, curl, re2). Python package built via setup.py with VERSION env var. Build fetches third-party dependencies from triton-inference-server/third_party repo. Full build requires significant setup and compilation time."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py for Python, *_test.cc for C++",
+    "test_naming": "Python: TestCamelCase classes with test_snake_case methods. C++: Google Test with TEST() macros",
+    "import_style": "Python: isort with black profile, multi-line with trailing commas. C++: standard includes first, then local",
+    "notes": "Python code follows black formatting (88 char line length). C++ follows .clang-format configuration. Excludes src/grpc_generated (auto-generated code). Copyright headers required on all source files."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["git", "make"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y git make",
+      "pip install --no-cache-dir pre-commit",
+      "pre-commit install-hooks",
+      "pip install --no-cache-dir -r src/python/library/requirements/requirements.txt -r src/python/library/requirements/requirements_http.txt"
+    ],
+    "lint_commands": [
+      {
+        "command": "pre-commit run --all-files",
+        "validated": true,
+        "notes": "All checks passed: isort, black, flake8, clang-format, codespell, mypy (skipped - no applicable files), and pre-commit-hooks"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "python -m unittest discover -s src/python/library/tests -p 'test_*.py'",
+        "validated": false,
+        "notes": "Tests require tritonclient package to be built/installed first (CMake build). Import errors: ModuleNotFoundError: No module named 'tritonclient'. Tests also require running Triton Inference Server instance."
+      }
+    ],
+    "test_single_file": "python -m unittest tests.{module_name}",
+    "test_single_test": "python -m unittest tests.{module_name}.{TestClass}.{test_method}",
+    "env_vars": [],
+    "notes": "Linting works perfectly in container. Testing requires full CMake build of tritonclient package, which involves C++ compilation and external dependencies (grpc, protobuf, etc.). Tests are integration tests requiring Triton Inference Server to be running. For patch validation, linting is sufficient to catch style issues."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y git make",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "System deps installed",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "pip install --no-cache-dir pre-commit",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed cfgv-3.5.0 ... pre-commit-4.5.1 ...",
+        "notes": "Pre-commit and dependencies installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "pre-commit install-hooks",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "[INFO] Installing environment for https://github.com/PyCQA/isort...",
+        "notes": "Pre-commit hooks installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "pre-commit run --all-files",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "isort....................................................................Passed\nblack....................................................................Passed\nflake8...................................................................Passed\nclang-format.............................................................Passed\ncodespell................................................................Passed",
+        "notes": "All lint checks passed cleanly"
+      },
+      {
+        "step": "install",
+        "command": "pip install -r src/python/library/requirements/requirements.txt -r src/python/library/requirements/requirements_http.txt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed ... geventhttpclient-2.3.9 ... python-rapidjson-1.23 ... urllib3-2.6.3",
+        "notes": "Python runtime dependencies installed successfully"
+      },
+      {
+        "step": "test",
+        "command": "python -m unittest discover -s src/python/library/tests -p 'test_*.py' -v",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "ERROR: test_inference_server_client\nImportError: Failed to import test module\nModuleNotFoundError: No module named 'tritonclient'",
+        "notes": "Tests require tritonclient package build (CMake + C++ compilation) and Triton server. Cannot validate without full infrastructure."
+      }
+    ],
+    "summary": "Linting validated successfully (all checks pass). Testing requires CMake build and Triton server infrastructure."
+  },
+  "gaps": [
+    "Tests require full CMake build with C++ compilation (cannot run in simple Python container)",
+    "Tests are integration tests requiring external Triton Inference Server instance",
+    "No unit tests that can run standalone without server infrastructure",
+    "C++ tests require compilation and cannot be validated without full build environment",
+    "CUDA tests require PyTorch and GPU support",
+    "No Makefile targets for simplified testing",
+    "Complex build system with many CMake options and external dependency fetching",
+    "No coverage configuration or coverage reporting"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

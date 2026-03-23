@@ -1,0 +1,151 @@
+{
+  "repo": "sample-gam-trigger-workflow",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:15:20-04:00",
+  "languages": ["YAML", "Bash"],
+  "linting": {
+    "tools": [
+      {
+        "name": "shellcheck",
+        "config_file": null,
+        "run_command": "shellcheck .github/scripts/custom_decider.sh",
+        "fix_command": null,
+        "scope": "bash scripts only (.github/scripts/)"
+      },
+      {
+        "name": "bash -n",
+        "config_file": null,
+        "run_command": "bash -n .github/scripts/custom_decider.sh",
+        "fix_command": null,
+        "scope": "bash script syntax validation"
+      },
+      {
+        "name": "python3 yaml validation",
+        "config_file": null,
+        "run_command": "python3 -c \"import yaml; [yaml.safe_load(open(f)) for f in ['.github/workflows/trigger-gam.yaml', '.github/workflows/trigger-gam-with-gh-cli.yaml', '.github/workflows/trigger-gam-with-custom-decider.yaml']]; print('OK')\"",
+        "fix_command": null,
+        "scope": "YAML syntax validation for workflows"
+      }
+    ],
+    "notes": "No linter configuration exists in the repository. These are ad-hoc validation commands that can be run to verify syntax."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "This is a sample/demonstration repository for GitHub Actions workflows. It contains no tests, no test framework, and no application code to test. The repository demonstrates how to trigger the Gated Auto Merger (GAM) workflow from other repositories."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/trigger-gam.yaml",
+      ".github/workflows/trigger-gam-with-gh-cli.yaml",
+      ".github/workflows/trigger-gam-with-custom-decider.yaml"
+    ],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "All three workflows are triggered by workflow_dispatch (manual trigger) only. The scheduled cron triggers are commented out. These workflows demonstrate three different approaches to triggering the Gated Auto Merger (GAM): 1) Direct workflow_call, 2) Using gh CLI with monitoring, 3) Using a custom decider script. None of these are gating checks - they are sample implementations. The workflows require secrets (APP_ID, PRIVATE_KEY) to function."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system. This repository contains only GitHub Actions workflow configurations and one bash script. No compilation or dependency installation required."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Workflows stored in .github/workflows/, scripts in .github/scripts/. The bash script follows standard shell script conventions with shebang (#!/bin/bash)."
+  },
+  "container_recipe": {
+    "base_image": "ubuntu:22.04",
+    "system_deps": ["bash", "shellcheck", "python3-yaml"],
+    "setup_commands": [],
+    "lint_commands": [
+      {
+        "command": "shellcheck .github/scripts/custom_decider.sh",
+        "validated": true,
+        "notes": "No issues found - script is clean"
+      },
+      {
+        "command": "bash -n .github/scripts/custom_decider.sh",
+        "validated": true,
+        "notes": "Syntax is valid"
+      },
+      {
+        "command": "python3 -c \"import yaml; [yaml.safe_load(open(f)) for f in ['.github/workflows/trigger-gam.yaml', '.github/workflows/trigger-gam-with-gh-cli.yaml', '.github/workflows/trigger-gam-with-custom-decider.yaml']]; print('All workflow YAML files are valid')\"",
+        "validated": true,
+        "notes": "All YAML files are valid"
+      }
+    ],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "This repository has no traditional test suite. Validation is limited to syntax checking of bash scripts and YAML files. The workflows themselves require GitHub Actions infrastructure and secrets to execute."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y bash shellcheck python3-yaml",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Setting up shellcheck (0.8.0-2) ...\nSetting up python3 (3.10.6-1~22.04.1) ...\nSetting up python3-yaml (5.4.1-1ubuntu1) ...",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "shellcheck .github/scripts/custom_decider.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - clean)",
+        "notes": "Shellcheck found no issues"
+      },
+      {
+        "step": "lint",
+        "command": "bash -n .github/scripts/custom_decider.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Bash syntax: OK",
+        "notes": "Bash syntax is valid"
+      },
+      {
+        "step": "lint",
+        "command": "python3 -c \"import yaml; [yaml.safe_load(open(f)) for f in ['.github/workflows/trigger-gam.yaml', '.github/workflows/trigger-gam-with-gh-cli.yaml', '.github/workflows/trigger-gam-with-custom-decider.yaml']]; print('All workflow YAML files are valid')\"",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All workflow YAML files are valid",
+        "notes": "YAML syntax validation passed"
+      },
+      {
+        "step": "test",
+        "command": ".github/scripts/custom_decider.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "true\nScript executed successfully",
+        "notes": "Script runs successfully (outputs random true/false)"
+      }
+    ],
+    "summary": "Syntax validation OK (shellcheck clean, bash valid, YAML valid), no tests to run"
+  },
+  "gaps": [
+    "No test suite - this is a sample/demonstration repository",
+    "No linter configuration files (no .shellcheckrc, no yamllint config)",
+    "No application code to test - only workflow configurations",
+    "Workflows require GitHub Actions infrastructure and secrets to execute",
+    "No CI gating checks configured (workflows are manual-trigger only)",
+    "No build or dependency management"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

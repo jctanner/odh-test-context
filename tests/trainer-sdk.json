@@ -1,0 +1,304 @@
+{
+  "repo": "trainer-sdk",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:27:00Z",
+  "languages": ["Go", "Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "gofmt",
+        "config_file": null,
+        "run_command": "make fmt",
+        "fix_command": "make fmt",
+        "scope": "full project"
+      },
+      {
+        "name": "govet",
+        "config_file": null,
+        "run_command": "make vet",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "golangci-lint",
+        "config_file": ".golangci.yaml",
+        "run_command": "make golangci-lint",
+        "fix_command": "golangci-lint run --fix --timeout 5m --go 1.23 ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "flake8",
+        "config_file": ".flake8",
+        "run_command": "flake8 pkg/initializers sdk/kubeflow",
+        "fix_command": null,
+        "scope": "Python code (pkg/initializers, sdk)"
+      },
+      {
+        "name": "black",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "black --check pkg/initializers sdk/kubeflow",
+        "fix_command": "black pkg/initializers sdk/kubeflow",
+        "scope": "Python code (pkg/initializers, sdk)"
+      },
+      {
+        "name": "isort",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "isort --check --profile black pkg/initializers sdk/kubeflow",
+        "fix_command": "isort --profile black pkg/initializers sdk/kubeflow",
+        "scope": "Python code (pkg/initializers, sdk)"
+      }
+    ],
+    "notes": "Pre-commit hooks configured but can also run linters directly. Go linters required for CI. Python linters run via pre-commit in CI."
+  },
+  "testing": {
+    "framework": "Go testing + Ginkgo (integration), pytest (Python)",
+    "test_directory": "test/ (Go), pkg/initializers/*_test.py (Python)",
+    "run_command": "make test (Go unit), make test-python (Python)",
+    "run_single_file": "go test {package} (Go), pytest {file} (Python)",
+    "run_single_test": "go test -run {TestName} {package} (Go), pytest {file}::{test_name} (Python)",
+    "setup_required": [
+      "go mod download",
+      "pip install pytest",
+      "pip install -r ./cmd/initializers/dataset/requirements.txt",
+      "pip install ./sdk"
+    ],
+    "env_vars": ["PYTHONPATH={repo_root}"],
+    "fixtures_location": "pkg/initializers/conftest.py (Python pytest fixtures)",
+    "mock_patterns": "Standard Go testify mocks, Python unittest.mock",
+    "coverage_command": "make test (generates cover.out for Go)",
+    "coverage_threshold": null,
+    "notes": "Integration tests require envtest for K8s API. E2E tests require Kind cluster. Python integration tests in test/integration/initializers/."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/test-go.yaml",
+      ".github/workflows/test-python.yaml",
+      ".github/workflows/test-e2e.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Generate - Go mod tidy",
+        "command": "go mod tidy && git diff --exit-code",
+        "required": true
+      },
+      {
+        "name": "Generate - make generate",
+        "command": "make generate && git diff --exit-code",
+        "required": true
+      },
+      {
+        "name": "Generate - go fmt",
+        "command": "make fmt && git diff --exit-code",
+        "required": true
+      },
+      {
+        "name": "Generate - go vet",
+        "command": "make vet && git diff --exit-code",
+        "required": true
+      },
+      {
+        "name": "Generate - golangci-lint",
+        "command": "make golangci-lint",
+        "required": true
+      },
+      {
+        "name": "Go Unit Tests",
+        "command": "make test",
+        "required": true
+      },
+      {
+        "name": "Go Integration Tests",
+        "command": "make test-integration K8S_VERSION=1.29.3",
+        "required": true
+      },
+      {
+        "name": "Python pre-commit",
+        "command": "pre-commit run --all-files",
+        "required": true
+      },
+      {
+        "name": "Python Unit Tests",
+        "command": "make test-python",
+        "required": true
+      },
+      {
+        "name": "Python Integration Tests",
+        "command": "make test-python-integration",
+        "required": true
+      },
+      {
+        "name": "E2E Tests",
+        "command": "make test-e2e-setup-cluster && make test-e2e && make test-e2e-notebook",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI tests multiple Kubernetes versions (1.29, 1.30, 1.31). E2E tests run on ubuntu-latest-16-cores. Go integration tests use matrix for K8s versions. Python uses 3.11."
+  },
+  "build": {
+    "system": "make + Go modules + Python pip",
+    "install_command": "go mod download && pip install pytest && pip install -r ./cmd/initializers/dataset/requirements.txt && pip install ./sdk",
+    "build_command": "make build (builds Go controller-manager)",
+    "notes": "Polyglot project. Go is primary (controller), Python for SDK and initializers. Multiple container images built for different components."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go (Go), *_test.py (Python)",
+    "test_naming": "Test* functions (Go), test_* functions (Python)",
+    "import_style": "Grouped imports per .golangci.yaml gci config, isort with black profile for Python",
+    "notes": "Go code follows standard Kubernetes controller patterns. Python follows black formatting with 100 char line length per .flake8."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.23.0",
+    "system_deps": ["make", "git", "python3", "python3-pip", "python3-venv", "curl", "build-essential"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y make git python3 python3-pip python3-venv curl build-essential",
+      "go mod download",
+      "pip3 install --break-system-packages pytest",
+      "pip3 install --break-system-packages -r ./cmd/initializers/dataset/requirements.txt",
+      "pip3 install --break-system-packages ./sdk"
+    ],
+    "lint_commands": [
+      {
+        "command": "make fmt",
+        "validated": true,
+        "notes": "Passed - go fmt found no formatting issues"
+      },
+      {
+        "command": "make vet",
+        "validated": true,
+        "notes": "Passed - go vet found no issues"
+      },
+      {
+        "command": "make golangci-lint",
+        "validated": true,
+        "notes": "Passed - golangci-lint auto-installed and found no issues"
+      },
+      {
+        "command": "flake8 pkg/initializers",
+        "validated": true,
+        "notes": "Passed - flake8 found no issues in Python code"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test",
+        "validated": true,
+        "notes": "Passed - 18 Go packages tested, multiple tests passed with coverage"
+      },
+      {
+        "command": "PYTHONPATH=/app pytest ./pkg/initializers/dataset",
+        "validated": true,
+        "notes": "Passed - 7 tests passed in 0.37s"
+      },
+      {
+        "command": "PYTHONPATH=/app pytest ./pkg/initializers/model",
+        "validated": true,
+        "notes": "Passed - 7 tests passed in 0.23s"
+      },
+      {
+        "command": "PYTHONPATH=/app pytest ./pkg/initializers/utils",
+        "validated": true,
+        "notes": "Passed - 4 tests passed in 0.01s"
+      }
+    ],
+    "test_single_file": "go test {package} (Go), pytest {file} (Python)",
+    "test_single_test": "go test -run {TestName} {package} (Go), pytest {file}::{test_name} (Python)",
+    "env_vars": ["PYTHONPATH=/app"],
+    "notes": "Container validation successful. All lint and test commands work. Note: Integration tests require additional setup (envtest, Kind cluster) not validated in basic container."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install-go-deps",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "No output - successful download",
+        "notes": "Go dependencies downloaded successfully"
+      },
+      {
+        "step": "lint-go-fmt",
+        "command": "make fmt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go fmt ./...",
+        "notes": "No formatting changes needed"
+      },
+      {
+        "step": "lint-go-vet",
+        "command": "make vet",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go vet ./...",
+        "notes": "No issues found"
+      },
+      {
+        "step": "lint-golangci",
+        "command": "make golangci-lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "golangci-lint run --timeout 5m --go 1.23 ./...",
+        "notes": "Auto-installed v1.61.0, no issues found"
+      },
+      {
+        "step": "test-go-unit",
+        "command": "make test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/kubeflow/trainer/pkg/runtime\t0.030s\tcoverage: 75.5% of statements\nok  \tgithub.com/kubeflow/trainer/pkg/runtime/core\t0.095s\tcoverage: 56.0% of statements",
+        "notes": "18 packages tested, coverage generated to cover.out"
+      },
+      {
+        "step": "install-python-deps",
+        "command": "pip3 install --break-system-packages pytest && pip3 install --break-system-packages -r ./cmd/initializers/dataset/requirements.txt && pip3 install --break-system-packages ./sdk",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed pytest-9.0.2, huggingface-hub-0.27.1, kubeflow-0.1.0",
+        "notes": "All Python dependencies installed"
+      },
+      {
+        "step": "test-python-dataset",
+        "command": "PYTHONPATH=/app pytest ./pkg/initializers/dataset",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================== 7 passed in 0.37s ===============================",
+        "notes": "All dataset initializer tests passed"
+      },
+      {
+        "step": "test-python-model",
+        "command": "PYTHONPATH=/app pytest ./pkg/initializers/model",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================== 7 passed in 0.23s ===============================",
+        "notes": "All model initializer tests passed"
+      },
+      {
+        "step": "test-python-utils",
+        "command": "PYTHONPATH=/app pytest ./pkg/initializers/utils",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================== 4 passed in 0.01s ===============================",
+        "notes": "All utils tests passed"
+      },
+      {
+        "step": "lint-python-flake8",
+        "command": "flake8 pkg/initializers",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "No output - no issues found",
+        "notes": "Flake8 passed with no violations"
+      }
+    ],
+    "summary": "All validation passed: Go deps OK, Go lint OK (fmt/vet/golangci-lint), Go tests OK (18 packages), Python deps OK, Python tests OK (18 tests across 3 modules), Python lint OK (flake8)"
+  },
+  "gaps": [
+    "Integration tests require envtest setup (make test-integration) - not validated in basic container",
+    "E2E tests require Kind cluster and full infrastructure - cannot validate without cluster",
+    "Pre-commit hooks not fully tested (would require node.js for some hooks)",
+    "Container image builds not validated (require podman/docker build)",
+    "Code generation (make generate) not validated - requires additional tools"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

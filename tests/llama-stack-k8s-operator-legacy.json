@@ -1,0 +1,158 @@
+{
+  "repo": "llama-stack-k8s-operator-legacy",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:47:15-04:00",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v1.63.4",
+        "config_file": ".golangci.yml",
+        "run_command": "make lint",
+        "fix_command": "make lint-fix",
+        "scope": "full project (excludes apis directory)"
+      }
+    ],
+    "notes": "Comprehensive linter configuration with enable-all policy and specific exclusions. Also includes make fmt (go fmt + gci) and make vet (go vet)."
+  },
+  "testing": {
+    "framework": "Ginkgo/Gomega (BDD-style testing)",
+    "test_directory": "controllers/",
+    "run_command": "make test",
+    "run_single_file": "go test ./controllers/suite_test.go",
+    "run_single_test": "Not applicable - no test specs exist",
+    "setup_required": [
+      "go mod download",
+      "make manifests (generates CRDs)",
+      "make generate (generates DeepCopy code)",
+      "make fmt (formats code)",
+      "make vet (runs go vet)",
+      "KUBEBUILDER_ASSETS setup via setup-envtest"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS - path to kubebuilder test binaries (etcd, kube-apiserver)"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": "make test (generates cover.out)",
+    "coverage_threshold": null,
+    "notes": "Only one test file exists (suite_test.go) with 0 test specs - it's just test suite setup. Tests require Kubernetes envtest infrastructure (etcd, kube-apiserver) to run. The test suite fails without these binaries even though there are no actual test cases to execute."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/linters.yaml", ".github/workflows/build-image.yml"],
+    "gating_checks": [
+      {
+        "name": "golangci-lint",
+        "command": "make lint",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Build PR image",
+        "command": "make docker-build docker-push -e IMG=quay.io/opendatahub/llama-stack-k8s-operator:pr-$PR_NUMBER",
+        "required": false
+      }
+    ],
+    "notes": "CI runs linting on all PRs and pushes to main. Image building happens on pull_request_target events. No test execution in CI - tests are not gating."
+  },
+  "build": {
+    "system": "make + go",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "notes": "Build requires code generation (make generate) and CRD manifests (make manifests). Default build produces bin/manager binary. Container build uses podman by default (IMAGE_BUILDER=podman)."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Ginkgo BDD style - Describe/Context/It blocks, BeforeSuite/AfterSuite hooks",
+    "import_style": "Dot imports allowed for Ginkgo/Gomega packages (specified in .golangci.yml revive rules)",
+    "notes": "Kubernetes operator following controller-runtime/Kubebuilder patterns. Uses +kubebuilder markers for code generation."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.21",
+    "system_deps": ["make", "git", "curl"],
+    "setup_commands": [
+      "go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "make lint",
+        "validated": true,
+        "notes": "Runs successfully. Downloads golangci-lint v1.63.4 to ./bin/. Two warnings about linters disabled due to Go version (copyloopvar, intrange require Go 1.22+). Exit code 0."
+      },
+      {
+        "command": "make lint-fix",
+        "validated": false,
+        "notes": "Not validated, but same as make lint with --fix flag"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test",
+        "validated": false,
+        "notes": "Requires Kubernetes envtest infrastructure (etcd, kube-apiserver binaries). Cannot run in simple container without these dependencies. Test suite exists but has 0 test specs."
+      },
+      {
+        "command": "go test ./...",
+        "validated": true,
+        "notes": "Runs but fails due to missing envtest binaries. Shows 'Will run 0 of 0 specs' - no actual test cases exist. Exit code 1 due to envtest setup failure, not test failures."
+      }
+    ],
+    "test_single_file": "go test ./controllers/suite_test.go",
+    "test_single_test": "Not applicable - no test specs exist",
+    "env_vars": [
+      "KUBEBUILDER_ASSETS=/path/to/kubebuilder/binaries (required for envtest)"
+    ],
+    "notes": "Tests cannot run in standard container without Kubernetes test infrastructure. The setup-envtest@latest requires Go 1.25+ (incompatible with Go 1.21). Even with compatible setup-envtest version, tests need etcd and kube-apiserver binaries which are not available in standard golang image."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - successful download)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "lint",
+        "command": "make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "level=warning msg=\"[linters_context] copyloopvar: this linter is disabled because the Go version (1.21.0) of your project is lower than Go 1.22\"\nlevel=warning msg=\"[linters_context] intrange: this linter is disabled because the Go version (1.21.0) of your project is lower than Go 1.22\"",
+        "notes": "Lint completed successfully. Two warnings about Go 1.22+ specific linters being disabled (expected)."
+      },
+      {
+        "step": "build",
+        "command": "make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go build -o bin/manager main.go",
+        "notes": "Build completed successfully. Generates bin/manager binary."
+      },
+      {
+        "step": "test",
+        "command": "go test ./...",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "?   \tgithub.com/meta-llama/llama-stack-k8s-operator\t[no test files]\nRunning Suite: Controller Suite\nWill run 0 of 0 specs\nunable to start the controlplane: fork/exec /usr/local/kubebuilder/bin/etcd: no such file or directory",
+        "notes": "Test framework runs but fails due to missing envtest binaries (etcd). No actual test specs exist (0 of 0). Most packages have no test files."
+      }
+    ],
+    "summary": "Deps OK, Lint OK (0 violations), Build OK, Tests FAIL (requires K8s infrastructure, 0 specs)"
+  },
+  "gaps": [
+    "Only 1 test file exists (suite_test.go) with 0 actual test specs - just setup/teardown",
+    "No unit tests for controllers, api, or pkg packages",
+    "Tests require Kubernetes envtest infrastructure (etcd, kube-apiserver) not available in standard containers",
+    "CI does not run tests - only linting is gating",
+    "No integration tests or e2e tests",
+    "Test command in Makefile references envtest but tests cannot run without cluster infrastructure",
+    "Project is archived/moved (README indicates project moved to new home)"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

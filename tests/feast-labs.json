@@ -1,0 +1,70 @@
+{
+  "repo": "feast-labs",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": ["Python (expected)"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. The .gitignore includes .ruff_cache/, suggesting future intent to use Ruff, but no configuration exists yet."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure exists. The .gitignore includes .pytest_cache/ and .coverage, indicating pytest may be used in the future, but no tests or configuration currently exist."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows/, .tekton/, Jenkinsfile, or similar CI infrastructure exists."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build configuration found. No pyproject.toml, setup.py, setup.cfg, requirements.txt, Makefile, or similar build files exist. This appears to be a template repository documenting the intended structure for future labs."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "No code exists to derive conventions from. The repository only contains documentation describing the intended structure for domain-specific labs."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No validation performed - repository contains no executable code, tests, or configuration files to validate."
+  },
+  "validation": {
+    "results": [],
+    "summary": "No validation performed - repository is empty skeleton with only documentation"
+  },
+  "gaps": [
+    "Repository contains no code - only documentation files (README.md, docs/lab-structure.md)",
+    "No test infrastructure exists",
+    "No linting configuration exists",
+    "No CI/CD pipelines exist",
+    "No build configuration exists",
+    "No Python files exist in the repository",
+    "This appears to be a template/skeleton repository describing the intended structure for future domain-specific labs",
+    "Repository contains only 4 files: .gitignore, LICENSE, README.md, docs/lab-structure.md"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

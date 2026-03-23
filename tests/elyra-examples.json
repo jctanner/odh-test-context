@@ -1,0 +1,180 @@
+{
+  "repo": "elyra-examples",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:04:00-04:00",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "flake8",
+        "config_file": ".flake8",
+        "run_command": "flake8 .",
+        "fix_command": null,
+        "scope": "full project - Python scripts"
+      },
+      {
+        "name": "nbqa + flake8",
+        "config_file": ".flake8",
+        "run_command": "nbqa flake8 --ignore=H102 binder/getting-started/*.ipynb",
+        "fix_command": null,
+        "scope": "binder notebooks"
+      },
+      {
+        "name": "nbqa + flake8",
+        "config_file": ".flake8",
+        "run_command": "nbqa flake8 --ignore=H102,E402 pipelines/*/*.ipynb",
+        "fix_command": null,
+        "scope": "pipeline notebooks"
+      }
+    ],
+    "notes": "Linting via make lint runs all three commands. Flake8 configured with max-line-length=120, excludes __init__.py and some component directories. Validated successfully - all commands pass with exit code 0."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "component-catalog-connectors/*/tests/",
+    "run_command": null,
+    "run_single_file": "cd component-catalog-connectors/{connector}/ && python -m pytest tests/{file}",
+    "run_single_test": "cd component-catalog-connectors/{connector}/ && python -m pytest tests/{file}::{test_name}",
+    "setup_required": [
+      "pip install -r test_requirements.txt",
+      "pip install -e .",
+      "pip install elyra"
+    ],
+    "env_vars": [],
+    "fixtures_location": "component-catalog-connectors/*/tests/resources/",
+    "mock_patterns": "Uses pytest fixtures and requests-mock for HTTP mocking",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests exist in subdirectories (artifactory-connector, kfp-example-components-connector, mlx-connector) but require the Elyra package to run. Tests are NOT run in CI. Each connector is independent and must be installed separately. Tests cannot run without 'elyra' package dependency."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/build.yaml"],
+    "gating_checks": [
+      {
+        "name": "Lint",
+        "command": "make lint",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on push and pull_request to main branch. Tests Python 3.7, 3.8, 3.9, 3.10 on ubuntu-latest. Only linting is gated - no tests are run in CI."
+  },
+  "build": {
+    "system": "make + pip + setuptools",
+    "install_command": "pip install -r test_requirements.txt",
+    "build_command": "N/A - repository contains examples and independent connectors, not a single installable package",
+    "notes": "This is an examples repository. Each component-catalog-connector has its own setup.py and can be installed independently with 'pip install -e .' Individual connectors depend on the elyra package."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/test_*.py",
+    "test_naming": "pytest style - test classes (Test*) with test methods (test_*)",
+    "import_style": "Absolute imports, grouped (standard lib, third-party, local)",
+    "notes": "Jupyter notebooks in pipelines/ and binder/ directories. Python scripts for pipeline components. Connector code follows standard Python package structure."
+  },
+  "container_recipe": {
+    "base_image": "python:3.10",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install -r test_requirements.txt"
+    ],
+    "lint_commands": [
+      {
+        "command": "flake8 .",
+        "validated": true,
+        "notes": "Exit code 0 - no lint errors"
+      },
+      {
+        "command": "nbqa flake8 --ignore=H102 binder/getting-started/*.ipynb",
+        "validated": true,
+        "notes": "Exit code 0 - no lint errors in binder notebooks"
+      },
+      {
+        "command": "nbqa flake8 --ignore=H102,E402 pipelines/*/*.ipynb",
+        "validated": true,
+        "notes": "Exit code 0 - no lint errors in pipeline notebooks"
+      },
+      {
+        "command": "make lint",
+        "validated": true,
+        "notes": "Exit code 0 - runs all three lint commands successfully"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd component-catalog-connectors/artifactory-connector && pip install -r test_requirements.txt && pip install -e . && python -m pytest tests/ -v",
+        "validated": false,
+        "notes": "Exit code 2 - ModuleNotFoundError: No module named 'elyra'. Tests require the Elyra package to run, which is an external dependency not included in test_requirements.txt. Tests cannot be validated without infrastructure."
+      }
+    ],
+    "test_single_file": "cd component-catalog-connectors/{connector}/ && python -m pytest tests/{file} -v",
+    "test_single_test": "cd component-catalog-connectors/{connector}/ && python -m pytest tests/{file}::{test_name} -v",
+    "env_vars": [],
+    "notes": "Lint commands work perfectly in isolation. Tests require the elyra package which has many dependencies. Each connector must be tested independently after installing both the connector and the elyra package."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install -q -r test_requirements.txt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "WARNING: Running pip as the 'root' user...\n[notice] A new release of pip is available...",
+        "notes": "Successfully installed flake8, nbqa, and importlib-metadata"
+      },
+      {
+        "step": "lint",
+        "command": "flake8 .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "No output - all Python scripts pass flake8 checks"
+      },
+      {
+        "step": "lint",
+        "command": "nbqa flake8 --ignore=H102 binder/getting-started/*.ipynb",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "No output - all binder notebooks pass flake8 checks"
+      },
+      {
+        "step": "lint",
+        "command": "nbqa flake8 --ignore=H102,E402 pipelines/*/*.ipynb",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "No output - all pipeline notebooks pass flake8 checks"
+      },
+      {
+        "step": "lint",
+        "command": "make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "flake8 .\nnbqa flake8 --ignore=H102 binder/getting-started/*.ipynb\nnbqa flake8 --ignore=H102,E402 pipelines/*/*.ipynb",
+        "notes": "Successfully runs all three lint commands via Makefile target"
+      },
+      {
+        "step": "test",
+        "command": "cd component-catalog-connectors/artifactory-connector && python -m pytest tests/ -v",
+        "exit_code": 2,
+        "success": false,
+        "output_snippet": "ModuleNotFoundError: No module named 'elyra'\nERROR tests/test_connector.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!",
+        "notes": "Tests require the 'elyra' package which is not in test_requirements.txt. This is an external dependency required for the connectors to function. Tests cannot be validated without installing the full Elyra framework."
+      }
+    ],
+    "summary": "Linting validated successfully (4/4 commands pass). Tests cannot run without external Elyra package dependency."
+  },
+  "gaps": [
+    "Tests exist but are not run in CI workflow",
+    "Tests require external 'elyra' package dependency not specified in test_requirements.txt",
+    "No test command in root Makefile",
+    "No coverage configuration or threshold defined",
+    "Individual connectors must be installed and tested separately - no monolithic test suite",
+    "Some component connector directories have tests, others do not (airflow-example-components-connector has no tests/ directory)",
+    "No documentation on how to run tests or install required dependencies",
+    "Python version compatibility not specified in setup.py or pyproject.toml at root level"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

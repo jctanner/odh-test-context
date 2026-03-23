@@ -1,0 +1,206 @@
+{
+  "repo": "llama-stack-provider-ragas",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:55:00-04:00",
+  "languages": ["Python", "JavaScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff check .",
+        "fix_command": "uv run ruff check --fix .",
+        "scope": "full project"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff format --check .",
+        "fix_command": "uv run ruff format .",
+        "scope": "full project"
+      },
+      {
+        "name": "mypy",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run mypy --ignore-missing-imports --show-error-codes --no-strict-optional src/",
+        "fix_command": null,
+        "scope": "src/ directory"
+      },
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "uv run pre-commit run --all-files --show-diff-on-failure",
+        "fix_command": "uv run pre-commit run --all-files",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Pre-commit runs trailing-whitespace, end-of-file-fixer, check-yaml, check-added-large-files, check-merge-conflict, debug-statements, ruff-check, ruff-format, mypy, and pytest hooks. All linting commands validated successfully."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "KUBEFLOW_BASE_IMAGE=dummy uv run pytest -v -m 'not integration_test' --tb=short --maxfail=3",
+    "run_single_file": "uv run pytest -v {file}",
+    "run_single_test": "uv run pytest -v {file}::{test_name}",
+    "setup_required": [
+      "uv sync --extra dev"
+    ],
+    "env_vars": [
+      "KUBEFLOW_BASE_IMAGE=dummy (for non-integration tests)",
+      "KUBEFLOW_LLAMA_STACK_URL (for integration tests)",
+      "KUBEFLOW_PIPELINES_ENDPOINT (for integration tests)",
+      "KUBEFLOW_NAMESPACE (for integration tests)",
+      "KUBEFLOW_RESULTS_S3_PREFIX (for integration tests)",
+      "KUBEFLOW_S3_CREDENTIALS_SECRET_NAME (for integration tests)"
+    ],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Fixtures provide sample evaluation data, sampling params, and config objects",
+    "coverage_command": "uv run pytest --cov=src --cov-report=term-missing",
+    "coverage_threshold": null,
+    "notes": "All 10 tests are marked with @pytest.mark.integration_test. These tests require a running Llama Stack server, Kubeflow pipelines, and Ollama models. The non-integration test command collects 0 tests (exit code 5), which is treated as success by pre-commit. Integration tests cannot run in isolated container without external infrastructure."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/docs.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Pre-commit Checks",
+        "command": "uv run pre-commit run --all-files --show-diff-on-failure",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Build and Deploy Documentation",
+        "command": "antora antora-playbook.yml",
+        "required": false
+      }
+    ],
+    "notes": "CI runs on push to main/develop and pull_request branches. Uses Python 3.12 and uv 0.8.11. Pre-commit is the primary gating check that includes linting (ruff, mypy) and non-integration tests. Documentation workflow is separate and only triggers on doc changes."
+  },
+  "build": {
+    "system": "hatchling (Python build backend) + uv (package manager)",
+    "install_command": "uv sync --extra dev",
+    "build_command": "uv build",
+    "notes": "Project uses uv for dependency management and hatchling as build backend. The 'dev' extra includes all testing and linting tools. Node.js dependencies are only for documentation (Antora)."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py",
+    "test_naming": "Functions named test_*, all test files marked with pytestmark = pytest.mark.integration_test",
+    "import_style": "Absolute imports from src/llama_stack_provider_ragas",
+    "notes": "Tests are located in tests/ directory. conftest.py provides shared fixtures. All tests require external infrastructure (Llama Stack, Kubeflow, Ollama models). Python version pinned to >=3.12."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": [
+      "git",
+      "curl"
+    ],
+    "setup_commands": [
+      "curl -LsSf https://astral.sh/uv/0.8.11/install.sh | sh",
+      "export PATH=/root/.local/bin:$PATH",
+      "uv sync --extra dev"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run ruff check .",
+        "validated": true,
+        "notes": "All checks passed!"
+      },
+      {
+        "command": "uv run ruff format --check .",
+        "validated": true,
+        "notes": "25 files already formatted"
+      },
+      {
+        "command": "uv run pre-commit run --all-files",
+        "validated": true,
+        "notes": "All hooks passed (trailing-whitespace, end-of-file-fixer, check-yaml, check-added-large-files, check-merge-conflict, debug-statements, ruff-check, ruff-format, mypy, pytest)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "KUBEFLOW_BASE_IMAGE=dummy uv run pytest -v -m 'not integration_test' --tb=short --maxfail=3",
+        "validated": true,
+        "notes": "Exit code 5 (no tests collected) - all 10 tests are marked as integration_test. This is expected and treated as success."
+      },
+      {
+        "command": "uv run pytest -v",
+        "validated": false,
+        "notes": "Requires Llama Stack server, Kubeflow, Ollama models. Fails with 'Invalid kube-config file. No configuration found.'"
+      }
+    ],
+    "test_single_file": "uv run pytest -v {file}",
+    "test_single_test": "uv run pytest -v {file}::{test_name}",
+    "env_vars": [
+      "PATH=/root/.local/bin:$PATH",
+      "KUBEFLOW_BASE_IMAGE=dummy"
+    ],
+    "notes": "Container validation successful for linting. All pre-commit checks pass. Tests require external Llama Stack server (default http://localhost:8321), Kubeflow pipelines, and Ollama models (granite3.3:2b, all-minilm:latest). Integration tests will fail in isolated container."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "uv sync --extra dev",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Using CPython 3.12.13 interpreter at: /usr/local/bin/python3\nCreating virtual environment at: .venv\nResolved 185 packages in 0.95ms\nInstalled 182 packages in 628ms",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "build",
+        "command": "uv build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Building source distribution...\nBuilding wheel from source distribution...\nSuccessfully built dist/llama_stack_provider_ragas-0.5.1.tar.gz\nSuccessfully built dist/llama_stack_provider_ragas-0.5.1-py3-none-any.whl",
+        "notes": "Build completed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Ruff linting passed with no issues"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff format --check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "25 files already formatted",
+        "notes": "Ruff formatting check passed"
+      },
+      {
+        "step": "lint",
+        "command": "uv run pre-commit run --all-files",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "trim trailing whitespace.................................................Passed\nfix end of files.........................................................Passed\ncheck yaml...............................................................Passed\ncheck for added large files..............................................Passed\ncheck for merge conflicts................................................Passed\ndebug statements (python)................................................Passed\nruff check...............................................................Passed\nruff format..............................................................Passed\nmypy.....................................................................Passed\npytest...................................................................Passed",
+        "notes": "All pre-commit hooks passed"
+      },
+      {
+        "step": "test",
+        "command": "KUBEFLOW_BASE_IMAGE=dummy uv run pytest -v -m 'not integration_test' --tb=short --maxfail=3",
+        "exit_code": 5,
+        "success": true,
+        "output_snippet": "collected 10 items / 10 deselected / 0 selected\n============================ 10 deselected in 0.28s ============================",
+        "notes": "Exit code 5 indicates no tests collected (all tests are integration tests). Pre-commit treats this as success."
+      }
+    ],
+    "summary": "install OK, build OK, lint OK (ruff check, ruff format, pre-commit all passed), tests OK (0 non-integration tests run as expected)"
+  },
+  "gaps": [
+    "All tests (10/10) are integration tests requiring external infrastructure (Llama Stack server, Kubeflow, Ollama models)",
+    "No unit tests exist that can run in isolation",
+    "Integration tests require environment variables: KUBEFLOW_LLAMA_STACK_URL, KUBEFLOW_PIPELINES_ENDPOINT, KUBEFLOW_NAMESPACE, KUBEFLOW_BASE_IMAGE, KUBEFLOW_RESULTS_S3_PREFIX, KUBEFLOW_S3_CREDENTIALS_SECRET_NAME",
+    "Cannot validate patches with actual test runs in CI without infrastructure setup",
+    "Mypy has 2 type errors when run standalone, but passes in pre-commit due to additional dependencies (types-requests)"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

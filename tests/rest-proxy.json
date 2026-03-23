@@ -1,0 +1,140 @@
+{
+  "repo": "rest-proxy",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:10:00-04:00",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.8.0",
+        "config_file": ".golangci.yaml",
+        "run_command": "golangci-lint run",
+        "fix_command": null,
+        "scope": "full project (excludes gen/ directory)"
+      },
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": "pre-commit run --all-files",
+        "scope": "full project (runs golangci-lint and prettier)"
+      }
+    ],
+    "notes": "The project uses pre-commit hooks in CI via the develop container. Pre-commit runs golangci-lint and prettier. The develop container has all pre-commit environments pre-installed to avoid Go version conflicts."
+  },
+  "testing": {
+    "framework": "go test",
+    "test_directory": "proxy/",
+    "run_command": "go test -coverprofile cover.out `go list -buildvcs=false ./...`",
+    "run_single_file": null,
+    "run_single_test": "go test -run '{TestName}' ./proxy",
+    "setup_required": ["go mod download"],
+    "env_vars": ["GOTOOLCHAIN=auto (required for Go 1.25.5)"],
+    "fixtures_location": null,
+    "mock_patterns": "Tests use github.com/google/go-cmp/cmp for comparisons",
+    "coverage_command": "go test -coverprofile cover.out `go list -buildvcs=false ./...`",
+    "coverage_threshold": null,
+    "notes": "Tests are in proxy/*_test.go. Run tests by package (./proxy) not by file. The project requires Go 1.25.5 via go.mod, which requires GOTOOLCHAIN=auto to download the correct version."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/test.yml", ".github/workflows/build.yml"],
+    "gating_checks": [
+      {
+        "name": "Build dev image",
+        "command": "make build.develop",
+        "required": true
+      },
+      {
+        "name": "Run lint",
+        "command": "./scripts/develop.sh make fmt",
+        "required": true
+      },
+      {
+        "name": "Run unit test",
+        "command": "./scripts/develop.sh make test",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "The test workflow runs on PRs to main and release branches. It uses a containerized development environment (make build.develop, ./scripts/develop.sh) to ensure consistent tooling. The develop container has Go 1.25, pre-commit, golangci-lint, and all dependencies pre-installed."
+  },
+  "build": {
+    "system": "make + docker/podman",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "notes": "Multi-stage Dockerfile: develop stage (ubi9/go-toolset:1.25) has all dev tools, build stage compiles the binary, runtime stage (ubi9/ubi-micro) contains only the binary. The develop container workflow (make build.develop, ./scripts/develop.sh) is the recommended dev environment."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Go standard: Test* functions in *_test.go files",
+    "import_style": "Standard Go imports",
+    "notes": "Uses Go modules. Generated code in gen/ is excluded from linting."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.23",
+    "system_deps": ["make", "git", "python3", "python3-pip", "pre-commit"],
+    "setup_commands": [
+      "export GOTOOLCHAIN=auto",
+      "go mod download",
+      "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v2.8.0"
+    ],
+    "lint_commands": [
+      {
+        "command": "golangci-lint run",
+        "validated": true,
+        "notes": "Passed with 0 issues"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "go test -coverprofile cover.out `go list -buildvcs=false ./...`",
+        "validated": true,
+        "notes": "Passed: proxy package 64.1% coverage, all tests passed"
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": "go test -run 'TestName' ./proxy",
+    "env_vars": ["GOTOOLCHAIN=auto"],
+    "notes": "The go.mod specifies go 1.25.5, which requires GOTOOLCHAIN=auto to download. The gen/ package has generated code and shows 'no such tool covdata' warning but this is harmless. Running single test files doesn't work; run by package instead (e.g., go test ./proxy -run TestRESTResponse)."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "GOTOOLCHAIN=auto go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go: downloading go1.25.5 (linux/amd64)",
+        "notes": "Dependencies downloaded successfully. Required GOTOOLCHAIN=auto to download Go 1.25.5."
+      },
+      {
+        "step": "lint",
+        "command": "GOTOOLCHAIN=auto golangci-lint run",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 issues.",
+        "notes": "Linting passed with no issues."
+      },
+      {
+        "step": "test",
+        "command": "GOTOOLCHAIN=auto go test -coverprofile cover.out `go list -buildvcs=false ./...`",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/kserve/rest-proxy/proxy\t0.009s\tcoverage: 64.1% of statements",
+        "notes": "Tests passed successfully. 64.1% code coverage in proxy package. Warning about 'no such tool covdata' for gen/ package is harmless (generated code)."
+      }
+    ],
+    "summary": "install OK, lint OK (0 issues), tests OK (all passed, 64.1% coverage)"
+  },
+  "gaps": [
+    "The go.mod specifies Go 1.25.5, which is newer than commonly available base images. Requires GOTOOLCHAIN=auto workaround.",
+    "Pre-commit hooks cannot be installed directly in a basic golang container due to Go version conflicts when installing golangci-lint from source.",
+    "The project's intended workflow uses a custom develop container (make build.develop) which pre-installs all tools. Direct validation requires installing golangci-lint binary separately.",
+    "No coverage threshold configured. Current coverage is 64.1%.",
+    "Tests cannot be run by individual file, only by package."
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

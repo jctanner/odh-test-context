@@ -1,0 +1,107 @@
+{
+  "repo": "architecture-context",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:32:00Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [],
+    "notes": "No linter configuration found. No ruff, flake8, pylint, mypy, or black configuration in pyproject.toml or standalone config files."
+  },
+  "testing": {
+    "framework": "standalone script",
+    "test_directory": "scripts/",
+    "run_command": "python scripts/test_version_regex.py",
+    "run_single_file": "python {file}",
+    "run_single_test": null,
+    "setup_required": [
+      "uv sync"
+    ],
+    "env_vars": [
+      "ANTHROPIC_API_KEY - Required by main.py for Claude Agent SDK (not needed for tests)"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Only one test file exists: scripts/test_version_regex.py. It is a standalone Python script that tests regex patterns, not using pytest or unittest. The test uses simple assertions and exit(1) on failure. No formal test framework is configured. The main application (main.py) is a Claude agent orchestration tool that requires a .env file with ANTHROPIC_API_KEY to run, but the test does not require this."
+  },
+  "ci": {
+    "system": "none",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows/, no Jenkinsfile, no Tekton pipelines, no pre-commit hooks."
+  },
+  "build": {
+    "system": "uv",
+    "install_command": "uv sync",
+    "build_command": null,
+    "notes": "Python 3.13+ project using UV package manager. Dependencies: claude-agent-sdk (0.1.48), pyyaml (6.0.3), python-dotenv. The main application orchestrates Claude agents to generate architecture documentation from repository source code. No build step is required; this is a pure Python application."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py or *_test.py",
+    "test_naming": "Simple standalone scripts with hardcoded test cases",
+    "import_style": "Absolute imports from lib/ package",
+    "notes": "Project structure: main.py is entry point, lib/ contains modules (agent_runner.py, build_info.py, cli.py, fetch.py, kustomize_context.py, manifest_parser.py, phases.py), scripts/ contains utilities and the single test file. Code appears to follow standard Python conventions but has no enforced linting or formatting configuration."
+  },
+  "container_recipe": {
+    "base_image": "python:3.13",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install uv",
+      "uv sync"
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {
+        "command": "python scripts/test_version_regex.py",
+        "validated": true,
+        "notes": "Exit code 0. All 15 test cases passed. Tests regex pattern for parsing VERSION lines from Makefiles."
+      }
+    ],
+    "test_single_file": "python {file}",
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "The container setup is straightforward. UV creates a .venv automatically during 'uv sync'. Tests can run with system Python or with .venv/bin/python (both work). No system dependencies beyond base Python 3.13 image are required. The main application requires ANTHROPIC_API_KEY in .env file, but the test suite does not."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install uv && uv sync",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Using CPython 3.13.12 interpreter at: /usr/local/bin/python3.13\nCreating virtual environment at: .venv\nResolved 34 packages in 0.90ms\n...\nInstalled 31 packages in 118ms\n + annotated-types==0.7.0\n + anyio==4.12.1\n + claude-agent-sdk==0.1.48\n + pyyaml==6.0.3\n + python-dotenv==1.2.2",
+        "notes": "Dependencies installed successfully. UV created virtual environment and installed all required packages including claude-agent-sdk."
+      },
+      {
+        "step": "test",
+        "command": "python scripts/test_version_regex.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Testing VERSION regex pattern\nPattern: ^\\s*VERSION\\s*[\\?:]?=\\s*([^\\s#]+)\n...\n✓ All tests passed!",
+        "notes": "Test executed successfully. All 15 test cases passed. Tests regex pattern used in collect_architectures.py for parsing Makefile VERSION lines."
+      },
+      {
+        "step": "syntax_check",
+        "command": "python -m py_compile main.py lib/*.py scripts/*.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "All Python files compiled successfully. No syntax errors."
+      }
+    ],
+    "summary": "install OK (31 packages), test OK (15/15 passed), syntax OK"
+  },
+  "gaps": [
+    "No CI/CD configuration - the repository has no automated testing infrastructure",
+    "No linting configuration - no code quality enforcement",
+    "Minimal test coverage - only one test file covering a single regex utility function",
+    "No test framework - tests are standalone scripts rather than using pytest/unittest",
+    "Main application cannot be fully validated - requires ANTHROPIC_API_KEY and external Claude API access",
+    "No coverage reporting - no way to measure test coverage",
+    "No pre-commit hooks - no automated checks before commits"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

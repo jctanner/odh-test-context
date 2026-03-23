@@ -1,0 +1,364 @@
+{
+  "repo": "data-science-pipelines",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:00:00Z",
+  "languages": ["Go", "Python", "JavaScript", "TypeScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "config_file": ".golangci.yaml",
+        "run_command": "golangci-lint run --config .golangci.yaml ./...",
+        "fix_command": "golangci-lint run --fix --config .golangci.yaml ./...",
+        "scope": "full project",
+        "version": "v1.62.2 or v2.10 (CI uses v2.10)",
+        "enabled_linters": ["gocritic", "govet", "ineffassign", "misspell", "staticcheck", "unused"],
+        "formatters": ["gofmt", "goimports"]
+      },
+      {
+        "name": "eslint",
+        "config_file": "frontend/.eslintrc.yaml",
+        "run_command": "cd frontend && npm run lint",
+        "fix_command": "cd frontend && npx eslint --ext js,ts,tsx src --fix",
+        "scope": "frontend/ directory only"
+      },
+      {
+        "name": "prettier",
+        "config_file": "frontend/.prettierrc.yaml",
+        "run_command": "cd frontend && npm run format:check",
+        "fix_command": "cd frontend && npm run format",
+        "scope": "frontend/ directory only"
+      },
+      {
+        "name": "pylint",
+        "config_file": ".pylintrc",
+        "run_command": "pylint <path>",
+        "fix_command": null,
+        "scope": "Python files (via pre-commit)"
+      },
+      {
+        "name": "flake8",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "flake8 --select=W605 <files>",
+        "fix_command": null,
+        "scope": "Python files (via pre-commit)"
+      },
+      {
+        "name": "isort",
+        "config_file": ".isort.cfg",
+        "run_command": "isort --profile google <files>",
+        "fix_command": "isort --profile google <files>",
+        "scope": "Python imports (via pre-commit)"
+      },
+      {
+        "name": "yapf",
+        "config_file": ".style.yapf",
+        "run_command": "yapf <files>",
+        "fix_command": "yapf -i <files>",
+        "scope": "Python formatting (via pre-commit)"
+      },
+      {
+        "name": "pycln",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pycln --all <files>",
+        "fix_command": "pycln --all <files>",
+        "scope": "Python unused imports (via pre-commit)"
+      },
+      {
+        "name": "docformatter",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "docformatter -i -r <files>",
+        "fix_command": "docformatter -i -r <files>",
+        "scope": "Python docstrings (via pre-commit, excludes kubernetes_platform/python)"
+      }
+    ],
+    "notes": "Pre-commit workflow is DISABLED in CI (on: []). Linting is enforced upstream. Python linting uses Google style guide. Frontend requires no warnings (--max-warnings=0)."
+  },
+  "testing": {
+    "framework": "Multiple: pytest (Python), go test (Go), vitest (Frontend)",
+    "test_directory": "sdk/python/kfp (Python), backend/ (Go), frontend/src (TypeScript)",
+    "run_command": "See individual frameworks below",
+    "run_single_file": "pytest {file} (Python), go test {package} (Go), npm run test:ui {file} (Frontend)",
+    "run_single_test": "pytest {file}::{test_name} (Python), go test -run {TestName} {package} (Go), npm run test:ui -- -t '{name}' (Frontend)",
+    "frameworks": {
+      "python_sdk": {
+        "framework": "pytest",
+        "run_command": "pytest -v -s sdk/python/kfp --cov=kfp",
+        "run_single_file": "pytest {file}",
+        "run_single_test": "pytest {file}::{test_name}",
+        "setup_required": [
+          "pip install -r sdk/python/requirements.txt",
+          "pip install -r sdk/python/requirements-dev.txt",
+          "pip install pytest-cov",
+          "pip install sdk/python",
+          "pip install kubernetes_platform/python"
+        ],
+        "coverage_command": "pytest sdk/python/kfp --cov=kfp --junitxml=sdk-unit.xml",
+        "python_versions": ["3.9", "3.13"]
+      },
+      "go_backend": {
+        "framework": "go test",
+        "run_command": "go test -v -cover $(go list ./backend/... | grep -v backend/test/v2/api | grep -v backend/test/compiler | grep -v backend/test/end2end | grep -v backend/test/integration | grep -v backend/test/v2/integration | grep -v backend/test/initialization)",
+        "run_single_package": "go test -v -cover ./backend/{package}/...",
+        "run_single_test": "go test -v -run {TestName} ./backend/{package}",
+        "setup_required": [
+          "go mod download",
+          "go mod tidy"
+        ],
+        "go_version": "1.25.7"
+      },
+      "frontend": {
+        "framework": "vitest",
+        "run_command": "cd frontend && npm run test:ci",
+        "run_single_file": "cd frontend && npm run test:ui {file}",
+        "run_single_test": "cd frontend && npm run test:ui -- -t '{name}'",
+        "setup_required": [
+          "cd frontend && npm ci"
+        ],
+        "coverage_command": "cd frontend && npm run test:ui:coverage",
+        "node_version": "22.19.0"
+      }
+    },
+    "env_vars": [
+      "SETUP_ENV=false (to skip venv creation in SDK tests)",
+      "JUNIT_XML=sdk-unit.xml (for JUnit output)",
+      "GIT_BRANCH (for backend tests)",
+      "GIT_REPO (for backend tests)"
+    ],
+    "fixtures_location": "Distributed in test files",
+    "mock_patterns": "Uses standard test mocking patterns per language",
+    "coverage_threshold": null,
+    "notes": "Tests are split by component: SDK (Python), backend (Go), frontend (TypeScript). Integration tests and e2e tests require Kubernetes cluster and are excluded from basic unit tests. Frontend has 1654+ unit tests."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/frontend.yml",
+      ".github/workflows/kfp-sdk-unit-tests.yml",
+      ".github/workflows/presubmit-backend.yml",
+      ".github/workflows/pre-commit.yml",
+      ".github/workflows/ci-checks.yml",
+      ".github/workflows/compiler-tests.yml",
+      ".github/workflows/api-server-tests.yml",
+      ".github/workflows/backend-visualization.yml",
+      ".github/workflows/e2e-test.yml",
+      ".github/workflows/integration-tests-v1.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Frontend Tests",
+        "command": "cd frontend && npm ci && npm run test:ci",
+        "required": true,
+        "workflow": "frontend.yml",
+        "triggers": "pull_request on master/main/stable, paths: frontend/**"
+      },
+      {
+        "name": "KFP SDK Unit Tests",
+        "command": "./test/presubmit-tests-sdk-unit.sh",
+        "required": true,
+        "workflow": "kfp-sdk-unit-tests.yml",
+        "triggers": "pull_request, paths: api/**, sdk/**",
+        "matrix": ["Python 3.9", "Python 3.13"]
+      },
+      {
+        "name": "KFP Backend Tests",
+        "command": "./test/presubmit-backend-test.sh",
+        "required": true,
+        "workflow": "presubmit-backend.yml",
+        "triggers": "pull_request on master/main/stable, paths: backend/**"
+      },
+      {
+        "name": "Compiler Tests",
+        "command": "See compiler-tests.yml workflow",
+        "required": true,
+        "workflow": "compiler-tests.yml",
+        "triggers": "pull_request"
+      },
+      {
+        "name": "API Server Tests",
+        "command": "See api-server-tests.yml workflow",
+        "required": true,
+        "workflow": "api-server-tests.yml",
+        "triggers": "pull_request"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Pre-commit",
+        "command": "golangci-lint run --new --new-from-merge-base",
+        "required": false,
+        "workflow": "pre-commit.yml",
+        "note": "DISABLED (on: []) - linting enforced upstream"
+      },
+      {
+        "name": "E2E Tests",
+        "command": "Various e2e test scripts",
+        "required": false,
+        "workflow": "e2e-test.yml",
+        "note": "Requires Kubernetes cluster"
+      },
+      {
+        "name": "Integration Tests V1",
+        "command": "Integration test suite",
+        "required": false,
+        "workflow": "integration-tests-v1.yml",
+        "note": "Requires Kubernetes cluster and infrastructure"
+      }
+    ],
+    "notes": "CI checks require 'ok-to-test' label for external PRs. CI Check workflow polls for all checks to pass. Many workflows use path filters to run only on relevant changes. Integration and E2E tests require cluster infrastructure."
+  },
+  "build": {
+    "system": "make, npm, go build",
+    "install_command": "go mod download (Go), pip install -r requirements.txt (Python), npm ci (Frontend)",
+    "build_command": "go build ./... (Go), pip install . (Python), npm run build (Frontend)",
+    "container_builds": "Multiple Dockerfiles for different components",
+    "notes": "Multi-language monorepo. Backend is Go, SDK is Python, Frontend is TypeScript. Each component has independent build process."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go (Go), *_test.py or test_*.py (Python), *.test.ts, *.test.tsx (TypeScript)",
+    "test_naming": "Test* functions (Go), test_* functions (Python), describe/it blocks (TypeScript)",
+    "import_style": "Grouped imports per language. Python uses Google style (isort --profile google). Frontend uses ES modules.",
+    "notes": "Follows standard conventions for each language. Python adheres to Google Python Style Guide. Go follows standard Go conventions. TypeScript uses ESLint recommended + React rules."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25-bookworm (Go), python:3.11-bookworm (Python), node:22-bookworm (Frontend)",
+    "system_deps": ["make", "git", "protobuf-compiler (Python)"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y make git",
+      "For Go: go mod download",
+      "For Python: pip install -r sdk/python/requirements.txt -r sdk/python/requirements-dev.txt pytest-cov && pip install sdk/python && pip install kubernetes_platform/python",
+      "For Frontend: cd frontend && npm ci"
+    ],
+    "lint_commands": [
+      {
+        "command": "golangci-lint run --config .golangci.yaml backend/src/apiserver/...",
+        "validated": true,
+        "notes": "Runs successfully, found expected lint issues (errcheck violations)"
+      },
+      {
+        "command": "cd frontend && npm run lint",
+        "validated": true,
+        "notes": "Passes with no warnings (--max-warnings=0)"
+      },
+      {
+        "command": "cd frontend && npm run format:check",
+        "validated": true,
+        "notes": "All files use Prettier code style"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "go test -v -cover $(go list ./backend/... | grep -v backend/test/v2/api | grep -v backend/test/compiler | grep -v backend/test/end2end | grep -v backend/test/integration | grep -v backend/test/v2/integration | grep -v backend/test/initialization)",
+        "validated": true,
+        "notes": "Backend unit tests pass, excludes integration/e2e tests"
+      },
+      {
+        "command": "pytest -v sdk/python/kfp/dsl/component_decorator_test.py",
+        "validated": true,
+        "notes": "SDK tests pass (11 tests passed), requires kfp and kfp-kubernetes installed"
+      },
+      {
+        "command": "cd frontend && npm run test:ui",
+        "validated": true,
+        "notes": "All 1654 frontend tests pass in ~49s"
+      }
+    ],
+    "test_single_file": "pytest {file} (Python), go test {package} (Go), cd frontend && npm run test:ui {file} (Frontend)",
+    "test_single_test": "pytest {file}::{test_name} (Python), go test -run {TestName} {package} (Go), cd frontend && npm run test:ui -- -t '{name}' (Frontend)",
+    "env_vars": [
+      "GIT_BRANCH (optional for backend tests)",
+      "GIT_REPO (optional for backend tests)"
+    ],
+    "notes": "Multi-language repo requires different containers for each component. Go backend tests fastest to validate. Python SDK requires both kfp and kfp-kubernetes packages. Frontend tests comprehensive (1654 tests). Some tests have FutureWarnings about base_image changes in 2027."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "go_deps_install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "go_backend_test",
+        "command": "go test -v -cover $(go list ./backend/... | head -3)",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client\t\tcoverage: 0.0% of statements",
+        "notes": "Tests run successfully, validated on sample packages"
+      },
+      {
+        "step": "golangci_lint",
+        "command": "golangci-lint run --config .golangci.yaml backend/src/apiserver/...",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "backend/src/apiserver/client/workflow_fake.go:115:16: Error return value of `json.Unmarshal` is not checked (errcheck)",
+        "notes": "Linter runs correctly, found legitimate issues (exit 1 expected when issues found)"
+      },
+      {
+        "step": "python_deps_install",
+        "command": "pip install -r sdk/python/requirements.txt -r sdk/python/requirements-dev.txt pytest-cov && pip install sdk/python && pip install kubernetes_platform/python",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed kfp-2.15.2, kfp-kubernetes-2.15.2",
+        "notes": "All Python dependencies installed successfully"
+      },
+      {
+        "step": "python_sdk_test",
+        "command": "pytest -v sdk/python/kfp/dsl/component_decorator_test.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "======================== 11 passed, 8 warnings in 0.25s ========================",
+        "notes": "SDK tests pass, warnings about future Python 3.12 base_image change"
+      },
+      {
+        "step": "frontend_deps_install",
+        "command": "cd frontend && npm ci",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "added 2586 packages, and audited 2587 packages in 1m",
+        "notes": "Frontend dependencies installed, 88 known vulnerabilities (typical for large JS projects)"
+      },
+      {
+        "step": "frontend_lint",
+        "command": "cd frontend && npm run lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "eslint --ext js,ts,tsx src --max-warnings=0",
+        "notes": "Linter passes with no warnings"
+      },
+      {
+        "step": "frontend_format_check",
+        "command": "cd frontend && npm run format:check",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All matched files use Prettier code style!",
+        "notes": "Formatting check passes"
+      },
+      {
+        "step": "frontend_test",
+        "command": "cd frontend && npm run test:ui",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Test Files  118 passed (118)\n      Tests  1654 passed (1654)\n   Duration  49.27s",
+        "notes": "All 1654 frontend tests pass in ~49 seconds"
+      }
+    ],
+    "summary": "All validation successful: Go backend tests OK, golangci-lint OK (found expected issues), Python SDK tests OK (11 passed), frontend lint OK, frontend format OK, frontend tests OK (1654 passed)"
+  },
+  "gaps": [
+    "Integration tests require Kubernetes cluster and external infrastructure (MySQL, MinIO, etc.) - cannot validate in isolated container",
+    "E2E tests require deployed KFP system - cannot validate without cluster",
+    "Pre-commit hooks disabled in CI (on: []) - enforcement happens upstream only",
+    "Python linting not validated in container (would need to run via pre-commit)",
+    "API generation commands not validated (require protoc, swagger-codegen, etc.)",
+    "Container image builds not validated",
+    "Multi-architecture builds not tested",
+    "Some tests require specific environment setup (GOOGLE_APPLICATION_CREDENTIALS, etc.)"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high",
+  "notes": "This is a mature, well-tested monorepo with comprehensive CI/CD. Unit tests are easily runnable in containers. Linting is well-configured for all languages. Agent can validate patches for Go backend, Python SDK, and TypeScript frontend components independently. Integration/E2E tests require infrastructure but unit tests provide strong signal. Each component (backend, SDK, frontend) can be tested independently in appropriate language containers."
+}

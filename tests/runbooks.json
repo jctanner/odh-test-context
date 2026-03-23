@@ -1,0 +1,68 @@
+{
+  "repo": "runbooks",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": [],
+  "linting": {
+    "tools": [],
+    "notes": "No linter configuration found. This is a documentation-only repository with no automated validation of markdown content."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No tests exist. This repository contains only documentation."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No automated checks run on pull requests."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system. This repository contains only markdown documentation files."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Documentation conventions: Runbooks are organized as `alerts/component_name/alert_name.md`. A template is provided at `template.md` with the expected structure: Alert Name, Severity, Impact, Summary, and Steps. OWNERS file defines approvers and reviewers for the repository."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No container recipe needed. This is a documentation-only repository with no code to build, lint, or test."
+  },
+  "validation": {
+    "results": [],
+    "summary": "No validation performed - documentation-only repository with no executable code or validation infrastructure"
+  },
+  "gaps": [
+    "No markdown linter configured (e.g., markdownlint, mdl, remark-lint)",
+    "No CI/CD pipeline to validate pull requests",
+    "No automated link checking",
+    "No spell checking configuration",
+    "No tests to validate runbook structure matches template",
+    "No validation that runbooks follow the documented conventions"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

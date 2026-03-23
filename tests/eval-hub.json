@@ -1,0 +1,245 @@
+{
+  "repo": "eval-hub",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:09:00Z",
+  "languages": ["Go", "Python", "JavaScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "ruff (Python)",
+        "config_file": "python-server/pyproject.toml",
+        "run_command": "cd python-server && uv run ruff check .",
+        "fix_command": "cd python-server && uv run ruff check --fix .",
+        "scope": "python-server directory"
+      },
+      {
+        "name": "ruff-format (Python)",
+        "config_file": "python-server/pyproject.toml",
+        "run_command": "cd python-server && uv run ruff format --check .",
+        "fix_command": "cd python-server && uv run ruff format .",
+        "scope": "python-server directory"
+      },
+      {
+        "name": "mypy (Python)",
+        "config_file": "python-server/pyproject.toml",
+        "run_command": "cd python-server && uv run mypy --exclude '(build|setup\\.py)' .",
+        "fix_command": null,
+        "scope": "python-server directory"
+      },
+      {
+        "name": "gosec",
+        "config_file": null,
+        "run_command": "gosec -no-fail -fmt sarif -out gosec-results.sarif ./...",
+        "fix_command": null,
+        "scope": "full project (CI only)"
+      }
+    ],
+    "notes": "Go linting uses standard go vet and go fmt. Python uses ruff for linting and formatting (replaces black), plus mypy for type checking. Pre-commit hooks enforce all checks."
+  },
+  "testing": {
+    "framework": "go test (stdlib + godog for BDD), pytest (Python)",
+    "test_directory": "tests/features (integration), auth/internal/cmd (unit Go), python-server/tests (Python)",
+    "run_command": "make test test-fvt",
+    "run_single_file": "go test -v {file}",
+    "run_single_test": "go test -v -run {test_name} {package}",
+    "setup_required": [
+      "go mod download",
+      "python3 installed (for grcat test output colorizer)",
+      "cd python-server && uv pip install '.[dev]' (for Python tests)"
+    ],
+    "env_vars": [
+      "SERVER_URL=http://localhost:8080 (for FVT tests against running server)",
+      "GODOG_FORMAT=cucumber (for generating cucumber JSON reports)",
+      "GODOG_OUTPUT=cucumber-fvt.json (output file for cucumber report)"
+    ],
+    "fixtures_location": "tests/features/test_data",
+    "mock_patterns": "godog scenarios with Given/When/Then steps, in-memory SQLite for storage",
+    "coverage_command": "make test-all-coverage",
+    "coverage_threshold": "50-75% (yellow at 50%, green at 75%)",
+    "notes": "Go unit tests in ./auth/... ./internal/... ./cmd/..., integration tests in ./tests/features/... using godog/gherkin BDD framework. Python tests use pytest with markers (@pytest.mark.unit). Tests use in-memory SQLite for database."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/commitlint.yml",
+      ".github/workflows/publish-python-server.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Format check",
+        "command": "make fmt && git diff --exit-code -- '*.go'",
+        "required": true
+      },
+      {
+        "name": "Linter",
+        "command": "make lint",
+        "required": true
+      },
+      {
+        "name": "Vet",
+        "command": "make vet",
+        "required": true
+      },
+      {
+        "name": "All tests with coverage",
+        "command": "make clean test-all-coverage",
+        "required": true
+      },
+      {
+        "name": "API documentation verification",
+        "command": "npm ci && make documentation && git diff --exit-code",
+        "required": true
+      },
+      {
+        "name": "Commitizen",
+        "command": "commitizen check (via pre-commit hook)",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Gosec security scan",
+        "command": "gosec -no-fail -fmt sarif -out gosec-results.sarif ./...",
+        "required": false
+      },
+      {
+        "name": "Docker build",
+        "command": "docker build -t eval-hub:${{ github.sha }} -f Containerfile .",
+        "required": false
+      }
+    ],
+    "notes": "CI runs on push to main/develop and on PRs. Quality checks include Go formatting, linting, vetting, all tests with coverage, and API doc verification. Coverage reports uploaded to Codecov. Docker image built on push events only."
+  },
+  "build": {
+    "system": "make, go build, uv (Python)",
+    "install_command": "make install-deps (runs go mod download && go mod tidy)",
+    "build_command": "make build (builds bin/eval-hub and bin/eval-hub-init with race detector)",
+    "notes": "Build uses -race flag for race detection. Python wheel building via make build-wheel with platform-specific targets. Container build uses multi-stage Containerfile with UBI9 Go toolset 1.25."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go (Go), test_*.py (Python), *.feature (gherkin/godog)",
+    "test_naming": "TestXxx functions (Go), test_xxx functions with @pytest.mark.unit (Python), Scenario: (gherkin)",
+    "import_style": "Standard Go imports with grouping. Python imports managed by ruff (isort rules).",
+    "notes": "Go version 1.25.0, Python 3.11+. Conventional commits enforced via commitizen. Pre-commit hooks run linting, type checking, and tests."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25",
+    "system_deps": ["make", "git", "python3", "python3-pip", "curl"],
+    "setup_commands": [
+      "go mod download",
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=/root/.local/bin:$PATH",
+      "cd python-server && uv pip install '.[dev]'"
+    ],
+    "lint_commands": [
+      {"command": "go vet ./...", "validated": true, "notes": "Passed with no issues"},
+      {"command": "go fmt ./...", "validated": true, "notes": "No formatting issues"},
+      {"command": "cd python-server && uv run ruff check .", "validated": true, "notes": "All checks passed"},
+      {"command": "cd python-server && uv run mypy --exclude '(build|setup\\.py)' .", "validated": true, "notes": "Success: no issues found in 3 source files"}
+    ],
+    "test_commands": [
+      {"command": "go test -v ./auth/... ./internal/... ./cmd/...", "validated": true, "notes": "All unit tests passed (auth, internal, cmd packages)"},
+      {"command": "go test -v -race ./tests/features/...", "validated": true, "notes": "All integration tests passed (godog/gherkin BDD scenarios)"},
+      {"command": "cd python-server && uv run pytest tests/ -m unit --tb=short -v", "validated": true, "notes": "3 tests passed in 0.03s"}
+    ],
+    "test_single_file": "go test -v {file}",
+    "test_single_test": "go test -v -run {TestName} {package}",
+    "env_vars": [],
+    "notes": "Container validation successful. All lint and test commands work. Python tests require uv installed and dev dependencies. Go tests use in-memory SQLite, no external services required."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - success)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "go build -race -o bin/eval-hub ./cmd/eval_hub",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Binary created: bin/eval-hub (130M)",
+        "notes": "Build with race detector succeeded"
+      },
+      {
+        "step": "lint",
+        "command": "go vet ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - passed)",
+        "notes": "Go vet found no issues"
+      },
+      {
+        "step": "lint",
+        "command": "go fmt ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - no changes needed)",
+        "notes": "Code already formatted correctly"
+      },
+      {
+        "step": "lint",
+        "command": "cd python-server && uv run ruff check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Ruff linter found no issues"
+      },
+      {
+        "step": "lint",
+        "command": "cd python-server && uv run mypy --exclude '(build|setup\\.py)' .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Success: no issues found in 3 source files",
+        "notes": "Type checking passed"
+      },
+      {
+        "step": "test",
+        "command": "go test -v ./auth/... ./internal/... ./cmd/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "PASS\nok  \tgithub.com/eval-hub/eval-hub/auth\t0.036s\nPASS\nok  \tgithub.com/eval-hub/eval-hub/internal/common\t0.009s\nPASS\nok  \tgithub.com/eval-hub/eval-hub/cmd/eval_hub/server\t0.158s",
+        "notes": "All unit tests passed across auth, internal, and cmd packages"
+      },
+      {
+        "step": "test",
+        "command": "go test -v -race ./tests/features/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/eval-hub/eval-hub/tests/features\t0.332s",
+        "notes": "All integration tests (godog BDD scenarios) passed"
+      },
+      {
+        "step": "test",
+        "command": "cd python-server && uv run pytest tests/ -m unit --tb=short -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================== 3 passed in 0.03s ===============================",
+        "notes": "Python unit tests passed"
+      }
+    ],
+    "summary": "All validation passed: deps OK, build OK, go vet OK, go fmt OK, ruff OK, mypy OK, Go unit tests OK (multiple packages), Go integration tests OK (godog), Python tests OK (3 passed)"
+  },
+  "gaps": [],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

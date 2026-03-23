@@ -1,0 +1,137 @@
+{
+  "repo": "odh-s2i-project-cds",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T19:43:24Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "flake8",
+        "config_file": "tox.ini",
+        "run_command": "flake8 src",
+        "fix_command": null,
+        "scope": "src directory only"
+      }
+    ],
+    "notes": "flake8 configured with max-line-length=79 and max-complexity=10 in tox.ini. Currently has 1 violation (line too long in src/models/predict_model.py)."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "NO TESTS EXIST. This is a template/skeleton project. Only test_environment.py exists, which validates Python 3 is installed, not actual unit/integration tests."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "NO CI/CD CONFIGURED. No GitHub Actions, Tekton, Jenkins, or other CI found."
+  },
+  "build": {
+    "system": "pip/setuptools",
+    "install_command": "pip install -r requirements.txt && pip install -e .",
+    "build_command": null,
+    "notes": "Simple Python project with Flask and gunicorn. Designed for OpenShift S2I deployment. No build step required beyond installing dependencies."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": "Standard Python imports. Uses 'from src.models.predict_model import predict' pattern.",
+    "notes": "Cookiecutter-data-science project structure. Flask app in wsgi.py serves ML predictions via /predictions endpoint. Jupyter notebooks in notebooks/ for development."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install -U pip setuptools wheel",
+      "pip install -r requirements.txt",
+      "pip install flake8",
+      "pip install -e ."
+    ],
+    "lint_commands": [
+      {
+        "command": "flake8 src",
+        "validated": true,
+        "notes": "Exit code 1 (found 1 lint violation: line too long in src/models/predict_model.py:1)"
+      }
+    ],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No tests to run. Project is a template/skeleton. Flask app can be imported successfully."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install_deps",
+        "command": "pip install -U pip setuptools wheel && pip install -r requirements.txt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed Flask-3.1.3 blinker-1.9.0 click-8.3.1 gunicorn-25.1.0 itsdangerous-2.2.0 jinja2-3.1.6 markupsafe-3.0.3 werkzeug-3.1.6",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "install_project",
+        "command": "pip install -e .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully built src\nInstalling collected packages: src\nSuccessfully installed src-0.1.0",
+        "notes": "Project installed in editable mode successfully"
+      },
+      {
+        "step": "lint",
+        "command": "flake8 src",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "src/models/predict_model.py:1:80: E501 line too long (115 > 79 characters)",
+        "notes": "Flake8 runs successfully and found 1 lint violation (legitimate issue, not a broken command)"
+      },
+      {
+        "step": "test_environment",
+        "command": "python test_environment.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": ">>> Development environment passes all tests!",
+        "notes": "Environment check passes (validates Python 3 is installed)"
+      },
+      {
+        "step": "test_collection",
+        "command": "pytest --collect-only",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "collected 0 items\n\n========================= no tests collected in 0.01s ==========================",
+        "notes": "Confirmed: no tests exist in the repository"
+      },
+      {
+        "step": "app_import",
+        "command": "python -c 'import wsgi; print(\"Flask app imported successfully\")'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Flask app imported successfully",
+        "notes": "Flask application can be imported without errors"
+      }
+    ],
+    "summary": "All commands validated successfully. Deps install OK, lint OK (1 violation found), no tests exist, Flask app imports OK."
+  },
+  "gaps": [
+    "No tests exist - this is a template/skeleton project with no unit or integration tests",
+    "No CI/CD configuration - no automated testing or linting on PRs",
+    "No test framework configured - would need to add pytest or unittest and write tests",
+    "Flake8 not in requirements.txt - must be installed separately to run linting",
+    "No pre-commit hooks configured",
+    "No coverage measurement configured",
+    "Minimal project - most source files are empty placeholders"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

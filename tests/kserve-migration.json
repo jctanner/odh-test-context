@@ -1,0 +1,145 @@
+{
+  "repo": "kserve-migration",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:22:00-04:00",
+  "languages": ["Bash", "Shell"],
+  "linting": {
+    "tools": [],
+    "notes": "No linter configuration found. No shellcheck configuration, pre-commit hooks, or automated shell script validation. Script syntax validation via 'bash -n' is possible but no style or quality checking is configured."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure exists. This is a utility script repository with no automated tests. The script is designed to interact with OpenShift clusters running KServe and cannot be tested without cluster access."
+  },
+  "ci": {
+    "system": "None",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No GitHub Actions workflows, Tekton pipelines, or other automated checks. The repository appears to be in early development - the main branch only contains LICENSE, while the 'add-initial-files' branch contains the actual scripts but has not been merged."
+  },
+  "build": {
+    "system": "None (shell scripts)",
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system required. Scripts are executed directly. External dependencies (oc, yq, jq) must be installed on the system but there is no package manager or dependency installation mechanism."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": "N/A (shell scripts)",
+    "notes": "Standard bash scripting conventions. Shebang: #!/bin/bash. No specific coding standards or style guide documented."
+  },
+  "container_recipe": {
+    "base_image": "bash:5 (docker.io/library/bash:5, Alpine-based)",
+    "system_deps": ["curl", "wget", "jq"],
+    "setup_commands": [
+      "apk add --no-cache curl wget jq",
+      "wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && chmod +x /usr/bin/yq"
+    ],
+    "lint_commands": [
+      {
+        "command": "bash -n convert.sh",
+        "validated": true,
+        "notes": "Syntax check passed. This only validates bash syntax, not style or quality."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "bash convert.sh --version",
+        "validated": true,
+        "notes": "Script executes successfully and displays version 1.0.0"
+      },
+      {
+        "command": "bash convert.sh --help",
+        "validated": true,
+        "notes": "Help text displays correctly"
+      },
+      {
+        "command": "bash convert.sh -i test-model",
+        "validated": true,
+        "notes": "Prerequisite check runs successfully and correctly identifies missing 'oc' CLI. Script cannot proceed without OpenShift cluster access."
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "The convert.sh script requires 'oc' (OpenShift CLI) which is not easily installable in a standard container. The script is designed to run against a live OpenShift cluster with KServe installed. Syntax validation and basic execution checks work, but actual functionality testing requires cluster infrastructure. Note: The bash:5 image uses /usr/local/bin/bash instead of /bin/bash."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apk add --no-cache curl wget jq",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "OK: 15.6 MiB in 33 packages",
+        "notes": "Successfully installed jq and supporting tools in Alpine-based bash container"
+      },
+      {
+        "step": "install",
+        "command": "wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && chmod +x /usr/bin/yq",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "yq (https://github.com/mikefarah/yq/) version v4.52.4",
+        "notes": "Successfully installed yq v4.52.4"
+      },
+      {
+        "step": "lint",
+        "command": "bash -n convert.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Syntax check: PASSED",
+        "notes": "Bash syntax validation passed"
+      },
+      {
+        "step": "test",
+        "command": "bash convert.sh --version",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "convert.sh version 1.0.0\nKServe InferenceService Raw Deployment Converter",
+        "notes": "Version command executes successfully"
+      },
+      {
+        "step": "test",
+        "command": "bash convert.sh --help",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "KServe InferenceService Raw Deployment Converter\n\nDESCRIPTION:\n    Converts KServe InferenceServices from serverless mode to raw deployment mode",
+        "notes": "Help command displays comprehensive usage information"
+      },
+      {
+        "step": "test",
+        "command": "bash convert.sh -i test-model",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "Checking prerequisites...\nMissing required dependencies:\n  • oc (OpenShift CLI)",
+        "notes": "Prerequisite validation runs correctly and identifies missing OpenShift CLI"
+      }
+    ],
+    "summary": "Syntax validation OK, script execution OK (--version, --help), prerequisite checks OK. Script requires OpenShift cluster with KServe - cannot test actual conversion functionality without infrastructure."
+  },
+  "gaps": [
+    "No test infrastructure - no unit tests, integration tests, or test framework",
+    "No CI/CD configuration - no automated checks on pull requests",
+    "No linting configuration - no shellcheck or other shell script quality tools",
+    "Scripts require OpenShift cluster access to function - cannot be fully tested in isolation",
+    "Main branch contains only LICENSE file - actual code is on 'add-initial-files' branch which has not been merged",
+    "No documentation on how to test changes to the scripts",
+    "No CODEOWNERS or contribution guidelines",
+    "Dependency installation is manual - no package.json, requirements.txt, or similar",
+    "No version control or release process documented"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

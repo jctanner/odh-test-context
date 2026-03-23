@@ -1,0 +1,201 @@
+{
+  "repo": "ai-gateway-payload-processing",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:30:00Z",
+  "languages": ["go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.9.0",
+        "config_file": null,
+        "run_command": "make lint",
+        "run_command_direct": "./bin/golangci-lint run --timeout 5m",
+        "fix_command": "make lint-fix",
+        "fix_command_direct": "./bin/golangci-lint run --fix",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "make vet",
+        "run_command_direct": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "make fmt",
+        "run_command_direct": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      }
+    ],
+    "notes": "No custom golangci-lint config found; uses defaults. All linters passed with 0 issues during validation."
+  },
+  "testing": {
+    "framework": "go test (with testify assertions)",
+    "test_directory": "pkg/",
+    "test_file_pattern": "**/*_test.go",
+    "run_command": "make test",
+    "run_command_direct": "CGO_ENABLED=1 KUBEBUILDER_ASSETS=\"$(./bin/setup-envtest use 1.31.0 --bin-dir ./bin -p path)\" go test ./pkg/... -race -count=1",
+    "run_single_file": "go test {file}",
+    "run_single_package": "go test ./pkg/{package}/...",
+    "run_single_test": "go test ./pkg/... -run {TestName}",
+    "setup_required": [
+      "make envtest (installs setup-envtest to ./bin/)",
+      "go mod download"
+    ],
+    "env_vars": [
+      "CGO_ENABLED=1 (required for -race flag)",
+      "KUBEBUILDER_ASSETS=<path> (set by envtest for k8s testing)"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": "Uses testify/assert and testify/require for assertions",
+    "coverage_command": "make test-unit COVERAGE=true",
+    "coverage_threshold": null,
+    "notes": "Tests use envtest for Kubernetes controller testing. Test packages: api-translation (14 tests), anthropic (multiple tests), azureopenai (multiple tests), apikey_injection (multiple tests), model-provider-resolver (multiple tests). All tests passed during validation."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci-pr-checks.yaml",
+      ".github/workflows/check-typos.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "make verify",
+        "command": "make verify",
+        "expanded": "make tidy vet fmt lint",
+        "required": true,
+        "workflow": "ci-pr-checks.yaml",
+        "trigger": "pull_request to main"
+      },
+      {
+        "name": "make test",
+        "command": "make test",
+        "expanded": "make test-unit (with envtest)",
+        "required": true,
+        "workflow": "ci-pr-checks.yaml",
+        "trigger": "pull_request to main"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "typos",
+        "command": "crate-ci/typos@v1.44.0",
+        "required": false,
+        "workflow": "check-typos.yaml"
+      }
+    ],
+    "notes": "CI extracts Go version from go.mod (currently 1.25.0). Tests only run if source files changed (paths-filter). Both gating checks validated successfully."
+  },
+  "build": {
+    "system": "go + make + docker buildx",
+    "install_command": "go mod download",
+    "build_command": "go build -o /bbr ./cmd",
+    "build_command_make": "make image-build",
+    "container_build": "docker buildx build -t <tag> --build-arg BUILDER_IMAGE=golang:1.25 --build-arg BASE_IMAGE=gcr.io/distroless/static:nonroot ./",
+    "notes": "Multi-stage Dockerfile: builder stage (golang:1.25) compiles binary, deploy stage (distroless) runs it. Binary name: bbr. Supports PLATFORMS, GO_VERSION override."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "func TestXxx(t *testing.T) - standard Go test convention",
+    "import_style": "Standard Go imports, grouped by stdlib/external/internal",
+    "test_assertions": "testify/assert and testify/require",
+    "notes": "Tests co-located with source code in pkg/ subdirectories. Uses controller-runtime patterns for K8s resource testing."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25",
+    "system_deps": [
+      "make",
+      "git"
+    ],
+    "setup_commands": [
+      "go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "make lint",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Installed golangci-lint v2.9.0, ran successfully with 0 issues"
+      },
+      {
+        "command": "make vet",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Part of 'make verify', passed"
+      },
+      {
+        "command": "make fmt",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Part of 'make verify', passed"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All tests passed: api-translation, anthropic, azureopenai, apikey_injection, model-provider-resolver packages"
+      },
+      {
+        "command": "make verify",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Combined tidy, vet, fmt, lint - all passed"
+      }
+    ],
+    "test_single_file": "go test {file}",
+    "test_single_test": "go test ./pkg/... -run {TestName}",
+    "env_vars": [
+      "CGO_ENABLED=1 (set by make test-unit for race detection)"
+    ],
+    "notes": "Container setup is straightforward. make and git already present in golang:1.25 image. envtest downloads Kubernetes test binaries to ./bin/ on first run."
+  },
+  "validation": {
+    "container_used": "test-context-ai-gateway-payload-processing",
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - successful download)",
+        "notes": "Dependencies installed cleanly"
+      },
+      {
+        "step": "lint",
+        "command": "make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Downloading github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0\n...\n/app/bin/golangci-lint run --timeout 5m\n0 issues.",
+        "notes": "Lint passed with 0 issues"
+      },
+      {
+        "step": "test",
+        "command": "make test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/opendatahub-io/ai-gateway-payload-processing/pkg/plugins/api-translation\t1.047s\nok  \tgithub.com/opendatahub-io/ai-gateway-payload-processing/pkg/plugins/api-translation/providers/anthropic\t1.015s\nok  \tgithub.com/opendatahub-io/ai-gateway-payload-processing/pkg/plugins/api-translation/providers/azureopenai\t1.014s\nok  \tgithub.com/opendatahub-io/ai-gateway-payload-processing/pkg/plugins/apikey_injection\t1.483s\nok  \tgithub.com/opendatahub-io/ai-gateway-payload-processing/pkg/plugins/model-provider-resolver\t1.045s",
+        "notes": "All test packages passed. Total 5 test packages with tests, 4 packages with no test files (expected)"
+      },
+      {
+        "step": "verify",
+        "command": "make verify",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "find . -name go.mod -execdir sh -c 'go mod tidy' \\;\ngo vet ./...\ngo fmt ./...\n/app/bin/golangci-lint run --timeout 5m\n0 issues.",
+        "notes": "Full verify passed: tidy, vet, fmt, lint all clean"
+      }
+    ],
+    "summary": "install OK, lint OK (0 issues), test OK (5 packages, all passed), verify OK"
+  },
+  "gaps": [],
+  "agent_readiness": "high",
+  "confidence": "high",
+  "notes": "Well-structured Go project with comprehensive test coverage. All CI checks validated successfully. No external infrastructure required for testing (uses envtest for K8s simulation). Clear Makefile targets. Ready for automated patch validation."
+}

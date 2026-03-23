@@ -1,0 +1,183 @@
+{
+  "repo": "odh-manifests",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:40:00Z",
+  "languages": ["YAML", "Bash", "Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "kube-linter",
+        "version": "0.6.8+",
+        "config_file": ".kube-linter.yaml",
+        "run_command": "kube-linter lint ./ --config .kube-linter.yaml",
+        "fix_command": null,
+        "scope": "full project (excluding .github/ and tests/)"
+      },
+      {
+        "name": "kustomize",
+        "version": "5.3.0+",
+        "config_file": null,
+        "run_command": "find . -name 'kustomization.yaml' -exec dirname {} \\; | xargs -I {} kustomize build {}",
+        "fix_command": "kustomize edit fix",
+        "scope": "validates Kustomize manifest composition"
+      }
+    ],
+    "notes": "kube-linter currently reports 240 lint violations across manifests. These are policy violations (missing resource limits, security contexts, etc.) not syntax errors. Kustomize builds succeed with deprecation warnings about 'commonLabels'."
+  },
+  "testing": {
+    "framework": "Bash integration tests using github.com/opendatahub-io/peak test runner",
+    "test_directory": "tests/basictests/",
+    "run_command": "cd tests && make test",
+    "run_single_file": "cd tests && make run TESTS_REGEX={test_name}",
+    "run_single_test": null,
+    "setup_required": [
+      "Requires active OpenShift cluster with admin access",
+      "cd tests && make build",
+      "oc login (cluster admin)",
+      "export KUBECONFIG=~/.kube/config"
+    ],
+    "env_vars": [
+      "KUBECONFIG - path to OpenShift cluster config",
+      "ODHPROJECT=opendatahub - namespace for ODH installation",
+      "SKIP_INSTALL=true - skip installation, test existing deployment",
+      "TESTS_REGEX=<pattern> - filter which tests to run",
+      "OPENSHIFT_TESTUSER_NAME - test user for Dashboard UI tests",
+      "OPENSHIFT_TESTUSER_PASS - test user password",
+      "ARTIFACT_DIR=/tmp/artifacts - output directory for test artifacts"
+    ],
+    "fixtures_location": "tests/resources/",
+    "mock_patterns": "Tests deploy real components to cluster, no mocking",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are integration tests that require a real OpenShift cluster. They cannot run in a standard container without cluster access. Tests install ODH components, wait for pods to be ready, and verify functionality. Typical test run: 30+ minutes. Test image built from tests/Dockerfile includes oc CLI, selenium, chromium for Dashboard UI tests."
+  },
+  "ci": {
+    "system": "OpenShift CI (Prow)",
+    "config_files": [
+      "External: openshift/release repo contains job definitions",
+      "tests/Dockerfile - test container image",
+      "tests/Makefile - test orchestration",
+      "tests/scripts/installandtest.sh - CI test entrypoint"
+    ],
+    "gating_checks": [
+      {
+        "name": "odh-manifests-pr-test",
+        "command": "Runs in OpenShift CI: podman build test image, deploy to ephemeral cluster, run tests/basictests/*",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI configuration is external to this repo, maintained in openshift/release repository. Tests run in ephemeral OpenShift clusters provisioned in AWS via ipi-aws workflow. No GitHub Actions workflows. CI job definition at: https://github.com/openshift/release/blob/master/ci-operator/config/opendatahub-io/odh-manifests/"
+  },
+  "build": {
+    "system": "Kustomize (no build in traditional sense)",
+    "install_command": null,
+    "build_command": "kustomize build <component>/base",
+    "notes": "This is a Kustomize manifests repository - no code compilation. 'Building' means rendering Kustomize overlays into final YAML. Each component has base/ and optional overlays/. Use kube-linter to validate manifests, kustomize to validate composition."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/basictests/*.sh",
+    "test_naming": "Bash scripts with .sh extension, named after component (dashboard.sh, dsp-operator.sh, etc.)",
+    "import_style": "N/A - YAML manifests",
+    "notes": "Kustomize structure: each component has base/kustomization.yaml. Tests use os::cmd:: functions from peak test framework. YAML files follow Kubernetes resource conventions."
+  },
+  "container_recipe": {
+    "base_image": "registry.fedoraproject.org/fedora:39",
+    "system_deps": ["wget", "tar", "gzip", "make"],
+    "setup_commands": [
+      "wget https://github.com/stackrox/kube-linter/releases/download/v0.6.8/kube-linter-linux.tar.gz",
+      "tar -xzf kube-linter-linux.tar.gz && mv kube-linter /usr/local/bin/",
+      "wget https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.3.0/kustomize_v5.3.0_linux_amd64.tar.gz",
+      "tar -xzf kustomize_v5.3.0_linux_amd64.tar.gz && mv kustomize /usr/local/bin/"
+    ],
+    "lint_commands": [
+      {
+        "command": "kube-linter lint ./ --config .kube-linter.yaml",
+        "validated": true,
+        "notes": "Exit code 1, found 240 lint violations (policy issues, not syntax errors)"
+      },
+      {
+        "command": "kustomize build ./odh-dashboard/base",
+        "validated": true,
+        "notes": "Exit code 0, builds successfully with deprecation warnings"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd tests && make test",
+        "validated": false,
+        "notes": "Requires OpenShift cluster - cannot validate without infrastructure"
+      }
+    ],
+    "test_single_file": "cd tests && make run TESTS_REGEX={test_name}",
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "Linting can be validated in container. Tests require OpenShift cluster with admin credentials and cannot run in standard container. For test validation, use OpenShift CI or provision test cluster."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install_deps",
+        "command": "dnf install -y wget tar gzip make",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Complete!",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "install_kube_linter",
+        "command": "wget kube-linter && tar -xzf kube-linter-linux.tar.gz && mv kube-linter /usr/local/bin/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0.6.8",
+        "notes": "kube-linter v0.6.8 installed successfully"
+      },
+      {
+        "step": "install_kustomize",
+        "command": "wget kustomize && tar -xzf kustomize_v5.3.0_linux_amd64.tar.gz && mv kustomize /usr/local/bin/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "v5.3.0",
+        "notes": "kustomize v5.3.0 installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "kube-linter lint ./ --config .kube-linter.yaml",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "Error: found 240 lint errors\nlatest-tag, no-read-only-root-fs, run-as-non-root, unset-cpu-requirements, unset-memory-requirements, dangling-service, non-existent-service-account",
+        "notes": "Linter ran successfully and found policy violations. Exit code 1 indicates lint issues found (expected behavior). Issues are policy/best-practice violations, not syntax errors."
+      },
+      {
+        "step": "kustomize_build",
+        "command": "kustomize build ./odh-dashboard/base",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Warning: 'commonLabels' is deprecated. Please use 'labels' instead.\napiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: odh-dashboard",
+        "notes": "Kustomize builds manifests successfully with deprecation warnings"
+      },
+      {
+        "step": "test",
+        "command": "cd tests && make test",
+        "exit_code": null,
+        "success": false,
+        "output_snippet": "N/A",
+        "notes": "Tests require OpenShift cluster access - cannot validate in isolated container"
+      }
+    ],
+    "summary": "Linting validated successfully (kube-linter found 240 policy violations, exit code 1). Kustomize builds validated (successful with warnings). Tests cannot be validated without OpenShift cluster."
+  },
+  "gaps": [
+    "Tests require full OpenShift cluster with admin access - cannot run in CI without cluster provisioning",
+    "No unit tests - only integration tests",
+    "kube-linter reports 240 policy violations that should be addressed",
+    "Kustomize uses deprecated 'commonLabels' field in multiple components",
+    "No pre-commit hooks configured",
+    "CI configuration is external (openshift/release repo) - not visible in this repository",
+    "Test framework (peak) is external dependency",
+    "Tests take 30+ minutes to run (cluster provisioning + ODH installation + validation)",
+    "No way to validate Dashboard UI tests without running selenium in test container against real cluster"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

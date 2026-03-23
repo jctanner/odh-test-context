@@ -1,0 +1,242 @@
+{
+  "repo": "codeflare-operator",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:50:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "config_file": ".golangci.yaml",
+        "run_command": "golangci-lint run --config .golangci.yaml ./...",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "yamllint",
+        "config_file": ".yamllint.yaml",
+        "run_command": "yamllint --config-file .yamllint.yaml .",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "openshift-goimports",
+        "config_file": null,
+        "run_command": "make verify-imports",
+        "fix_command": "make imports",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Pre-commit hooks configured for go-fmt, golangci-lint, go-mod-tidy, and yamllint. All linting tools validated successfully in container."
+  },
+  "testing": {
+    "framework": "Ginkgo/Gomega",
+    "test_directory": "pkg/controllers/ and test/e2e/",
+    "run_command": "make test-unit",
+    "run_single_file": "go test -v {file}",
+    "run_single_test": "go test -v {file} -ginkgo.focus '{test_name}'",
+    "setup_required": [
+      "go mod download",
+      "make envtest"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS - set by envtest, points to kubebuilder binaries (etcd, kube-apiserver, kubectl)",
+      "CODEFLARE_TEST_OUTPUT_DIR - output directory for test artifacts",
+      "CODEFLARE_TEST_TIMEOUT_SHORT/MEDIUM/LONG - test timeouts for different test categories"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": "Uses envtest to create ephemeral Kubernetes control plane for testing",
+    "coverage_command": "make test-unit (generates cover.out)",
+    "coverage_threshold": null,
+    "notes": "Unit and component tests require envtest with kubebuilder-tools (etcd, kube-apiserver). E2E tests require full KinD cluster with GPU support. Tests use Ginkgo BDD framework. Component tests: make test-component. E2E tests: make test-e2e (requires cluster)."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/precommit.yml",
+      ".github/workflows/unit_tests.yml",
+      ".github/workflows/component_tests.yaml",
+      ".github/workflows/verify_generated_files.yml",
+      ".github/workflows/e2e_tests.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Pre-commit checks",
+        "command": "pre-commit run --all-files",
+        "required": true
+      },
+      {
+        "name": "Unit tests",
+        "command": "make test-unit",
+        "required": true
+      },
+      {
+        "name": "Component tests",
+        "command": "make test-component",
+        "required": true
+      },
+      {
+        "name": "Verify imports",
+        "command": "make verify-imports",
+        "required": true
+      },
+      {
+        "name": "Verify manifests",
+        "command": "make manifests && git diff --exit-code",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "E2E tests",
+        "command": "make test-e2e",
+        "required": false
+      }
+    ],
+    "notes": "CI uses custom container image quay.io/opendatahub/pre-commit-go-toolchain:v0.2 with pre-configured tools. E2E tests run on GPU hardware (gpu-t4-4-core runners) and require KinD cluster with NVidia GPU operator."
+  },
+  "build": {
+    "system": "make + go",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "notes": "Build produces bin/manager binary. Alternative: go build -o bin/manager main.go. Container build: make image-build (uses podman). Go version: 1.23.0 from go.mod."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Ginkgo BDD style with Describe/Context/It blocks. Test functions use TestAPIs pattern.",
+    "import_style": "Organized using openshift-goimports tool. Imports grouped by standard library, third-party, and internal packages.",
+    "notes": "Follows Kubernetes operator conventions. Uses controller-runtime framework. Test suites in suite_test.go files. Pre-commit hooks enforce formatting and linting."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.23",
+    "system_deps": ["make", "git", "curl"],
+    "setup_commands": [
+      "go mod download",
+      "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v1.61.0"
+    ],
+    "lint_commands": [
+      {
+        "command": "go fmt ./...",
+        "validated": true,
+        "notes": "Passed with no output"
+      },
+      {
+        "command": "go vet ./...",
+        "validated": true,
+        "notes": "Passed with no output"
+      },
+      {
+        "command": "golangci-lint run --config .golangci.yaml ./...",
+        "validated": true,
+        "notes": "Passed with no output"
+      },
+      {
+        "command": "yamllint --config-file .yamllint.yaml .",
+        "validated": true,
+        "notes": "Passed with no output (requires yamllint via pip)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test-unit",
+        "validated": false,
+        "notes": "Requires envtest with kubebuilder-tools (etcd, kube-apiserver, kubectl). Failed to fetch kubebuilder-tools from GCS (401 Unauthorized). Test framework is functional but needs infrastructure."
+      },
+      {
+        "command": "make test-component",
+        "validated": false,
+        "notes": "Requires same envtest infrastructure as unit tests"
+      }
+    ],
+    "test_single_file": "go test -v {file}",
+    "test_single_test": "go test -v {file} -ginkgo.focus '{test_name}'",
+    "env_vars": [
+      "KUBEBUILDER_ASSETS - required for envtest, points to etcd/kube-apiserver binaries"
+    ],
+    "notes": "Build works perfectly (go build -o bin/manager main.go produces 73M binary). All linting passes. Tests require kubebuilder-tools which need special setup. For quick validation: use go fmt, go vet, golangci-lint. For full testing: need envtest setup with downloaded kubebuilder binaries."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "go build -o bin/manager main.go",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "Built 73M manager binary successfully"
+      },
+      {
+        "step": "lint",
+        "command": "go fmt ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "Code formatting passed"
+      },
+      {
+        "step": "lint",
+        "command": "go vet ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "Go vet passed"
+      },
+      {
+        "step": "lint",
+        "command": "golangci-lint run --config .golangci.yaml ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "All configured linters passed (errcheck, gosimple, govet, ineffassign, staticcheck, typecheck, unused)"
+      },
+      {
+        "step": "lint",
+        "command": "yamllint --config-file .yamllint.yaml .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "YAML linting passed"
+      },
+      {
+        "step": "test",
+        "command": "make test-unit",
+        "exit_code": 2,
+        "success": false,
+        "output_snippet": "unable to fetch hash for requested version: unable fetch metadata for kubebuilder-tools-1.24.2-linux-amd64.tar.gz -- got status \"401 Unauthorized\" from GCS\nunable to start the controlplane: exec: \"etcd\": executable file not found in $PATH",
+        "notes": "Tests require envtest infrastructure with kubebuilder-tools (etcd, kube-apiserver). Framework is functional, tests started, but failed due to missing infrastructure."
+      }
+    ],
+    "summary": "Install OK, build OK (73M binary), all linting OK (go fmt, go vet, golangci-lint, yamllint), tests require infrastructure (envtest)"
+  },
+  "gaps": [
+    "Unit and component tests require envtest with kubebuilder-tools which cannot be easily validated in a basic container",
+    "E2E tests require full Kubernetes cluster (KinD) with GPU support and are not suitable for simple container validation",
+    "Test infrastructure depends on external GCS bucket for kubebuilder-tools download which may have authentication requirements",
+    "No simple smoke tests that can run without Kubernetes infrastructure",
+    "Coverage threshold not explicitly configured in repository"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

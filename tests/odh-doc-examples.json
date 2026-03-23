@@ -1,0 +1,134 @@
+{
+  "repo": "odh-doc-examples",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:35:00Z",
+  "languages": ["Python", "Jupyter"],
+  "linting": {
+    "tools": [],
+    "notes": "No linter configuration found. The repository contains a single Jupyter notebook with no automated linting setup. Could potentially use nbqa with flake8/black for notebook linting, but this is not configured."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [
+      "AWS_ACCESS_KEY_ID - AWS access key for S3 authentication",
+      "AWS_SECRET_ACCESS_KEY - AWS secret key for S3 authentication",
+      "AWS_S3_ENDPOINT - S3 endpoint URL",
+      "AWS_DEFAULT_REGION - AWS region"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test suite exists. This is a documentation examples repository containing a single Jupyter notebook demonstrating S3 client usage. The notebook itself is not tested - it's meant to be a reference example for documentation."
+  },
+  "ci": {
+    "system": "None",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No GitHub Actions workflows, no pre-commit hooks, no automated validation."
+  },
+  "build": {
+    "system": "pip (inline in notebook)",
+    "install_command": "pip install boto3",
+    "build_command": null,
+    "notes": "No formal build system. The Jupyter notebook contains inline pip install commands (!pip3 install --upgrade pip, !pip3 install boto3). No requirements.txt, setup.py, or pyproject.toml exists."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": "Standard Python imports (os, boto3, botocore.client.Config, boto3.session)",
+    "notes": "Single Jupyter notebook file following standard Jupyter notebook format. Uses IPython magic commands for package installation. Code follows basic Python conventions."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install nbformat nbconvert boto3 ipython ipykernel",
+      "python -m ipykernel install --user"
+    ],
+    "lint_commands": [
+      {
+        "command": "python -m json.tool storage/s3client_examples.ipynb > /dev/null",
+        "validated": true,
+        "notes": "Notebook JSON structure is valid"
+      },
+      {
+        "command": "python -c \"import nbformat; nb = nbformat.read('storage/s3client_examples.ipynb', as_version=4); print(f'Notebook valid: {len(nb.cells)} cells')\"",
+        "validated": true,
+        "notes": "Notebook structure validated with nbformat - 18 cells found (with minor warning about missing cell IDs)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "jupyter nbconvert --to notebook --execute storage/s3client_examples.ipynb --output /tmp/executed.ipynb",
+        "validated": false,
+        "notes": "Notebook execution starts successfully but fails when attempting S3 operations due to missing AWS credentials (NoCredentialsError). This is expected - the notebook requires AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_ENDPOINT, and AWS_DEFAULT_REGION environment variables."
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [
+      "AWS_ACCESS_KEY_ID=<your-key>",
+      "AWS_SECRET_ACCESS_KEY=<your-secret>",
+      "AWS_S3_ENDPOINT=<s3-endpoint-url>",
+      "AWS_DEFAULT_REGION=<region>"
+    ],
+    "notes": "The notebook is a documentation example demonstrating S3/boto3 usage. It can be validated for structural correctness and dependency installation, but full execution requires AWS S3 credentials and endpoint. The notebook uses IPython magic commands (!pip3) which are not valid Python syntax outside of IPython/Jupyter environments."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install nbformat nbconvert boto3 ipython ipykernel && python -m ipykernel install --user",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Installed kernelspec python3 in /root/.local/share/jupyter/kernels/python3",
+        "notes": "All dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "python -m json.tool storage/s3client_examples.ipynb > /dev/null",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Notebook JSON is valid",
+        "notes": "JSON structure validation passed"
+      },
+      {
+        "step": "lint",
+        "command": "python -c \"import nbformat; nb = nbformat.read('storage/s3client_examples.ipynb', as_version=4); print(f'Notebook valid: {len(nb.cells)} cells')\"",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "MissingIDFieldWarning: Cell is missing an id field... Notebook valid: 18 cells found",
+        "notes": "Notebook structure validated successfully. Minor warning about missing cell IDs (not critical)"
+      },
+      {
+        "step": "test",
+        "command": "jupyter nbconvert --to notebook --execute storage/s3client_examples.ipynb --output /tmp/executed.ipynb",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "NoCredentialsError: Unable to locate credentials",
+        "notes": "Notebook execution started successfully, cells executed up to S3 client operations. Failed at s3_client.list_buckets() due to missing AWS credentials (expected behavior)"
+      }
+    ],
+    "summary": "Validation successful for structural checks. Notebook JSON valid, nbformat validation passed (18 cells), dependencies install cleanly. Execution requires AWS credentials."
+  },
+  "gaps": [
+    "No CI/CD pipeline configured",
+    "No automated tests or test framework",
+    "No linting configuration or code quality checks",
+    "No requirements.txt or formal dependency management",
+    "Dependencies declared inline in notebook using IPython magic commands",
+    "No pre-commit hooks",
+    "No contribution guidelines or development documentation",
+    "Notebook requires AWS S3 credentials and endpoint to execute fully",
+    "No validation of notebook code quality beyond structural checks"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

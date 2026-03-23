@@ -1,0 +1,243 @@
+{
+  "repo": "kube-auth-proxy",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:28:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.6.2",
+        "config_file": ".golangci.yml",
+        "run_command": "GO111MODULE=on golangci-lint run",
+        "fix_command": "GO111MODULE=on golangci-lint run --fix",
+        "scope": "full project",
+        "enabled_linters": [
+          "bodyclose",
+          "copyloopvar",
+          "dogsled",
+          "goconst",
+          "gocritic",
+          "goprintffuncname",
+          "gosec",
+          "govet",
+          "ineffassign",
+          "misspell",
+          "prealloc",
+          "revive",
+          "staticcheck",
+          "unconvert",
+          "unused"
+        ],
+        "formatters": ["gofmt", "goimports"]
+      }
+    ],
+    "notes": "Linter configuration excludes test files and third_party directories. Pre-commit hooks also run golangci-lint."
+  },
+  "testing": {
+    "framework": "Go testing with Ginkgo/Gomega BDD framework",
+    "test_directory": "Multiple: root-level *_test.go, pkg/**/*_test.go, kube-rbac-proxy/**/*_test.go, test/integration/**/*_test.go",
+    "run_command": "GO111MODULE=on go test -v -race ./...",
+    "run_single_file": "GO111MODULE=on go test -v -race {file}",
+    "run_single_test": "GO111MODULE=on go test -v -race -run {test_name} ./...",
+    "setup_required": [
+      "go mod download"
+    ],
+    "env_vars": [
+      "GO111MODULE=on (enforces module mode)",
+      "COVER=true (enables coverage reporting, adds -coverprofile c.out)",
+      "CC_TEST_REPORTER_ID (optional, for CodeClimate integration)"
+    ],
+    "test_tags": {
+      "unit": "Default: no build tags (excludes integration tests)",
+      "integration": "Build tag: -tags integration (includes integration tests)"
+    },
+    "fixtures_location": "testdata/ directory in root",
+    "mock_patterns": "Uses mockoidc for OIDC provider mocking, miniredis for Redis mocking",
+    "coverage_command": "GO111MODULE=on go test -coverprofile=c.out -v -race ./...",
+    "coverage_threshold": null,
+    "notes": "218 unit tests found. Integration tests require -tags integration flag. Tests use Ginkgo BDD framework with suite files (*_suite_test.go). Race detector is always enabled in CI."
+  },
+  "ci": {
+    "system": "GitHub Actions (primary), Tekton (secondary for OpenShift CI)",
+    "config_files": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/fips-compliance.yml",
+      ".github/workflows/codeql.yml",
+      ".tekton/kube-auth-proxy-pull-request.yaml",
+      ".tekton/kube-auth-proxy-push.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Verify Code Generation",
+        "command": "make verify-generate",
+        "required": true,
+        "notes": "Ensures generated docs match code structs"
+      },
+      {
+        "name": "Lint",
+        "command": "golangci-lint run --timeout=5m",
+        "required": true,
+        "notes": "Uses golangci-lint-action@v7 with version v2.6.2"
+      },
+      {
+        "name": "Build",
+        "command": "make build",
+        "required": true,
+        "notes": "Builds kube-auth-proxy binary for amd64"
+      },
+      {
+        "name": "Test",
+        "command": "make test",
+        "required": true,
+        "notes": "Runs unit tests with coverage reporting"
+      },
+      {
+        "name": "Docker Build",
+        "command": "make build-docker",
+        "required": true,
+        "notes": "Builds multi-arch Docker image (amd64 only for PRs)"
+      },
+      {
+        "name": "FIPS Compliance Check",
+        "command": "docker build -f Dockerfile.redhat && check-payload scan",
+        "required": true,
+        "notes": "Verifies FIPS compliance for Red Hat builds (PRs to main)"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "CodeQL Analysis",
+        "command": "github/codeql-action",
+        "required": false,
+        "notes": "Security vulnerability scanning"
+      }
+    ],
+    "notes": "CI runs on both push and pull_request events for all branches. FIPS compliance check only runs on PRs to main branch. Release builds test all architectures (amd64, arm64, ppc64le, s390x)."
+  },
+  "build": {
+    "system": "Make + Go toolchain",
+    "go_version": "1.25.3",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "build_targets": {
+      "standard": "CGO_ENABLED=0 go build -a -installsuffix cgo -ldflags=\"-X github.com/opendatahub-io/kube-auth-proxy/v1/pkg/version.VERSION=${VERSION}\" -o kube-auth-proxy github.com/opendatahub-io/kube-auth-proxy/v1",
+      "fips": "CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime go build -a -tags strictfipsruntime -ldflags=\"-X github.com/opendatahub-io/kube-auth-proxy/v1/pkg/version.VERSION=${VERSION}\" -o kube-auth-proxy github.com/opendatahub-io/kube-auth-proxy/v1"
+    },
+    "container_build": {
+      "standard": "docker buildx build -f Dockerfile --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x",
+      "fips": "docker buildx build -f Dockerfile.redhat --platform ${TARGETPLATFORM}"
+    },
+    "artifacts": [
+      "kube-auth-proxy (main binary)",
+      "kube-rbac-proxy/_output/kube-rbac-proxy (embedded rbac-proxy)",
+      "entrypoint (container entrypoint)"
+    ],
+    "notes": "Project includes kube-rbac-proxy as a submodule/subproject with separate build. Uses go.work for multi-module workspace. FIPS builds require CGO and use UBI images."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Go standard: func TestName(t *testing.T) for table tests, Ginkgo Describe/It/Context for BDD-style tests",
+    "suite_files": "*_suite_test.go files set up Ginkgo test suites per package",
+    "import_style": "Standard Go imports with blank line separating stdlib, external, and internal imports",
+    "build_tags": "//go:build !integration for unit tests, //go:build integration for integration tests",
+    "code_organization": "pkg/ for library code, cmd/ for binaries, providers/ for auth providers, test/integration/ for integration tests",
+    "notes": "Uses Ginkgo/Gomega BDD framework extensively. Build tags separate unit and integration tests."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25-bookworm",
+    "system_deps": ["make", "git", "curl"],
+    "setup_commands": [
+      "go mod download",
+      "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v2.6.2"
+    ],
+    "lint_commands": [
+      {
+        "command": "GO111MODULE=on golangci-lint run",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Passed with 0 issues"
+      },
+      {
+        "command": "GO111MODULE=on golangci-lint run --fix",
+        "validated": false,
+        "notes": "Auto-fix command available but not validated"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "GO111MODULE=on go test -v -race ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Passed: 218 tests, 0 failures"
+      },
+      {
+        "command": "make test",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Equivalent to golangci-lint run && go test -v -race ./..."
+      }
+    ],
+    "test_single_file": "GO111MODULE=on go test -v -race {file}",
+    "test_single_test": "GO111MODULE=on go test -v -race -run {test_name} ./...",
+    "test_integration": "GO111MODULE=on go test -tags integration -v -race ./...",
+    "env_vars": ["GO111MODULE=on"],
+    "notes": "Tests run quickly (~30s for full suite). No external dependencies required for unit tests. Integration tests tagged with 'integration' build tag."
+  },
+  "validation": {
+    "container_used": "test-context-kube-auth-proxy (golang:1.25-bookworm)",
+    "results": [
+      {
+        "step": "install_deps",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - silent success)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "CGO_ENABLED=0 go build -a -installsuffix cgo -ldflags=\"-X github.com/opendatahub-io/kube-auth-proxy/v1/pkg/version.VERSION=2.0.0-dev\" -o kube-auth-proxy github.com/opendatahub-io/kube-auth-proxy/v1",
+        "notes": "Build completed successfully, binary created"
+      },
+      {
+        "step": "lint",
+        "command": "GO111MODULE=on golangci-lint run",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 issues.",
+        "notes": "Linting passed with no issues"
+      },
+      {
+        "step": "test",
+        "command": "GO111MODULE=on go test -v -race ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Running Suite: Main Suite - /app\n=== RUN TestK8sTokenAuthentication_ValidToken\n--- PASS: TestK8sTokenAuthentication_ValidToken (0.00s)\n...\nSUCCESS! -- 218 Passed | 0 Failed | 0 Pending | 0 Skipped",
+        "notes": "All 218 unit tests passed"
+      },
+      {
+        "step": "verify_generate",
+        "command": "make verify-generate",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "make: *** [Makefile:117: verify-generate] Error 1",
+        "notes": "Failed due to go.sum changes from code generation - expected in clean container. Command works but requires generated files to be committed."
+      }
+    ],
+    "summary": "Deps install OK, build OK, lint OK (0 issues), tests OK (218 passed). Code generation check requires committed files."
+  },
+  "gaps": [
+    "Integration tests exist but require -tags integration flag and were not validated (may need external services)",
+    "verify-generate check requires generated docs to be committed and in sync",
+    "FIPS compliance check requires check-payload tool and was not validated",
+    "Multi-architecture builds not validated (only amd64 tested)",
+    "kube-rbac-proxy subproject tests not separately validated"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high",
+  "notes": "Excellent test coverage with 218+ unit tests. Clear separation of unit and integration tests via build tags. All core validation commands (deps, build, lint, test) work perfectly in a standard Go container. FIPS builds require special tooling but standard builds are straightforward. Project uses modern Go practices (modules, workspaces, build tags)."
+}

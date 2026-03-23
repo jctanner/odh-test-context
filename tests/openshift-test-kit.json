@@ -1,0 +1,69 @@
+{
+  "repo": "openshift-test-kit",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": ["Bash"],
+  "linting": {
+    "tools": [],
+    "notes": "No linter configuration found. This repository contains shell scripts but has no shellcheck config, no pre-commit hooks, and no linting setup. Shellcheck could be run manually with: find lib -name '*.sh' -exec shellcheck {} +"
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "This repository IS a test framework (bash assertion library for OpenShift/Kubernetes testing), but it has no tests of its own. The test-cmd.sh script is designed to be used by consuming projects, not to test this library itself. It expects tests in ${OS_ROOT}/test/cmd/*.sh which don't exist in this repo."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI configuration found. No .github/workflows, no Tekton pipelines, no Jenkins, no CI setup at all."
+  },
+  "build": {
+    "system": "none",
+    "install_command": null,
+    "build_command": null,
+    "notes": "Pure shell script library. No build required. No dependencies to install. Designed to be used as a git submodule by other projects."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": "Shell scripts use 'source' to import library files. The lib/init.sh script is the main entrypoint that sources all other library files recursively.",
+    "notes": "Library provides assertion functions like os::cmd::expect_success, os::cmd::expect_failure, os::cmd::try_until_text for use in consuming projects."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "Container validation skipped - no tests or linters to validate. This is a library with no validation infrastructure."
+  },
+  "validation": {
+    "results": [],
+    "summary": "No validation performed - repository has no tests, no linters, no CI configuration to validate."
+  },
+  "gaps": [
+    "This is a test framework library with no tests of its own",
+    "No linting configuration (no shellcheck setup despite being a bash-heavy project)",
+    "No CI/CD configuration",
+    "No automated quality checks of any kind",
+    "No documentation on how the library itself is tested or validated",
+    "No CONTRIBUTING.md or development guidelines",
+    "Only 5 commits total - appears to be a minimal extraction from openshift/origin"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

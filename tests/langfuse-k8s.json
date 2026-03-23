@@ -1,0 +1,153 @@
+{
+  "repo": "langfuse-k8s",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:38:15Z",
+  "languages": ["YAML", "Helm"],
+  "linting": {
+    "tools": [
+      {
+        "name": "helm lint",
+        "config_file": "charts/langfuse/values.lint.yaml",
+        "run_command": "helm lint charts/langfuse/ -f charts/langfuse/values.lint.yaml",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "helm-docs",
+        "config_file": null,
+        "run_command": "helm-docs charts/langfuse/",
+        "fix_command": "helm-docs charts/langfuse/",
+        "scope": "chart documentation"
+      }
+    ],
+    "notes": "helm lint validates Helm chart syntax and structure. helm-docs validates that chart README is up to date with values.yaml. Both are gating in CI."
+  },
+  "testing": {
+    "framework": "helm-unittest v1.0.0",
+    "test_directory": "charts/langfuse/tests/",
+    "run_command": "helm unittest charts/langfuse/ --color",
+    "run_single_file": "helm unittest charts/langfuse/ -f {file}",
+    "run_single_test": null,
+    "setup_required": [
+      "helm dependency update charts/langfuse/"
+    ],
+    "env_vars": [],
+    "fixtures_location": "charts/langfuse/tests/values/",
+    "mock_patterns": "Test files use YAML assertions to validate rendered Helm templates",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "52 unit tests across 9 test suites validate chart rendering with various configurations. Tests use helm-unittest plugin with YAML-based assertions."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/validate.yaml",
+      ".github/workflows/test.yaml",
+      ".github/workflows/release.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Validate Helm Chart (validate.yaml)",
+        "command": "helm lint charts/langfuse/ -f charts/langfuse/values.lint.yaml",
+        "required": true
+      },
+      {
+        "name": "Validate helm-docs (validate.yaml)",
+        "command": "helm-docs charts/langfuse/",
+        "required": true
+      },
+      {
+        "name": "Run Helm Unit Tests (test.yaml)",
+        "command": "helm unittest charts/langfuse/ --color --output-type JUnit --output-file test-results.xml",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Release Chart (release.yaml)",
+        "command": "helm package charts/langfuse/ && helm push ...",
+        "required": false
+      }
+    ],
+    "notes": "validate.yaml runs on PRs that change charts/. test.yaml runs on all PRs and push to main. Both are gating. release.yaml publishes to GitHub Container Registry and creates GitHub releases when Chart.yaml version changes."
+  },
+  "build": {
+    "system": "helm",
+    "install_command": "helm dependency update charts/langfuse/",
+    "build_command": "helm package charts/langfuse/",
+    "notes": "Helm chart depends on postgresql, clickhouse, valkey (redis), minio (s3), and common charts from Bitnami. Dependencies are downloaded from OCI registry."
+  },
+  "conventions": {
+    "test_file_pattern": "charts/langfuse/tests/*_test.yaml",
+    "test_naming": "Test suites are YAML files with 'suite' and 'tests' keys. Each test has 'it' description and 'asserts' array.",
+    "import_style": "N/A - YAML configuration only",
+    "notes": "Helm chart follows standard Helm best practices. Templates are in charts/langfuse/templates/. Values files use nested structure with component-specific sections (langfuse, postgresql, clickhouse, redis, s3)."
+  },
+  "container_recipe": {
+    "base_image": "docker.io/alpine/helm:3.13.2",
+    "system_deps": [
+      "wget",
+      "git",
+      "bash",
+      "curl"
+    ],
+    "setup_commands": [
+      "apk add --no-cache wget git bash curl",
+      "helm dependency update charts/langfuse/"
+    ],
+    "lint_commands": [
+      {
+        "command": "helm lint charts/langfuse/ -f charts/langfuse/values.lint.yaml",
+        "validated": true,
+        "notes": "Exit code 0, output: '1 chart(s) linted, 0 chart(s) failed'"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "helm unittest charts/langfuse/ --color",
+        "validated": true,
+        "notes": "Exit code 0, 52 tests passed in 9 test suites, completed in 2.78s"
+      }
+    ],
+    "test_single_file": "helm unittest charts/langfuse/ -f {file}",
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "helm-docs validation skipped in Alpine container due to glibc incompatibility, but works in Ubuntu-based CI. All other commands validated successfully."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "helm dependency update charts/langfuse/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Saving 5 charts\nDownloading postgresql from repo oci://registry-1.docker.io/bitnamicharts\nPulled: registry-1.docker.io/bitnamicharts/postgresql:16.4.9\nDownloading clickhouse from repo oci://registry-1.docker.io/bitnamicharts\nPulled: registry-1.docker.io/bitnamicharts/clickhouse:8.0.5\nDownloading valkey from repo oci://registry-1.docker.io/bitnamicharts\nPulled: registry-1.docker.io/bitnamicharts/valkey:2.2.4\nDownloading minio from repo oci://registry-1.docker.io/bitnamicharts\nPulled: registry-1.docker.io/bitnamicharts/minio:14.10.5\nDownloading common from repo oci://registry-1.docker.io/bitnamicharts\nPulled: registry-1.docker.io/bitnamicharts/common:2.30.0\nDeleting outdated charts",
+        "notes": "Successfully downloaded 5 chart dependencies from Bitnami OCI registry"
+      },
+      {
+        "step": "lint",
+        "command": "helm lint charts/langfuse/ -f charts/langfuse/values.lint.yaml",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "==> Linting charts/langfuse/\n\n1 chart(s) linted, 0 chart(s) failed",
+        "notes": "Lint passed with no errors or warnings"
+      },
+      {
+        "step": "test",
+        "command": "helm unittest charts/langfuse/ --color",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "### Chart [ langfuse ] charts/langfuse/\n\n PASS  test basic chart functionality\n PASS  test clickhouse cluster configuration\n PASS  test downward api environment variables\n PASS  test rendering of extra containers\n PASS  test rendering of extra environment variables\n PASS  test ingress functionality\n PASS  test minimal installation configuration\n PASS  test redis cluster configuration\n PASS  test s3 media upload validation\n\nCharts:      1 passed, 1 total\nTest Suites: 9 passed, 9 total\nTests:       52 passed, 52 total\nSnapshot:    0 passed, 0 total\nTime:        2.781635032s",
+        "notes": "All 52 tests passed across 9 test suites in 2.78 seconds"
+      }
+    ],
+    "summary": "install OK (5 dependencies), lint OK (0 failures), tests OK (52/52 passed)"
+  },
+  "gaps": [
+    "helm-docs cannot be validated in Alpine-based container due to glibc dependency, but works in Ubuntu-based CI",
+    "No coverage metrics for Helm charts (not applicable)",
+    "Tests validate template rendering but cannot validate runtime behavior without actual Kubernetes cluster"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

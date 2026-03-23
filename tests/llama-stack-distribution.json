@@ -1,0 +1,255 @@
+{
+  "repo": "llama-stack-distribution",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:45:00Z",
+  "languages": ["Python", "Shell"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files ruff",
+        "fix_command": "pre-commit run --all-files ruff --fix",
+        "scope": "full project",
+        "version": "v0.9.4"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files ruff-format",
+        "fix_command": null,
+        "scope": "full project",
+        "version": "v0.9.4"
+      },
+      {
+        "name": "shellcheck",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "shellcheck tests/*.sh distribution/*.sh",
+        "fix_command": null,
+        "scope": "shell scripts",
+        "version": "v0.11.0"
+      },
+      {
+        "name": "actionlint",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files actionlint",
+        "fix_command": null,
+        "scope": "GitHub Actions workflows",
+        "version": "v1.7.7"
+      }
+    ],
+    "notes": "Linting is enforced via pre-commit hooks. The main linter is ruff for Python code. Shellcheck validates bash scripts. All linters run in CI via GitHub Actions pre-commit workflow."
+  },
+  "testing": {
+    "framework": "bash + pytest (upstream)",
+    "test_directory": "tests/",
+    "run_command": "./tests/smoke.sh",
+    "run_single_file": "bash {file}",
+    "run_single_test": null,
+    "setup_required": [
+      "Build container image from distribution/Containerfile",
+      "Start PostgreSQL container",
+      "Start vLLM container with model",
+      "Set environment variables: IMAGE_NAME, GITHUB_SHA, VLLM_INFERENCE_MODEL, EMBEDDING_MODEL, VLLM_URL, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD"
+    ],
+    "env_vars": [
+      "IMAGE_NAME=quay.io/opendatahub/llama-stack",
+      "GITHUB_SHA=<commit_sha>",
+      "VLLM_INFERENCE_MODEL=vllm-inference/Qwen/Qwen3-0.6B",
+      "EMBEDDING_MODEL=sentence-transformers/ibm-granite/granite-embedding-125m-english",
+      "VLLM_URL=http://localhost:8000/v1",
+      "POSTGRES_HOST=localhost",
+      "POSTGRES_PORT=5432",
+      "POSTGRES_DB=llamastack",
+      "POSTGRES_USER=llamastack",
+      "POSTGRES_PASSWORD=llamastack",
+      "VERTEX_AI_PROJECT (optional for Vertex AI tests)",
+      "OPENAI_API_KEY (optional for OpenAI tests)"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": "Tests use real external services (vLLM, PostgreSQL, Vertex AI, OpenAI)",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are integration tests that require: (1) pre-built container image, (2) running vLLM server with a model, (3) running PostgreSQL database, (4) docker/podman to run containers. Smoke tests (smoke.sh) verify basic functionality. Integration tests (run_integration_tests.sh) run pytest from upstream llama-stack repository. Tests cannot run without complete infrastructure."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/pre-commit.yml",
+      ".github/workflows/redhat-distro-container.yml",
+      ".github/workflows/semantic-pr.yml",
+      ".tekton/odh-llama-stack-core-pull-request.yaml",
+      ".tekton/odh-llama-stack-core-push.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "pre-commit",
+        "command": "pre-commit run --all-files",
+        "required": true
+      },
+      {
+        "name": "containerfile-generation",
+        "command": "pre-commit run --all-files && git diff --exit-code",
+        "required": true
+      },
+      {
+        "name": "container-build-amd64",
+        "command": "docker build -f distribution/Containerfile .",
+        "required": true
+      },
+      {
+        "name": "container-build-arm64",
+        "command": "docker build --platform linux/arm64 -f distribution/Containerfile .",
+        "required": true
+      },
+      {
+        "name": "smoke-test",
+        "command": "./tests/smoke.sh",
+        "required": true
+      },
+      {
+        "name": "integration-tests",
+        "command": "./tests/run_integration_tests.sh",
+        "required": true
+      },
+      {
+        "name": "semantic-pr-title",
+        "command": "amannn/action-semantic-pull-request",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on pull_request and push to main. Pre-commit checks (linting) must pass. Containerfile must be auto-generated (no manual edits). Container must build for both amd64 and arm64. Smoke tests and integration tests run with vLLM, PostgreSQL, and optionally Vertex AI and OpenAI. Tekton pipelines build multi-arch containers for OpenShift/Konflux."
+  },
+  "build": {
+    "system": "uv + docker/podman",
+    "install_command": "pip install uv pre-commit",
+    "build_command": "pre-commit run --all-files (generates Containerfile); docker build -f distribution/Containerfile -t llama-stack:test .",
+    "notes": "The Containerfile is auto-generated by distribution/build.py which is run via pre-commit hook. The build.py script installs llama-stack and generates dependency lists. Never edit Containerfile directly - only edit Containerfile.in template. Pre-commit must be run to regenerate Containerfile after any changes to config.yaml or Containerfile.in."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/*.sh",
+    "test_naming": "Bash scripts: smoke.sh, run_integration_tests.sh, test_utils.sh",
+    "import_style": "Python files use standard imports",
+    "notes": "Tests are bash-based integration tests, not unit tests. Python code is minimal (build scripts). Shell scripts follow shellcheck standards. PR titles must follow semantic commit conventions (enforced by semantic-pr workflow)."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": ["git", "shellcheck", "curl", "ca-certificates"],
+    "setup_commands": [
+      "pip install --no-cache-dir uv pre-commit",
+      "pre-commit install-hooks"
+    ],
+    "lint_commands": [
+      {
+        "command": "pre-commit run --all-files ruff",
+        "validated": true,
+        "notes": "Passed - no Python lint violations found"
+      },
+      {
+        "command": "pre-commit run --all-files ruff-format",
+        "validated": true,
+        "notes": "Passed - Python formatting is correct"
+      },
+      {
+        "command": "shellcheck tests/*.sh distribution/*.sh",
+        "validated": true,
+        "notes": "Passed - shell scripts pass shellcheck"
+      },
+      {
+        "command": "pre-commit run --all-files check-yaml",
+        "validated": true,
+        "notes": "Passed - YAML files are valid"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "./tests/smoke.sh",
+        "validated": false,
+        "notes": "Cannot validate - requires pre-built container image, vLLM server, PostgreSQL database, and docker/podman runtime"
+      },
+      {
+        "command": "./tests/run_integration_tests.sh",
+        "validated": false,
+        "notes": "Cannot validate - requires pre-built container image, vLLM server, PostgreSQL database, and clones upstream llama-stack repo to run pytest"
+      }
+    ],
+    "test_single_file": "bash {file}",
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "Linting commands work in isolated container. Tests require extensive infrastructure: container build, vLLM inference server, PostgreSQL database, and optionally cloud services (Vertex AI, OpenAI). The distribution/build.py script requires llama-stack installation and cannot be validated without external dependencies."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install --no-cache-dir uv pre-commit",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed cfgv-3.5.0 distlib-0.4.0 filelock-3.25.2 identify-2.6.18 nodeenv-1.10.0 platformdirs-4.9.4 pre-commit-4.5.1 python-discovery-1.2.0 pyyaml-6.0.3 uv-0.10.12 virtualenv-21.2.0",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "pre-commit run --all-files ruff",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ruff.....................................................................Passed",
+        "notes": "Ruff linter passed - no violations"
+      },
+      {
+        "step": "lint",
+        "command": "pre-commit run --all-files ruff-format",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ruff-format..............................................................Passed",
+        "notes": "Ruff formatter passed - code is properly formatted"
+      },
+      {
+        "step": "lint",
+        "command": "shellcheck tests/*.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - passed)",
+        "notes": "Shellcheck passed - shell scripts are valid"
+      },
+      {
+        "step": "lint",
+        "command": "pre-commit run --all-files check-yaml",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "check yaml...............................................................Passed",
+        "notes": "YAML validation passed"
+      },
+      {
+        "step": "build",
+        "command": "python3 distribution/build.py",
+        "exit_code": 2,
+        "success": false,
+        "output_snippet": "error: No virtual environment found; run `uv venv` to create an environment",
+        "notes": "Build script requires llama-stack installation and uv environment - cannot validate without external dependencies"
+      },
+      {
+        "step": "test",
+        "command": "./tests/smoke.sh",
+        "exit_code": null,
+        "success": false,
+        "output_snippet": "N/A - not executed",
+        "notes": "Requires infrastructure: pre-built container image, vLLM server, PostgreSQL, docker/podman"
+      }
+    ],
+    "summary": "Lint OK (ruff, ruff-format, shellcheck, YAML checks passed). Build requires llama-stack deps. Tests require full infrastructure (vLLM, PostgreSQL, container runtime)."
+  },
+  "gaps": [
+    "No Python unit tests - only integration tests",
+    "Tests require extensive external infrastructure (vLLM, PostgreSQL, container image)",
+    "Build script (distribution/build.py) cannot be validated in isolation - requires llama-stack installation",
+    "No way to run tests without building container image first",
+    "Integration tests require cloud services (Vertex AI, OpenAI) for full coverage",
+    "No coverage reporting configured",
+    "Shellcheck pre-commit hook requires docker runtime (fails in container)",
+    "Actionlint pre-commit hook requires docker runtime (fails in container)"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

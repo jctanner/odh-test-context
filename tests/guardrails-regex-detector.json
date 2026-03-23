@@ -1,0 +1,160 @@
+{
+  "repo": "guardrails-regex-detector",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:18:33-04:00",
+  "languages": ["Rust"],
+  "linting": {
+    "tools": [
+      {
+        "name": "clippy",
+        "config_file": "rust-toolchain.toml",
+        "run_command": "cargo clippy --all-targets --all-features -- -D warnings",
+        "fix_command": "cargo clippy --fix --all-targets --all-features",
+        "scope": "full project"
+      },
+      {
+        "name": "rustfmt",
+        "config_file": "rust-toolchain.toml",
+        "run_command": "cargo fmt --check",
+        "fix_command": "cargo fmt",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Linters configured in rust-toolchain.toml. Clippy currently has 8 violations (ptr_arg, needless_return, needless_borrow, useless_format, type_complexity). Format check passes cleanly."
+  },
+  "testing": {
+    "framework": "Rust built-in test framework",
+    "test_directory": "src/",
+    "run_command": "cargo test",
+    "run_single_file": null,
+    "run_single_test": "cargo test {test_name}",
+    "setup_required": ["cargo build"],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": "Tests are inline with #[cfg(test)] modules and #[test] annotations",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are embedded in source files using Rust's built-in test framework. Currently 1 test exists in src/detectors.rs::tests::test_regex_match. Tests verify regex matching logic for pattern detection."
+  },
+  "ci": {
+    "system": "Multi-stage Dockerfile",
+    "config_files": ["Dockerfile"],
+    "gating_checks": [
+      {
+        "name": "tests",
+        "command": "cargo test",
+        "required": true
+      },
+      {
+        "name": "lint",
+        "command": "cargo clippy --all-targets --all-features -- -D warnings",
+        "required": true
+      },
+      {
+        "name": "format",
+        "command": "cargo fmt --check",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "No GitHub Actions workflows configured. CI validation is implemented as multi-stage Docker builds (tests, lint, format stages in Dockerfile). These stages would gate container builds."
+  },
+  "build": {
+    "system": "cargo",
+    "install_command": "cargo build",
+    "build_command": "cargo build --release",
+    "notes": "Standard Rust/Cargo build system. Dependencies are automatically fetched and compiled by cargo. Rust 1.84.0 required per rust-toolchain.toml."
+  },
+  "conventions": {
+    "test_file_pattern": "Tests are inline in source files with #[cfg(test)] modules",
+    "test_naming": "Test functions use #[test] attribute and follow test_* naming convention",
+    "import_style": "Rust standard module system with 'use' statements",
+    "notes": "Follows standard Rust conventions. Binary is defined as regex-detector in Cargo.toml. Main application logic in src/main.rs with detector logic in src/detectors.rs."
+  },
+  "container_recipe": {
+    "base_image": "rust:1.84.0",
+    "system_deps": [],
+    "setup_commands": [
+      "rustup component add rustfmt clippy",
+      "cargo build"
+    ],
+    "lint_commands": [
+      {
+        "command": "cargo clippy --all-targets --all-features -- -D warnings",
+        "validated": true,
+        "notes": "Linter runs successfully but found 8 violations: 3 ptr_arg, 2 needless_return, 1 needless_borrow, 1 useless_format, 1 type_complexity"
+      },
+      {
+        "command": "cargo fmt --check",
+        "validated": true,
+        "notes": "Format check passes with no violations"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cargo test",
+        "validated": true,
+        "notes": "1 test passed successfully"
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": "cargo test {test_name}",
+    "env_vars": [],
+    "notes": "Container needs Rust 1.84.0 with rustfmt and clippy components. All commands validated successfully except clippy found existing lint violations (which is expected behavior, not a broken command)."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "cargo build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Compiling regex-detector v0.1.0 (/app)\nFinished `dev` profile [unoptimized + debuginfo] target(s) in 9.17s",
+        "notes": "Dependencies downloaded and project compiled successfully"
+      },
+      {
+        "step": "test",
+        "command": "cargo test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "running 1 test\ntest detectors::tests::test_regex_match ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "notes": "All tests passed (1 test)"
+      },
+      {
+        "step": "lint",
+        "command": "cargo clippy --all-targets --all-features -- -D warnings",
+        "exit_code": 101,
+        "success": false,
+        "output_snippet": "error: writing `&String` instead of `&str` involves a new object where a slice will do\nerror: unneeded `return` statement\nerror: useless use of `format!`\nerror: very complex type used. Consider factoring parts into `type` definitions\nerror: could not compile `regex-detector` (bin \"regex-detector\") due to 8 previous errors",
+        "notes": "Clippy found 8 lint violations (command works correctly, code has issues)"
+      },
+      {
+        "step": "format",
+        "command": "cargo fmt --check",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "Code formatting is correct"
+      },
+      {
+        "step": "build",
+        "command": "cargo build --release",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Compiling regex-detector v0.1.0 (/app)\nFinished `release` profile [optimized] target(s) in 10.23s",
+        "notes": "Release build completed successfully"
+      }
+    ],
+    "summary": "install OK, tests OK (1 passed), format OK, lint found 8 violations, release build OK"
+  },
+  "gaps": [
+    "No GitHub Actions or external CI workflows configured",
+    "Clippy has 8 lint violations that need fixing",
+    "Limited test coverage (only 1 test for regex matching logic)",
+    "No integration tests or end-to-end tests",
+    "No code coverage measurement configured",
+    "No pre-commit hooks configured"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

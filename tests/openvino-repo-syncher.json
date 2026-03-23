@@ -1,0 +1,120 @@
+{
+  "repo": "openvino-repo-syncher",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:57:00Z",
+  "languages": ["YAML"],
+  "linting": {
+    "tools": [
+      {
+        "name": "yamllint",
+        "config_file": null,
+        "run_command": "yamllint .",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "No linting tools are configured in the repository. yamllint can be used to validate YAML syntax and style, but no configuration file exists. The workflow uses yq and jq to parse source_map.yaml."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "This is a configuration-only repository with no source code or tests. The repository contains only YAML configuration files that define repository sync mappings."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/auto-merge.yaml"],
+    "gating_checks": [],
+    "advisory_checks": [
+      {
+        "name": "Auto-Merge - Repositories",
+        "command": "This workflow uses yq/jq to parse source_map.yaml and runs the opendatahub-io/sync-upstream-repo@v2.0.0-alpha action",
+        "required": false
+      }
+    ],
+    "notes": "The CI workflow is not a PR validation workflow. It runs on workflow_dispatch and on a cron schedule (daily at 00:18 UTC) to automatically sync changes from upstream OpenVINO repositories to OpenDataHub forks. No CI checks gate pull requests."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "This is a configuration-only repository with no build process. The repository serves as a centralized hub for managing OpenVINO repository synchronization."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "YAML configuration files follow a simple structure. The source_map.yaml defines git repository mappings with automerge settings, sync modes (branch-to-branch or release-following), source URLs/branches, and destination URLs/branches."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["jq", "wget"],
+    "setup_commands": [
+      "pip install --no-cache-dir yamllint",
+      "wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64",
+      "chmod +x /usr/local/bin/yq"
+    ],
+    "lint_commands": [
+      {
+        "command": "yamllint .",
+        "validated": true,
+        "notes": "yamllint reports style violations (trailing spaces, line length > 80, wrong newline characters) but YAML is syntactically valid"
+      }
+    ],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "This repository contains only YAML configuration files. Validation consists of YAML syntax checking and the yq/jq parsing pipeline used by the GitHub Actions workflow."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install --no-cache-dir yamllint && apt-get update && apt-get install -y jq wget && wget yq",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed pathspec-1.0.4 pyyaml-6.0.3 yamllint-1.38.0",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "yamllint .",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "./.github/workflows/auto-merge.yaml\n  1:1       warning  missing document start \"---\"  (document-start)\n  1:32      error    wrong new line character: expected \\n  (new-lines)\n  3:1       warning  truthy value should be one of [false, true]  (truthy)\n  10:13     error    wrong indentation: expected 10 but found 12  (indentation)\n  43:81     error    line too long (124 > 80 characters)  (line-length)\n  44:81     error    line too long (129 > 80 characters)  (line-length)\n  46:81     error    line too long (142 > 80 characters)  (line-length)\n  52:15     error    trailing spaces  (trailing-spaces)\n  58:13     error    too many spaces inside brackets  (brackets)\n\n./src/config/source_map.yaml\n  1:1       warning  missing document start \"---\"  (document-start)\n  1:5       error    wrong new line character: expected \\n  (new-lines)\n  2:1       error    wrong indentation: expected at least 1  (indentation)\n  24:61     error    trailing spaces  (trailing-spaces)",
+        "notes": "yamllint found style violations (trailing spaces, line length, indentation, newline characters) but YAML files are syntactically valid and parseable"
+      },
+      {
+        "step": "test",
+        "command": "yq -o json src/config/source_map.yaml | jq -r '.git' | jq -c 'map(select(.automerge == \"yes\"))' | jq '. | length'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "9",
+        "notes": "yq/jq pipeline from the GitHub Actions workflow executes successfully, confirming YAML is valid and parseable. Found 9 repositories configured for automerge."
+      }
+    ],
+    "summary": "install OK, lint FAILED (style violations only, YAML is valid), workflow validation OK"
+  },
+  "gaps": [
+    "No automated testing infrastructure - this is a configuration-only repository",
+    "No linting configuration (.yamllint config file) - yamllint runs with default rules",
+    "No PR validation workflows in CI - only scheduled auto-merge workflow exists",
+    "No test files or test framework",
+    "No build process or compilation step",
+    "YAML files contain style violations (trailing spaces, line length, newline characters) that would need fixing to pass yamllint",
+    "No schema validation for GitHub Actions workflows or source_map.yaml structure",
+    "No validation that repository URLs in source_map.yaml are reachable",
+    "No validation that branches in source_map.yaml exist"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

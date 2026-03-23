@@ -1,0 +1,175 @@
+{
+  "repo": "model-metadata-collection",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:16:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "config_file": null,
+        "run_command": "golangci-lint run",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "gofmt",
+        "config_file": null,
+        "run_command": "gofmt -l .",
+        "fix_command": "gofmt -s -w .",
+        "scope": "full project"
+      }
+    ],
+    "notes": "No golangci-lint config file present, uses default linters. Makefile provides `make lint` target that runs golangci-lint, `make vet` for go vet, and `make fmt-check` for format checking."
+  },
+  "testing": {
+    "framework": "Go testing (standard library)",
+    "test_directory": "distributed across packages: internal/catalog, internal/config, internal/enrichment, internal/huggingface, internal/metadata, internal/registry, pkg/types, pkg/utils",
+    "run_command": "go test -v ./...",
+    "run_single_file": "go test -v {file}",
+    "run_single_test": "go test -v -run {test_name} ./...",
+    "setup_required": [
+      "go mod download",
+      "go mod tidy"
+    ],
+    "env_vars": [],
+    "fixtures_location": "tests use t.TempDir() for temporary directories, sample test data embedded in test files",
+    "mock_patterns": "Table-driven tests with inline test cases, uses standard Go testing with subtests (t.Run)",
+    "coverage_command": "go test -v -race -coverprofile=coverage.out ./...",
+    "coverage_threshold": null,
+    "notes": "16 test files found. Tests include unit tests for catalog generation, config management, enrichment, HuggingFace integration, metadata parsing, registry services, types, and utilities. Some tests attempt network calls (HuggingFace API, container registries) which may fail without external access but tests still pass. No integration tests requiring infrastructure."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/build-and-push-static-model-catalog-data.yml",
+      ".github/workflows/sync-branch-stable.yml",
+      ".github/workflows/sync-branch-stable2x.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Run tests",
+        "command": "make test",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Only one workflow runs actual tests: build-and-push-static-model-catalog-data.yml triggers on pull_request to main for data/**, Dockerfile, and workflow file changes. The workflow runs 'make test' which executes 'go test -v ./...'. Other workflows are for branch syncing only. No explicit lint check in CI, but Makefile provides comprehensive check targets."
+  },
+  "build": {
+    "system": "Go modules + Makefile",
+    "install_command": "go mod download && go mod tidy",
+    "build_command": "go build -o build/model-extractor ./cmd/model-extractor",
+    "notes": "Two binaries: model-extractor (main) and metadata-report. Makefile provides targets: build, build-report, build-linux (cross-compile), clean. Also has 'make ci' target that runs: deps check test build. Go 1.24 required, toolchain go1.25.7."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Test* functions, table-driven tests with t.Run subtests",
+    "import_style": "Standard Go import grouping: stdlib, external, internal",
+    "notes": "Project follows standard Go conventions. Uses pointer types for optional fields in metadata structs. Comprehensive error handling with descriptive messages. Concurrent processing with configurable limits."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25",
+    "system_deps": [],
+    "setup_commands": [
+      "go mod download",
+      "go mod tidy"
+    ],
+    "lint_commands": [
+      {
+        "command": "golangci-lint run",
+        "validated": true,
+        "notes": "Passed with no issues. golangci-lint must be installed first: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+      },
+      {
+        "command": "go vet ./...",
+        "validated": true,
+        "notes": "Passed with no issues"
+      },
+      {
+        "command": "gofmt -l .",
+        "validated": true,
+        "notes": "Passed with no unformatted files"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "go test -v ./...",
+        "validated": true,
+        "notes": "All tests passed. 8 packages tested: internal/catalog, internal/config, internal/enrichment, internal/huggingface, internal/metadata, internal/registry, pkg/types, pkg/utils. Tests took ~55 seconds total. Some tests attempt network calls but handle failures gracefully."
+      },
+      {
+        "command": "go test -v -race -coverprofile=coverage.out ./...",
+        "validated": false,
+        "notes": "Not validated but should work - runs tests with race detection and coverage"
+      }
+    ],
+    "test_single_file": "go test -v {file}",
+    "test_single_test": "go test -v -run {test_name} ./...",
+    "env_vars": [],
+    "notes": "Container validation successful. No external dependencies or infrastructure required for basic test execution. Some tests attempt HuggingFace API calls and container registry access but handle failures. The golang:1.25 image includes all necessary Go tools. golangci-lint installed to /go/bin/golangci-lint in the container."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download && go mod tidy",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go: downloading gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405\ngo: downloading github.com/stretchr/testify v1.10.0\n...\nExit code: 0",
+        "notes": "Dependencies installed successfully, ~30 packages downloaded"
+      },
+      {
+        "step": "build",
+        "command": "go build -o build/model-extractor ./cmd/model-extractor",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "---Exit code: 0",
+        "notes": "Binary built successfully with no errors or warnings"
+      },
+      {
+        "step": "lint",
+        "command": "golangci-lint run",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "---Exit code: 0",
+        "notes": "Lint passed with no issues found"
+      },
+      {
+        "step": "lint",
+        "command": "go vet ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "---Exit code: 0",
+        "notes": "go vet passed with no issues"
+      },
+      {
+        "step": "lint",
+        "command": "gofmt -l .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "---Exit code: 0",
+        "notes": "All code properly formatted, no files need formatting"
+      },
+      {
+        "step": "test",
+        "command": "go test -v ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/opendatahub-io/model-metadata-collection/internal/catalog\t37.394s\nok  \tgithub.com/opendatahub-io/model-metadata-collection/internal/config\t0.009s\nok  \tgithub.com/opendatahub-io/model-metadata-collection/internal/enrichment\t0.015s\nok  \tgithub.com/opendatahub-io/model-metadata-collection/internal/huggingface\t0.321s\nok  \tgithub.com/opendatahub-io/model-metadata-collection/internal/metadata\t0.006s\nok  \tgithub.com/opendatahub-io/model-metadata-collection/internal/registry\t16.317s\nok  \tgithub.com/opendatahub-io/model-metadata-collection/pkg/types\t0.003s\nok  \tgithub.com/opendatahub-io/model-metadata-collection/pkg/utils\t0.952s",
+        "notes": "All 8 test packages passed. Total execution time ~55 seconds. Tests include comprehensive coverage of catalog generation, config, enrichment, HuggingFace integration, metadata parsing, registry services, types, and utilities."
+      }
+    ],
+    "summary": "install OK (30 packages), build OK, lint OK (golangci-lint + go vet + gofmt all passed), tests OK (8 packages, all passed)"
+  },
+  "gaps": [],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

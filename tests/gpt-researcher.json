@@ -1,0 +1,148 @@
+{
+  "repo": "gpt-researcher",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:17:00Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting tools configured. No ruff, flake8, pylint, mypy, or black configuration found in the repository."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "PYTHONPATH=/app:/app/backend python -m pytest tests/test_logging.py tests/test_logs.py -v",
+    "run_single_file": "PYTHONPATH=/app:/app/backend python -m pytest {file} -v",
+    "run_single_test": "PYTHONPATH=/app:/app/backend python -m pytest {file}::{test_name} -v",
+    "setup_required": [
+      "pip install --upgrade pip",
+      "pip install pytest pytest-asyncio",
+      "pip install -r requirements.txt",
+      "pip install faiss-cpu",
+      "pip install -e ."
+    ],
+    "env_vars": [
+      "OPENAI_API_KEY=<required for most integration tests>",
+      "TAVILY_API_KEY=<required for search integration tests>",
+      "LANGCHAIN_API_KEY=<optional for langchain integration>",
+      "PYTHONPATH=/app:/app/backend"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": "Tests use unittest.mock.AsyncMock for mocking websockets and async dependencies",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Most tests are integration tests requiring external API keys (OPENAI_API_KEY, TAVILY_API_KEY). Only a few unit tests (test_logging.py, test_logs.py) can run without API keys. The docker-compose.yml defines a test profile that runs only tests/report-types.py and tests/vector-store.py, both of which require API keys. PYTHONPATH must be set to /app:/app/backend for module imports to work correctly."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/build.yml",
+      ".github/workflows/deploy.yml",
+      ".github/workflows/docker-build.yml"
+    ],
+    "gating_checks": [],
+    "advisory_checks": [
+      {
+        "name": "GPTR tests (docker-build.yml)",
+        "command": "docker-compose --profile test run --rm gpt-researcher-tests",
+        "required": false
+      }
+    ],
+    "notes": "The docker-build.yml workflow contains test execution but it's commented out for pull_request triggers - only workflow_dispatch is enabled. The test workflow runs: 'docker-compose --profile test run --rm gpt-researcher-tests' which internally runs 'pip install pytest pytest-asyncio faiss-cpu && python -m pytest tests/report-types.py && python -m pytest tests/vector-store.py'. The build.yml workflow only builds and pushes Docker images to ECR, with no testing or linting. No checks are currently configured as gating for pull requests."
+  },
+  "build": {
+    "system": "pip/poetry",
+    "install_command": "pip install -r requirements.txt",
+    "build_command": "pip install -e .",
+    "notes": "Project uses both Poetry (pyproject.toml) and traditional setup.py/requirements.txt. The Dockerfile uses python:3.12-slim-bookworm base image. Requirements include heavy dependencies like langchain, openai, and unstructured. System dependencies needed: git, build-essential. Optional dependencies in pyproject.toml include selenium, playwright, scrapy for advanced scraping."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py",
+    "test_naming": "Test functions follow pytest convention: test_* for functions, Test* for classes",
+    "import_style": "Relative imports from backend and gpt_researcher packages. Tests use 'from backend.server.server_utils import ...' and 'from gpt_researcher.agent import ...'",
+    "notes": "Tests directory contains mix of integration tests and unit tests. File naming is inconsistent - some use hyphens (test-loaders.py, test-your-llm.py) while pytest conventionally uses underscores (test_logging.py). Both patterns work but underscore pattern is more common in pytest."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["git", "build-essential"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y git build-essential",
+      "pip install --upgrade pip",
+      "pip install pytest pytest-asyncio",
+      "pip install -r requirements.txt",
+      "pip install faiss-cpu",
+      "pip install -e ."
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {
+        "command": "PYTHONPATH=/app:/app/backend python -m pytest tests/test_logging.py -v",
+        "validated": true,
+        "notes": "2 passed - unit tests for logging handlers, no API keys required"
+      },
+      {
+        "command": "PYTHONPATH=/app:/app/backend python -m pytest tests/test_logs.py -v",
+        "validated": true,
+        "notes": "1 passed - unit test for log file creation, no API keys required"
+      },
+      {
+        "command": "PYTHONPATH=/app:/app/backend python -m pytest tests/report-types.py -v",
+        "validated": false,
+        "notes": "2 failed - requires OPENAI_API_KEY environment variable for GPTResearcher initialization"
+      },
+      {
+        "command": "PYTHONPATH=/app:/app/backend python -m pytest tests/vector-store.py -v",
+        "validated": false,
+        "notes": "Not tested - likely requires API keys based on docker-compose configuration"
+      }
+    ],
+    "test_single_file": "PYTHONPATH=/app:/app/backend python -m pytest {file} -v",
+    "test_single_test": "PYTHONPATH=/app:/app/backend python -m pytest {file}::{test_name} -v",
+    "env_vars": [
+      "PYTHONPATH=/app:/app/backend"
+    ],
+    "notes": "Tests require PYTHONPATH=/app:/app/backend for proper module resolution. Most tests are integration tests requiring OPENAI_API_KEY and TAVILY_API_KEY. Only test_logging.py, test_logs.py, and a few others can run without API keys. The pyproject.toml has asyncio_fixture_loop_scope config option that triggers a warning (unknown to current pytest version). Dependencies install successfully with some warnings about requests dependency versions."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install -r requirements.txt && pip install pytest pytest-asyncio faiss-cpu && pip install -e .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed 200+ packages including langchain, openai, fastapi, pytest...",
+        "notes": "All dependencies installed successfully. Some warnings about requests/urllib3 version mismatches but non-blocking."
+      },
+      {
+        "step": "test",
+        "command": "PYTHONPATH=/app:/app/backend python -m pytest tests/test_logging.py tests/test_logs.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "3 passed, 1 warning in 0.72s",
+        "notes": "Unit tests pass successfully without API keys. Tests verify logging handlers and log file creation."
+      },
+      {
+        "step": "test",
+        "command": "PYTHONPATH=/app:/app/backend python -m pytest tests/report-types.py -v",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "2 failed - openai.OpenAIError: The api_key client option must be set",
+        "notes": "Integration tests require OPENAI_API_KEY. This is expected - tests create GPTResearcher instances that need API access."
+      }
+    ],
+    "summary": "install OK, unit tests OK (3 passed), integration tests require API keys (expected)"
+  },
+  "gaps": [
+    "No linting configuration or tools (ruff, flake8, pylint, mypy, black)",
+    "No pre-commit hooks configured",
+    "Test workflow is disabled for pull requests (only manual workflow_dispatch)",
+    "Most tests are integration tests requiring external API keys - difficult to run in CI without secrets",
+    "No unit test coverage metrics configured",
+    "Inconsistent test file naming (hyphens vs underscores)",
+    "Module import issues require PYTHONPATH workaround",
+    "No Makefile or standardized dev commands",
+    "test_security_fix.py imports functions that don't exist in server_utils.py (secure_filename, validate_file_path, etc.)",
+    "Docker-compose test profile only runs 2 specific test files, not the full test suite"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

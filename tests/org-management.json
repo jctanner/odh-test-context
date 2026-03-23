@@ -1,0 +1,182 @@
+{
+  "repo": "org-management",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:03:00-04:00",
+  "languages": ["YAML", "Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "yamllint",
+        "config_file": null,
+        "run_command": "yamllint .",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "yamllint runs with default config via GitHub Action karancode/yamllint-github-action@master"
+  },
+  "testing": {
+    "framework": "inline Python scripts (validation checks)",
+    "test_directory": "config/",
+    "run_command": "python3 -c '<inline validation scripts>'",
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": ["pip install pyyaml"],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No traditional unit tests. Validation consists of 4 Python checks: (1) user order alphabetical, (2) no overlap between admins/members, (3) no duplicate users, (4) no admins in members file"
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/verify-pull-requests.yaml",
+      ".github/workflows/apply-org-membership.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "yamllint",
+        "command": "yamllint .",
+        "required": true
+      },
+      {
+        "name": "check-user-order",
+        "command": "python3 script to verify alphabetical order of users",
+        "required": true
+      },
+      {
+        "name": "check-overlap",
+        "command": "python3 script to verify no users in both admins and members",
+        "required": true
+      },
+      {
+        "name": "check-duplicates",
+        "command": "python3 script to verify no duplicate users",
+        "required": true
+      },
+      {
+        "name": "check-admins-not-set",
+        "command": "python3 script to ensure admins key not in members file",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "All checks in verify-pull-requests.yaml are gating. The apply-org-membership.yaml workflow runs Peribolos on merge to main but requires ORG_MANAGEMENT_TOKEN secret."
+  },
+  "build": {
+    "system": "pip",
+    "install_command": "pip install pyyaml yamllint",
+    "build_command": null,
+    "notes": "No build step - this is a config-as-code repository for GitHub org membership managed via Peribolos"
+  },
+  "conventions": {
+    "test_file_pattern": "config/*.yaml",
+    "test_naming": "Inline Python validation scripts in GitHub Actions",
+    "import_style": "import yaml (Python stdlib)",
+    "notes": "Users must be added in alphabetical order. Admins are in organization_admins.yaml, members in organization_members.yaml. Files are merged at apply time."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install pyyaml yamllint"
+    ],
+    "lint_commands": [
+      {
+        "command": "yamllint .",
+        "validated": true,
+        "notes": "Passed with 2 warnings about truthy values in workflow files (non-blocking)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "python3 -c 'import yaml; ... check user order ...'",
+        "validated": true,
+        "notes": "User order check passed"
+      },
+      {
+        "command": "python3 -c 'import yaml; ... check overlap ...'",
+        "validated": true,
+        "notes": "No overlap between owners and members"
+      },
+      {
+        "command": "python3 -c 'import yaml; ... check duplicates ...'",
+        "validated": true,
+        "notes": "No duplicate users found"
+      },
+      {
+        "command": "python3 -c 'import yaml; ... check admins not in members file ...'",
+        "validated": true,
+        "notes": "No admins key in members file"
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "All validation scripts executed successfully. This repo has no traditional tests - validation is done via Python scripts checking YAML config integrity."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install pyyaml yamllint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed pathspec-1.0.4 pyyaml-6.0.3 yamllint-1.38.0",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "yamllint .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "./.github/workflows/apply-org-membership.yaml\n  3:1  warning  truthy value should be one of [false, true]  (truthy)\n./.github/workflows/verify-pull-requests.yaml\n  3:1  warning  truthy value should be one of [false, true]  (truthy)",
+        "notes": "Lint found 2 warnings (truthy values), but exit code 0 - non-blocking"
+      },
+      {
+        "step": "test",
+        "command": "python3 validation scripts (user order)",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "✓ User order check passed",
+        "notes": "All users in alphabetical order"
+      },
+      {
+        "step": "test",
+        "command": "python3 validation scripts (overlap check)",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "✓ No overlap between owners and members",
+        "notes": "No users listed in both admins and members"
+      },
+      {
+        "step": "test",
+        "command": "python3 validation scripts (duplicates check)",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "✓ No duplicate users found",
+        "notes": "No duplicate users in any list"
+      },
+      {
+        "step": "test",
+        "command": "python3 validation scripts (admins check)",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "✓ No admins in members file",
+        "notes": "Members file does not contain admins key"
+      }
+    ],
+    "summary": "install OK, lint OK (2 warnings), all 4 validation checks passed"
+  },
+  "gaps": [
+    "No traditional unit tests - validation is workflow-specific",
+    "No standalone test script - validation logic embedded in GitHub Actions",
+    "yamllint runs with default config (no .yamllint file for customization)",
+    "Peribolos apply workflow requires ORG_MANAGEMENT_TOKEN secret and cannot be validated locally",
+    "No pre-commit hooks configured"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

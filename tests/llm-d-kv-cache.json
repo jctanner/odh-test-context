@@ -1,0 +1,195 @@
+{
+  "repo": "llm-d-kv-cache",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:59:12Z",
+  "languages": ["Go", "Python", "C++/CUDA"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.1.6",
+        "config_file": ".golangci.yml",
+        "run_command": "golangci-lint run",
+        "fix_command": null,
+        "scope": "full project (Go code only)"
+      },
+      {
+        "name": "ruff",
+        "version": "v0.14.0",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "ruff check --output-format github --fix",
+        "fix_command": "ruff format",
+        "scope": "Python code (via pre-commit hooks)"
+      },
+      {
+        "name": "clang-format",
+        "version": "v21.1.2",
+        "config_file": ".clang-format",
+        "run_command": "make clang",
+        "fix_command": "make clang",
+        "scope": "C++/CUDA code in kv_connectors/"
+      },
+      {
+        "name": "typos",
+        "version": "v1.38.1",
+        "config_file": "_typos.toml",
+        "run_command": "typos --force-exclude",
+        "fix_command": null,
+        "scope": "spell checking (via pre-commit hooks)"
+      }
+    ],
+    "notes": "Main lint command is 'make lint' for Go code. Full pre-commit checks run via 'make precommit' which includes go mod tidy, golangci-lint, and copyright header fixes."
+  },
+  "testing": {
+    "framework": "Go testing + pytest",
+    "test_directory": "pkg/ (unit tests), tests/ (e2e/integration tests), services/uds_tokenizer/tests/ (Python tests)",
+    "run_command": "make test",
+    "run_single_file": "go test -v {file}",
+    "run_single_test": "go test -v -run {test_name} {package}",
+    "setup_required": [
+      "go mod download",
+      "make download-zmq (installs libzmq3-dev)"
+    ],
+    "env_vars": [
+      "CGO_ENABLED=1 (for embedded tokenizers)",
+      "CGO_CFLAGS=$(python3.12-config --cflags)",
+      "CGO_LDFLAGS=$(python3.12-config --ldflags --embed) -ldl -lm",
+      "PYTHONPATH (for embedded tokenizers)",
+      "DOCKER_HOST (for e2e tests with testcontainers)"
+    ],
+    "fixtures_location": "pkg/tokenization/testdata/test-model/, tests/e2e/redis_mock/testdata/",
+    "mock_patterns": "Uses miniredis for Redis mocking, testcontainers for UDS tokenizer service",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Two test modes: 'make unit-test-uds' (Go-only, no Python CGo dependencies) and 'make unit-test-embedded' (requires Python 3.12 + vLLM). E2E tests require Docker/Podman for testcontainers. Python tests run via 'make uds-tokenizer-service-test' using pytest."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci-pr-checks.yaml",
+      ".github/workflows/ci-examples.yaml",
+      ".github/workflows/ci-signed-commits.yaml",
+      ".github/workflows/ci-uds-tokenizer.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "pre-commit hooks",
+        "command": "pre-commit run --all-files --hook-stage manual",
+        "required": true
+      },
+      {
+        "name": "Go linting",
+        "command": "make precommit",
+        "required": true
+      },
+      {
+        "name": "C/C++ formatting",
+        "command": "make clang",
+        "required": true
+      },
+      {
+        "name": "Build",
+        "command": "make build",
+        "required": true
+      },
+      {
+        "name": "Tests",
+        "command": "make test",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on ubuntu-latest with Go version extracted from go.mod. Requires system dependencies: libzmq3-dev, pkg-config, python3.12, python3.12-dev, python3.12-venv, clang-format. Python 3.12 is added via ppa:deadsnakes/ppa. All checks in ci-pr-checks.yaml are gating for pull requests to main/dev branches."
+  },
+  "build": {
+    "system": "make + go build",
+    "install_command": "go mod download && make install-python-deps",
+    "build_command": "make build (builds both UDS-only and embedded binaries)",
+    "notes": "Two build modes: 'make build-uds' (Go-only, no Python) and 'make build-embedded' (with Python embedded tokenizers). Embedded mode requires Python 3.12, vLLM 0.14.0, and CGo setup. ZMQ library is auto-installed via 'make download-zmq'."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "TestFunctionName for functions, TestSuiteName for test suites (using testify)",
+    "import_style": "Standard Go import grouping (stdlib, external, internal)",
+    "notes": "Tests use testify/suite and testify/assert. Some tests use Ginkgo/Gomega framework. Go code follows golangci-lint rules with 130 char line limit."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.24",
+    "system_deps": ["libzmq3-dev", "pkg-config", "python3-dev", "python3-venv", "clang-format", "git", "make"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y libzmq3-dev pkg-config python3-dev python3-venv clang-format git make",
+      "go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "golangci-lint run",
+        "validated": true,
+        "notes": "Passed with 0 issues"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make unit-test-uds",
+        "validated": true,
+        "notes": "All unit tests passed (47+ test cases)"
+      },
+      {
+        "command": "go test -v ./pkg/...",
+        "validated": true,
+        "notes": "Direct go test command works, all packages passed"
+      }
+    ],
+    "test_single_file": "go test -v {file}",
+    "test_single_test": "go test -v -run {TestName} {package_path}",
+    "env_vars": [],
+    "notes": "Container uses Python 3.13 instead of 3.12, but tests pass. For embedded tokenizers, need CGO_ENABLED=1 and Python config flags. E2E tests require Docker-in-Docker or Podman socket access for testcontainers."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - successful download)",
+        "notes": "Go modules downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "make build-uds",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Checking if ZMQ is already installed...\n✅ ZMQ is already installed.\n==== Building (UDS-only, no embedded tokenizers) ====\n✅ UDS-only build succeeded",
+        "notes": "Build succeeded for Go-only code without Python dependencies"
+      },
+      {
+        "step": "lint",
+        "command": "golangci-lint run",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "==== Running linting ====\n0 issues.",
+        "notes": "Linting passed with no issues"
+      },
+      {
+        "step": "test",
+        "command": "make unit-test-uds",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "PASS\nok  \tgithub.com/llm-d/llm-d-kv-cache/pkg/kvcache\t0.011s\nPASS\nok  \tgithub.com/llm-d/llm-d-kv-cache/pkg/tokenization\t20.064s\nPASS\nok  \tgithub.com/llm-d/llm-d-kv-cache/pkg/utils\t0.002s",
+        "notes": "All unit tests passed. Multiple test suites covering kvcache, tokenization, utils packages. 47+ test cases ran successfully."
+      }
+    ],
+    "summary": "install OK, build OK, lint OK (0 issues), unit tests OK (47+ tests passed in ~20s)"
+  },
+  "gaps": [
+    "E2E tests require Docker/Podman testcontainers setup - not validated in basic container",
+    "Embedded tokenizer tests require Python 3.12 + vLLM 0.14.0 - complex setup not validated",
+    "Python linting (ruff) via pre-commit hooks not validated independently",
+    "UDS tokenizer Python tests (pytest) not validated",
+    "Pre-commit hooks for license headers (apache/skywalking-eyes) not validated",
+    "Some tests may require external model downloads (HuggingFace models)",
+    "CI uses Python 3.12 specifically, container used 3.13 (worked but may have edge cases)"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

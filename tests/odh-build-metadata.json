@@ -1,0 +1,69 @@
+{
+  "repo": "odh-build-metadata",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": [],
+  "linting": {
+    "tools": [],
+    "notes": "No linter configuration found. This is a metadata-only repository storing Kubernetes manifests for operator builds. No code linting is applicable."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure found. This repository does not contain source code or tests. It is a storage repository for build metadata and Kubernetes manifests."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI configuration found. This repository is automatically updated by an external build system that commits metadata for each operator image build. Commits follow the pattern 'build-meta for operator image [hash]'."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system found. This repository stores pre-built artifacts (Kubernetes manifests) organized by image hash. Each hash directory contains manifests-config.yaml, operands-map.yaml, and approximately 1300 YAML manifest files."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Repository structure: components/odh-operator/[SHA256-hash]/. Each hash directory represents a specific operator image build and contains manifests and configuration mapping components to their source repositories and git commits."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "N/A - No container validation applicable. Repository contains only YAML manifests."
+  },
+  "validation": {
+    "results": [],
+    "summary": "No validation performed. Repository is metadata-only with no executable code, tests, or linters."
+  },
+  "gaps": [
+    "No source code - repository stores only build metadata and Kubernetes manifests",
+    "No tests - this is an artifact storage repository, not a development repository",
+    "No linters - no code to lint",
+    "No CI workflows - repository is updated automatically by external build system",
+    "No build process - manifests are pre-generated and committed",
+    "No development tooling (Makefile, package.json, pyproject.toml, etc.)",
+    "Repository purpose: stores snapshots of operator manifests and metadata for each operator image build"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

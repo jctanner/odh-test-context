@@ -1,0 +1,131 @@
+{
+  "repo": "workload-orchestration",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:41:00Z",
+  "languages": ["Shell", "YAML", "Markdown"],
+  "linting": {
+    "tools": [
+      {
+        "name": "yamllint",
+        "config_file": null,
+        "run_command": "yamllint demos/",
+        "fix_command": null,
+        "scope": "demos directory YAML files"
+      },
+      {
+        "name": "shellcheck",
+        "config_file": null,
+        "run_command": "shellcheck hack/update_readme/update-readme.sh",
+        "fix_command": null,
+        "scope": "shell script validation"
+      }
+    ],
+    "notes": "No linting configuration files present. yamllint and shellcheck can be used but are not configured in the repository. yamllint found style warnings (missing document-start markers) but no syntax errors."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test suite found. This is a documentation/demo repository containing Kueue examples and an update-readme script. No automated tests are present."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No GitHub Actions workflows, no other CI systems detected."
+  },
+  "build": {
+    "system": "make",
+    "install_command": "apk add --no-cache make findutils grep sed gawk",
+    "build_command": "make update-readme",
+    "notes": "Single Makefile target 'update-readme' that syncs YAML content into README files. This is a maintenance/documentation tool, not a build in the traditional sense."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Demo structure: demos/{demo-name}/README.md contains documentation, demos/{demo-name}/resources/ contains Kubernetes YAML manifests. READMEs embed YAML content using markers <!-- YAML-START: path --> / <!-- YAML-END -->. The update-readme.sh script keeps these in sync."
+  },
+  "container_recipe": {
+    "base_image": "bash:latest (Alpine-based, GNU bash 5.3.9)",
+    "system_deps": ["make", "findutils", "grep", "sed", "gawk", "python3", "py3-pip"],
+    "setup_commands": [
+      "apk add --no-cache make findutils grep sed gawk",
+      "apk add --no-cache python3 py3-pip",
+      "pip3 install --break-system-packages yamllint"
+    ],
+    "lint_commands": [
+      {
+        "command": "bash -n hack/update_readme/update-readme.sh",
+        "validated": true,
+        "notes": "Shell syntax validation passed"
+      },
+      {
+        "command": "yamllint demos/",
+        "validated": true,
+        "notes": "YAML validation found style warnings (missing document-start markers) but no errors. Exit code 0."
+      }
+    ],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "The primary validation is running 'make update-readme' to ensure the script executes successfully. No formal test suite exists."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apk add --no-cache make findutils grep sed gawk",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(1/6) Installing findutils (4.10.0-r0)\n(2/6) Installing gawk (5.3.2-r2)\n(3/6) Installing pcre2 (10.47-r0)\n(4/6) Installing grep (3.12-r0)\n(5/6) Installing make (4.4.1-r3)\n(6/6) Installing sed (4.9-r2)",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "build",
+        "command": "make update-readme",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "YAML_FILE_PATHS_WITH_INDEX=\"demos/preemption_fairness/resources/team-a-ns.yaml ...\"\nExit code: 0",
+        "notes": "Script executed successfully, processing 24 YAML files across 3 demos"
+      },
+      {
+        "step": "lint",
+        "command": "bash -n hack/update_readme/update-readme.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Syntax OK",
+        "notes": "Shell script syntax validation passed"
+      },
+      {
+        "step": "lint",
+        "command": "yamllint demos/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "yamllint 1.38.0\ndemos/preemption_fairness/resources/default-flavor.yaml\n  1:1       warning  missing document start \"---\"  (document-start)\n...",
+        "notes": "Found style warnings (missing document-start markers, comment spacing) but no syntax errors"
+      }
+    ],
+    "summary": "install OK, make update-readme OK, shell syntax OK, yamllint OK (warnings only)"
+  },
+  "gaps": [
+    "No test suite - repository contains only documentation and demo manifests",
+    "No CI/CD configuration - no automated validation on pull requests",
+    "No linting configuration files - yamllint and shellcheck could be used but aren't configured",
+    "No contribution guidelines or development documentation",
+    "No way to validate that demos actually work (would require a Kubernetes cluster with Kueue installed)",
+    "No automated checks for YAML correctness beyond syntax validation"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

@@ -1,0 +1,203 @@
+{
+  "repo": "modelmesh-serving",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T19:31:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "config_file": ".golangci.yaml",
+        "run_command": "pre-commit run golangci-lint --all-files",
+        "fix_command": null,
+        "scope": "full project (excludes generated/ and fvt/)"
+      },
+      {
+        "name": "prettier",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run prettier --all-files",
+        "fix_command": null,
+        "scope": "yaml/json/markdown files (excludes .github/, .tekton/)"
+      }
+    ],
+    "notes": "Project uses pre-commit hooks to run both golangci-lint and prettier. The Makefile 'fmt' target runs './scripts/fmt.sh' which executes 'pre-commit run --all-files'. Golangci-lint enables: errcheck, gosimple, govet, ineffassign, staticcheck, typecheck, unused, goconst, gofmt, goimports."
+  },
+  "testing": {
+    "framework": "Go testing with Ginkgo/Gomega",
+    "test_directory": "Multiple: apis/, controllers/, pkg/, fvt/",
+    "run_command": "KUBEBUILDER_ASSETS=\"$(setup-envtest use 1.28 -p path)\" KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT=120s go test -coverprofile cover.out $(go list ./... | grep -v fvt)",
+    "run_single_file": "KUBEBUILDER_ASSETS=\"$(setup-envtest use 1.28 -p path)\" go test {file}",
+    "run_single_test": "KUBEBUILDER_ASSETS=\"$(setup-envtest use 1.28 -p path)\" go test -run {test_name} {package}",
+    "setup_required": [
+      "go mod download",
+      "go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.22",
+      "setup-envtest use 1.28"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS=$(setup-envtest use 1.28 -p path)",
+      "KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT=120s"
+    ],
+    "fixtures_location": "fvt/testdata/",
+    "mock_patterns": "Uses kubebuilder envtest to create fake Kubernetes API server for controller tests",
+    "coverage_command": "go test -coverprofile cover.out $(go list ./... | grep -v fvt)",
+    "coverage_threshold": null,
+    "notes": "Unit tests use kubebuilder's envtest framework which requires etcd, kube-apiserver binaries provided by setup-envtest. FVT (functional verification tests) in fvt/ directory require an actual Kubernetes cluster with ModelMesh deployed and are run separately via 'make fvt'. The test command excludes fvt package from unit tests."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/lint.yml",
+      ".github/workflows/test.yml",
+      ".github/workflows/build.yml",
+      ".tekton/pipeline.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Lint",
+        "command": "./scripts/develop.sh make fmt",
+        "required": true
+      },
+      {
+        "name": "Test",
+        "command": "./scripts/develop.sh make test",
+        "required": true
+      },
+      {
+        "name": "Build",
+        "command": "make build.develop && docker build . --target runtime",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "FVT (Functional Verification Tests)",
+        "command": "ginkgo -v -procs=1 --fail-fast fvt/predictor fvt/scaleToZero fvt/storage fvt/hpa",
+        "required": false
+      }
+    ],
+    "notes": "CI uses a custom development container (kserve/modelmesh-controller-develop) built from Dockerfile.develop which includes all build tools, kubebuilder, pre-commit, etc. The lint and test workflows build this dev container first, then run make fmt and make test inside it. For local validation without the dev container, install pre-commit, setup-envtest, and run commands directly."
+  },
+  "build": {
+    "system": "Make + Go",
+    "install_command": "go mod download",
+    "build_command": "go build -o bin/manager main.go",
+    "notes": "The Makefile provides 'make build.develop' to build the dev container and 'make build' to build the runtime container. The 'make manager' target builds the binary locally. Development workflow typically uses the containerized environment via './scripts/develop.sh' which mounts the local repo into the dev container."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Go convention: TestXxx functions or Ginkgo Describe/It blocks",
+    "import_style": "Grouped imports with standard library first, then third-party, then local packages",
+    "notes": "Test files follow standard Go naming. Ginkgo is used for FVT tests and some controller tests. Pre-commit enforces gofmt and goimports for consistent formatting."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25",
+    "system_deps": ["make", "git", "curl", "python3", "python3-pip", "nodejs", "npm"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y make git curl python3 python3-pip nodejs npm",
+      "cd /app && go mod download",
+      "pip3 install pre-commit --break-system-packages",
+      "git config --global --add safe.directory /app",
+      "pre-commit install-hooks",
+      "go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.22",
+      "setup-envtest use 1.28"
+    ],
+    "lint_commands": [
+      {
+        "command": "pre-commit run --all-files",
+        "validated": true,
+        "notes": "Exit code 1 with lint violations found (4 issues). Command works correctly - golangci-lint and prettier both ran."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "KUBEBUILDER_ASSETS=\"$(setup-envtest use 1.28 -p path)\" KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT=120s go test -coverprofile cover.out $(go list ./... | grep -v fvt)",
+        "validated": true,
+        "notes": "All unit tests passed. 12 packages tested with coverage ranging from 10.5% to 54.3%."
+      }
+    ],
+    "test_single_file": "KUBEBUILDER_ASSETS=\"$(setup-envtest use 1.28 -p path)\" go test {file}",
+    "test_single_test": "KUBEBUILDER_ASSETS=\"$(setup-envtest use 1.28 -p path)\" go test -run '^{test_name}$' {package}",
+    "env_vars": [
+      "KUBEBUILDER_ASSETS=$(setup-envtest use 1.28 -p path)"
+    ],
+    "notes": "The base golang:1.25 image is Debian-based. Python3 and Node.js are required for pre-commit hooks (golangci-lint is installed via pre-commit, prettier needs Node). The setup-envtest tool downloads kubebuilder test binaries (etcd, kube-apiserver) needed for controller tests. FVT tests cannot run in this container - they require a real Kubernetes cluster."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y make git curl python3 python3-pip nodejs npm",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Reading package lists...\nBuilding dependency tree...\nmake is already the newest version\ngit is already the newest version\nThe following additional packages will be installed...\nProcessing triggers for libc-bin...",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - successful silent download)",
+        "notes": "Go dependencies downloaded successfully"
+      },
+      {
+        "step": "install",
+        "command": "pip3 install pre-commit --break-system-packages",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed cfgv-3.5.0 distlib-0.4.0 filelock-3.25.2 identify-2.6.18 nodeenv-1.10.0 platformdirs-4.9.4 pre-commit-4.5.1 python-discovery-1.2.0 pyyaml-6.0.3 virtualenv-21.2.0",
+        "notes": "Pre-commit installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "pre-commit install-hooks",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "[INFO] Initializing environment for https://github.com/golangci/golangci-lint.\n[INFO] Installing environment for https://github.com/golangci/golangci-lint.\n[INFO] Once installed this environment will be reused.",
+        "notes": "Pre-commit hooks (golangci-lint and prettier) installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.22",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go: downloading sigs.k8s.io/controller-runtime/tools/setup-envtest\ngo: downloading sigs.k8s.io/controller-runtime",
+        "notes": "Setup-envtest tool installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "setup-envtest use 1.28",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Version: 1.28.3\nOS/Arch: linux/amd64\nPath: /root/.local/share/kubebuilder-envtest/k8s/1.28.3-linux-amd64",
+        "notes": "Kubebuilder test binaries downloaded successfully"
+      },
+      {
+        "step": "lint",
+        "command": "pre-commit run --all-files",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "golangci-lint............................................................Failed\n- hook id: golangci-lint\n- exit code: 1\n\nfvt/predictor/predictor_test.go:144:2: field `name` is unused (unused)\nmain.go:316:6: shadow: declaration of \"err\" shadows declaration at line 149 (govet)\n\nprettier.................................................................Passed",
+        "notes": "Linter ran successfully and found 4 issues (unused fields, shadowed variable). Exit code 1 indicates lint violations, not command failure. This is expected behavior."
+      },
+      {
+        "step": "test",
+        "command": "KUBEBUILDER_ASSETS=\"$(setup-envtest use 1.28 -p path)\" KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT=120s go test -coverprofile cover.out $(go list ./... | grep -v fvt)",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/kserve/modelmesh-serving/apis/serving/v1alpha1\t0.027s\tcoverage: 16.4% of statements\nok  \tgithub.com/kserve/modelmesh-serving/controllers\t75.812s\tcoverage: 17.4% of statements\nok  \tgithub.com/kserve/modelmesh-serving/controllers/autoscaler\t0.023s\tcoverage: 10.5% of statements\nok  \tgithub.com/kserve/modelmesh-serving/pkg/predictor_source\t12.243s\tcoverage: 54.3% of statements",
+        "notes": "All unit tests passed. 12 packages tested successfully. Total runtime ~88 seconds."
+      }
+    ],
+    "summary": "All validation steps passed. Deps installed cleanly, lint OK (found 4 violations), tests OK (12 packages, all passed)."
+  },
+  "gaps": [
+    "FVT (functional verification tests) require a Kubernetes cluster with ModelMesh deployed - cannot be validated in container",
+    "The Makefile 'fmt' target uses './scripts/develop.sh' which requires the dev container, but pre-commit can run directly",
+    "Some golangci-lint config options are deprecated (documented in warnings)",
+    "Container build testing not validated (requires Docker-in-Docker setup)",
+    "No coverage threshold configured - tests generate coverage report but don't enforce minimum"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

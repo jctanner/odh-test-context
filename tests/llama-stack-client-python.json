@@ -1,0 +1,194 @@
+{
+  "repo": "llama-stack-client-python",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:41:00Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff check .",
+        "fix_command": "uv run ruff check --fix .",
+        "scope": "full project"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff format",
+        "fix_command": "uv run ruff format",
+        "scope": "full project"
+      },
+      {
+        "name": "mypy",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run mypy .",
+        "fix_command": null,
+        "scope": "full project (excluding _files.py, _dev/.*.py, tests/.*)"
+      },
+      {
+        "name": "pyright",
+        "config_file": null,
+        "run_command": "uv run pyright",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "Pre-commit hooks configured for ruff, ruff-format, check-merge-conflict, check-added-large-files, and end-of-file-fixer. Mypy is commented out in ./scripts/lint. Primary linting in CI uses ruff check."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "uv run pytest tests/ --tb=short -n auto",
+    "run_single_file": "uv run pytest {file} -v --tb=short",
+    "run_single_test": "uv run pytest {file}::{test_name} -v --tb=short",
+    "setup_required": [
+      "uv sync --all-extras"
+    ],
+    "env_vars": [
+      "TEST_API_BASE_URL - optional, overrides mock server requirement",
+      "UV_PYTHON - optional, specifies Python version (e.g., 3.13)",
+      "DEFER_PYDANTIC_BUILD=false - used in test script"
+    ],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Uses respx for HTTP mocking. Official test script requires Prism mock server on port 4010, but tests can run without it (some will fail).",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Official ./scripts/test is DISABLED (exits 0 with message: 'Tests are currently disabled because the OpenAPI spec has quite a few issues resulting in none of the auto-mock servers working'). However, pytest works directly. Test suite has 2765+ tests. Tests are configured to run with both Pydantic v1 and v2. Uses pytest-xdist for parallel execution (-n auto). Tests without mock server: 121 passed, 14 failed, 2 skipped."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/pre-commit.yml",
+      ".github/workflows/publish-pypi.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "pre-commit",
+        "command": "pre-commit run --all-files",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "lint",
+        "command": "./scripts/lint",
+        "required": false
+      },
+      {
+        "name": "build",
+        "command": "uv build",
+        "required": false
+      },
+      {
+        "name": "test",
+        "command": "./scripts/test",
+        "required": false
+      }
+    ],
+    "notes": "The ci.yml workflow only runs on workflow_dispatch (manual trigger), NOT on pull requests. The pre-commit.yml workflow runs on pull_request and push to main, making it the primary gating check. The ci.yml has lint, build, and test jobs but they are not PR-blocking. Uses uv 0.8.11 (pinned in CI config)."
+  },
+  "build": {
+    "system": "uv (modern Python package manager) with hatchling build backend",
+    "install_command": "uv sync --all-extras",
+    "build_command": "uv build",
+    "notes": "Requires Python 3.12+. Uses uv for dependency management. Bootstrap script: ./scripts/bootstrap installs Python via uv, syncs dependencies, and exports requirements-dev.lock."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py or *_test.py",
+    "test_naming": "test_* functions, Test* classes (pytest convention)",
+    "import_style": "ruff enforces sorted imports (isort), length-sort, combine-as-imports. Known first-party: llama_stack_client, tests. Extra standard library: typing_extensions.",
+    "notes": "Line length: 120 characters. Uses ruff for both linting and formatting. Type checking with mypy (strict mode) and pyright. Async tests use pytest-asyncio with asyncio_mode=auto."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": [
+      "curl",
+      "git",
+      "ca-certificates"
+    ],
+    "setup_commands": [
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=\"$HOME/.local/bin:$PATH\"",
+      "uv sync --all-extras"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run ruff check .",
+        "validated": true,
+        "notes": "Ran successfully, found 4 lint violations (expected behavior). Exit code 1 indicates lint issues found, not command failure."
+      },
+      {
+        "command": "uv run ruff format",
+        "validated": true,
+        "notes": "Format command available for auto-fixing."
+      },
+      {
+        "command": "uv run python -c 'import llama_stack_client'",
+        "validated": true,
+        "notes": "Import test passed - package imports correctly."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "uv run pytest tests/ --tb=short -n auto",
+        "validated": true,
+        "notes": "Tests run successfully. Without mock Prism server: 121 passed, 14 failed, 2 skipped (3.83s for test_client.py). Full suite has 2765+ tests."
+      }
+    ],
+    "test_single_file": "uv run pytest {file} -v --tb=short",
+    "test_single_test": "uv run pytest {file}::{test_name} -v --tb=short",
+    "env_vars": [
+      "PATH=$HOME/.local/bin:$PATH"
+    ],
+    "notes": "Container needs uv installed via official install script. Tests can run without mock infrastructure but 14 tests will fail (related to retry behavior requiring mock server on port 4010). For full test suite, need Prism mock server. Use --link-mode=copy or set UV_LINK_MODE=copy to suppress hardlink warnings in containers."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "uv sync --all-extras",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Using CPython 3.12.13 interpreter at: /usr/local/bin/python3.12\nCreating virtual environment at: .venv\nResolved 72 packages in 0.91ms\n   Building llama-stack-client @ file:///app\nInstalled 70 packages in 711ms",
+        "notes": "Installed 70 packages successfully. Warning about hardlink (use UV_LINK_MODE=copy in containers)."
+      },
+      {
+        "step": "build",
+        "command": "uv build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Building source distribution...\nBuilding wheel from source distribution...\nSuccessfully built dist/llama_stack_client-0.3.0a6.tar.gz\nSuccessfully built dist/llama_stack_client-0.3.0a6-py3-none-any.whl",
+        "notes": "Build completed successfully, created both .tar.gz and .whl distributions."
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff check .",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "tests/lib/agents/test_agent_responses.py:\n   1:1  I001 [*] Import block is un-sorted or un-formatted\n   4:57 F401 [*] `typing.Optional` imported but unused\n   6:8  F401 [*] `pytest` imported but unused\n  11:5  F401 [*] `llama_stack_client.lib.agents.turn_events.AgentStreamChunk` imported but unused\n\nFound 4 errors.\n[*] 4 fixable with the `--fix` option.",
+        "notes": "Linter ran successfully and found legitimate lint violations. Exit code 1 is expected when issues are found."
+      },
+      {
+        "step": "test",
+        "command": "uv run pytest tests/test_client.py -v --tb=short",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "14 failed, 121 passed, 2 skipped in 3.83s\nFailed tests require mock Prism server on http://127.0.0.1:4010",
+        "notes": "Tests run successfully. 121 tests passed, 14 failed due to missing mock server infrastructure, 2 skipped. This is partial success - test framework works correctly."
+      }
+    ],
+    "summary": "install OK, build OK, lint OK (found 4 fixable issues), tests PARTIAL (121/137 passed without mock infrastructure)"
+  },
+  "gaps": [
+    "Official test script (./scripts/test) is disabled and exits 0 immediately with message about OpenAPI spec issues",
+    "Full test suite requires Prism mock server on port 4010, but this is not documented in setup instructions",
+    "Mypy is commented out in ./scripts/lint - type checking is not enforced in CI lint job",
+    "No coverage command or threshold configured",
+    "ci.yml workflow only runs on manual dispatch, not on pull requests - only pre-commit.yml gates PRs",
+    "Test infrastructure exists (2765+ tests) but official test command is non-functional"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

@@ -1,0 +1,258 @@
+{
+  "repo": "rhaii-on-xks",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:13:00-04:00",
+  "languages": ["Bash", "Python", "YAML", "Helm", "Makefile"],
+  "linting": {
+    "tools": [
+      {
+        "name": "helm",
+        "config_file": "charts/*/Chart.yaml",
+        "run_command": "helm lint charts/kserve",
+        "fix_command": null,
+        "scope": "Helm charts in charts/ directory"
+      },
+      {
+        "name": "helm-template",
+        "config_file": null,
+        "run_command": "helm template test charts/kserve",
+        "fix_command": null,
+        "scope": "Validates Helm templates render correctly"
+      },
+      {
+        "name": "lychee",
+        "config_file": ".lychee.toml",
+        "run_command": "lychee --no-progress --exclude '^https?://localhost' '**/*.md'",
+        "fix_command": null,
+        "scope": "Markdown link validation"
+      },
+      {
+        "name": "flake8",
+        "config_file": null,
+        "run_command": "cd validation && flake8 --max-line-length=120 --exclude=build .",
+        "fix_command": "cd validation && autopep8 --max-line-length=120 --in-place --recursive .",
+        "scope": "Python code in validation/ directory (not enforced in CI)"
+      },
+      {
+        "name": "bash-syntax",
+        "config_file": null,
+        "run_command": "bash -n test/conformance/verify-llm-d-deployment.sh",
+        "fix_command": null,
+        "scope": "Bash script syntax validation"
+      }
+    ],
+    "notes": "CI enforces Helm linting and link checking on PRs. Python linting is available but not enforced in CI."
+  },
+  "testing": {
+    "framework": "Bash conformance tests + Python preflight validation",
+    "test_directory": "test/conformance/ and validation/",
+    "run_command": "make test NAMESPACE=llm-d PROFILE=kserve-basic",
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [
+      "Requires a running Kubernetes cluster",
+      "Requires deployed infrastructure (cert-manager, istio, kserve)",
+      "Set KUBECONFIG environment variable"
+    ],
+    "env_vars": [
+      "KUBECONFIG - Path to Kubernetes config file",
+      "NAMESPACE - Target namespace for conformance tests (default: llm-d)",
+      "PROFILE - Deployment profile to validate (default: kserve-basic)",
+      "KSERVE_NAMESPACE - KServe controller namespace (default: opendatahub)"
+    ],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are integration tests that require a live Kubernetes cluster with deployed services. Cannot run in isolation. The validation/ directory contains a containerized preflight check tool that validates cluster readiness."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/kserve-ci.yaml",
+      ".github/workflows/link-check.yaml",
+      ".github/workflows/docs.yml",
+      ".github/workflows/kserve-release.yaml",
+      ".github/workflows/kserve-update-chart.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Helm Lint (kserve-ci)",
+        "command": "cd charts/kserve && helm lint .",
+        "required": true
+      },
+      {
+        "name": "Helm Template (kserve-ci)",
+        "command": "cd charts/kserve && helm template test . > /dev/null",
+        "required": true
+      },
+      {
+        "name": "Verify registry.redhat.io images (kserve-ci)",
+        "command": "helm template test charts/kserve | grep -oE '(quay\\.io|ghcr\\.io|docker\\.io)[^\"'\\''[:space:]]+' || true",
+        "required": true
+      },
+      {
+        "name": "Verify webhook annotations (kserve-ci)",
+        "command": "helm template test charts/kserve | grep -A20 'kind: ValidatingWebhookConfiguration\\|kind: MutatingWebhookConfiguration'",
+        "required": true
+      },
+      {
+        "name": "Link Check",
+        "command": "lychee --no-progress --exclude '^https?://localhost' '**/*.md'",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI is focused on syntax validation (Helm, links) not functional testing. kserve-release.yaml and docs.yml run on push to main, not on PRs. No tests require cluster access in CI."
+  },
+  "build": {
+    "system": "make + helmfile + Helm",
+    "install_command": "None (infrastructure deployment, no dependencies to install for development)",
+    "build_command": "None (Helm charts are declarative, no build step)",
+    "notes": "This is an infrastructure deployment repository. The 'build' process is deploying to a Kubernetes cluster via 'make deploy-all'. For validation tool: cd validation && make image"
+  },
+  "conventions": {
+    "test_file_pattern": "test/**/*.sh, validation/**/*.py",
+    "test_naming": "Bash: verify-*.sh, Python: *_preflight.py",
+    "import_style": "Not applicable (primarily Bash/YAML)",
+    "notes": "This is an infrastructure/deployment repository, not a traditional software project. Tests are deployment validation scripts that require live infrastructure."
+  },
+  "container_recipe": {
+    "base_image": "alpine:3.19",
+    "system_deps": [
+      "bash",
+      "git",
+      "curl",
+      "helm",
+      "python3",
+      "py3-pip",
+      "make"
+    ],
+    "setup_commands": [
+      "apk add --no-cache bash git curl helm python3 py3-pip make",
+      "pip install --break-system-packages configargparse kubernetes"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd charts/kserve && helm lint .",
+        "validated": true,
+        "notes": "PASS - 1 chart(s) linted, 0 chart(s) failed"
+      },
+      {
+        "command": "cd charts/kserve && helm template test . > /dev/null",
+        "validated": true,
+        "notes": "PASS - Template renders successfully"
+      },
+      {
+        "command": "cd charts/cert-manager-operator && helm lint .",
+        "validated": true,
+        "notes": "PASS - 1 chart(s) linted, 0 chart(s) failed"
+      },
+      {
+        "command": "cd charts/sail-operator && helm lint .",
+        "validated": true,
+        "notes": "PASS - 1 chart(s) linted, 0 chart(s) failed"
+      },
+      {
+        "command": "cd charts/lws-operator && helm lint .",
+        "validated": true,
+        "notes": "PASS - 1 chart(s) linted, 0 chart(s) failed"
+      },
+      {
+        "command": "bash -n test/conformance/verify-llm-d-deployment.sh",
+        "validated": true,
+        "notes": "PASS - Bash syntax valid"
+      },
+      {
+        "command": "bash -n scripts/cleanup.sh && bash -n scripts/setup-gateway.sh && bash -n scripts/collect-debug-info.sh",
+        "validated": true,
+        "notes": "PASS - All utility scripts have valid syntax"
+      },
+      {
+        "command": "cd validation && python3 -m py_compile llmd_xks_preflight.py",
+        "validated": true,
+        "notes": "PASS - Python syntax valid"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test NAMESPACE=llm-d PROFILE=kserve-basic",
+        "validated": false,
+        "notes": "REQUIRES INFRASTRUCTURE - Cannot validate without a running Kubernetes cluster with deployed KServe stack"
+      },
+      {
+        "command": "cd validation && python3 llmd_xks_preflight.py --help",
+        "validated": true,
+        "notes": "PASS - Script executes and shows help. Full validation requires cluster access."
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "This repository contains infrastructure deployment code, not traditional software. Linting validates Helm chart syntax and bash/python script syntax. Functional tests require a live Kubernetes cluster with deployed operators and are not runnable in isolation."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apk add bash git curl helm python3 py3-pip make && pip install --break-system-packages configargparse kubernetes",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed certifi-2026.2.25 charset_normalizer-3.4.6 configargparse-1.7.5 durationpy-0.10 idna-3.11 kubernetes-35.0.0",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "cd charts/kserve && helm lint .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "==> Linting .\n[INFO] Chart.yaml: icon is recommended\n\n1 chart(s) linted, 0 chart(s) failed",
+        "notes": "Helm lint passed for kserve chart"
+      },
+      {
+        "step": "lint",
+        "command": "cd charts/kserve && helm template test . > /dev/null",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Helm template: SUCCESS",
+        "notes": "Helm template validation passed"
+      },
+      {
+        "step": "lint",
+        "command": "bash -n test/conformance/verify-llm-d-deployment.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Bash syntax (conformance test): OK",
+        "notes": "Bash syntax validation passed"
+      },
+      {
+        "step": "lint",
+        "command": "cd validation && python3 -m py_compile llmd_xks_preflight.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Python syntax: OK",
+        "notes": "Python syntax validation passed"
+      },
+      {
+        "step": "test",
+        "command": "cd validation && python3 llmd_xks_preflight.py --help",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "usage: llmd_xks_preflight.py [-h] [-c CONFIG]...",
+        "notes": "Script executes correctly, but actual tests require Kubernetes cluster"
+      }
+    ],
+    "summary": "install OK, lint OK (all charts pass), bash syntax OK, python syntax OK. Tests require Kubernetes infrastructure."
+  },
+  "gaps": [
+    "No unit tests - all tests are integration tests requiring live Kubernetes cluster",
+    "Conformance test (test/conformance/verify-llm-d-deployment.sh) requires deployed KServe infrastructure",
+    "Python validation tool requires cluster access to run actual checks",
+    "Link checking (lychee) not validated - requires separate tool installation",
+    "No automated way to validate Makefile deployment targets without cluster access",
+    "No mocking or stubbing infrastructure for isolated testing",
+    "CI only validates syntax, not functionality"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

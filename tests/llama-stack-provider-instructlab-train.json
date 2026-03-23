@@ -1,0 +1,157 @@
+{
+  "repo": "llama-stack-provider-instructlab-train",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:49:28-04:00",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "version": "0.9.4",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff check .",
+        "fix_command": "ruff check --fix .",
+        "scope": "full project"
+      },
+      {
+        "name": "ruff-format",
+        "version": "0.9.4",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff format --check .",
+        "fix_command": "ruff format .",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Ruff configuration is minimal in pyproject.toml, only excludes *.ipynb files. Pre-commit hooks enforce both ruff linting and formatting on every commit."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No unit tests found in the repository. The project only has an integration test in CI that starts a Llama Stack server and verifies the InstructLab Train provider loads correctly. This integration test requires the full Llama Stack environment and cannot be run in isolation."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/pre-commit.yml", ".github/workflows/test-external-providers.yml"],
+    "gating_checks": [
+      {
+        "name": "pre-commit",
+        "command": "pre-commit run --all-files",
+        "required": true
+      },
+      {
+        "name": "test-external-providers",
+        "command": "uv sync && uv pip install -e . && LLAMA_STACK_LOG_FILE=server.log nohup uv run llama stack run run.yaml --image-type venv &",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "The pre-commit workflow (Python 3.11) runs on all PRs and pushes to main. The test-external-providers workflow (Python 3.10) starts the Llama Stack server in background and verifies the InstructLab Train provider is loaded by checking server logs and health endpoint. Both are gating checks for pull requests."
+  },
+  "build": {
+    "system": "uv",
+    "install_command": "uv sync",
+    "build_command": null,
+    "notes": "Project uses uv package manager. The pyproject.toml includes a git dependency (llama-stack from GitHub) which requires git access. Installation command is 'uv sync' followed by 'uv pip install -e .' for editable install. No build step required as this is a pure Python package."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": "Standard Python imports",
+    "notes": "No test files present to determine testing conventions. Source code is organized under src/llama_stack_provider_instructlab_train/ directory. Provider configuration is in providers.d/inline/post_training/instructlab_train.yaml."
+  },
+  "container_recipe": {
+    "base_image": "python:3.10",
+    "system_deps": ["git", "curl", "ca-certificates"],
+    "setup_commands": [
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=\"/root/.local/bin:$PATH\"",
+      "uv pip install ruff==0.9.4"
+    ],
+    "lint_commands": [
+      {
+        "command": "ruff check .",
+        "validated": true,
+        "notes": "Exit code 0, all checks passed"
+      },
+      {
+        "command": "ruff format --check .",
+        "validated": true,
+        "notes": "Exit code 0, 4 files already formatted"
+      },
+      {
+        "command": "pre-commit run --all-files",
+        "validated": true,
+        "notes": "Exit code 0, all hooks passed (check-merge-conflict, trailing-whitespace, check-added-large-files, end-of-file-fixer, ruff, ruff-format)"
+      }
+    ],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "Full dependency installation with 'uv sync' fails due to git dependency authentication requirement (llama-stack from private/fork repo). However, linting can be validated by installing ruff directly. The integration test requires a running Llama Stack server and cannot be validated in isolation."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "uv sync",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "× Failed to download and build `llama-stack @ git+https://github.com/astefanutti/llama-stack.git@047a75f0846c34edf01acc5c5330af1db3687585`\n├─▶ Git operation failed\n├─▶ failed to clone into: /root/.cache/uv/git-v0/db/1847de05c9d554b0\n├─▶ failed to fetch commit `047a75f0846c34edf01acc5c5330af1db3687585`\n╰─▶ process didn't exit successfully: `/usr/bin/git fetch --force --update-head-ok 'https://github.com/astefanutti/llama-stack.git' '+047a75f0846c34edf01acc5c5330af1db3687585:refs/commit/047a75f0846c34edf01acc5c5330af1db3687585'` (exit status: 128)\n--- stderr\nfatal: could not read Username for 'https://github.com': terminal prompts disabled",
+        "notes": "Dependency installation failed due to git dependency requiring authentication. Workaround: install ruff directly for linting validation."
+      },
+      {
+        "step": "install-workaround",
+        "command": "uv pip install ruff==0.9.4",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Resolved 1 package in 165ms\nDownloading ruff (11.8MiB)\nDownloaded ruff\nPrepared 1 package in 312ms\nInstalled 1 package in 18ms\n+ ruff==0.9.4",
+        "notes": "Direct ruff installation successful, enables lint validation."
+      },
+      {
+        "step": "lint",
+        "command": "ruff check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Ruff linting passed with no issues found."
+      },
+      {
+        "step": "lint",
+        "command": "ruff format --check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "4 files already formatted",
+        "notes": "Ruff formatting check passed, all files properly formatted."
+      },
+      {
+        "step": "lint",
+        "command": "pre-commit run --all-files",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "check for merge conflicts................................................Passed\ntrim trailing whitespace.................................................Passed\ncheck for added large files..............................................Passed\nfix end of files.........................................................Passed\nruff.....................................................................Passed\nruff-format..............................................................Passed",
+        "notes": "Pre-commit hooks passed successfully after environment initialization."
+      }
+    ],
+    "summary": "Lint validation successful (ruff check OK, ruff format OK, pre-commit OK). No unit tests present. Dependency install requires git authentication workaround."
+  },
+  "gaps": [
+    "No unit tests - repository contains no pytest tests or test files",
+    "Full dependency installation requires git authentication for llama-stack fork",
+    "Integration test requires full Llama Stack server environment and cannot be run in isolation",
+    "No test coverage configuration or reporting",
+    "No documented testing strategy or test guidelines",
+    "Integration test is the only form of validation, which tests end-to-end functionality but not individual components"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

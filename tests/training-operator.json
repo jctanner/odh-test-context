@@ -1,0 +1,307 @@
+{
+  "repo": "training-operator",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:36:00-04:00",
+  "languages": ["Go", "Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "golangci-lint",
+        "config_file": null,
+        "run_command": "make golangci-lint",
+        "fix_command": "golangci-lint run --fix --timeout 5m --go 1.23 ./...",
+        "scope": "full project",
+        "notes": "Makefile installs v1.61.0 if not present. Currently fails on generated client code in pkg/client/applyconfiguration/ - may need make generate first."
+      },
+      {
+        "name": "flake8",
+        "config_file": ".flake8",
+        "run_command": "flake8 sdk/python/",
+        "fix_command": null,
+        "scope": "Python SDK only",
+        "notes": "Config: max-line-length=100, extend-ignore=W503"
+      },
+      {
+        "name": "black",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "black --check sdk/python/",
+        "fix_command": "black sdk/python/",
+        "scope": "Python SDK only",
+        "notes": "Version 24.2.0 specified in pre-commit config"
+      },
+      {
+        "name": "isort",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "isort --check --profile black sdk/python/",
+        "fix_command": "isort --profile black sdk/python/",
+        "scope": "Python SDK only",
+        "notes": "Uses black-compatible profile"
+      },
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": "pre-commit run --all-files",
+        "scope": "full project",
+        "notes": "Runs check-yaml, check-json, end-of-file-fixer, trailing-whitespace, isort, black, flake8. Excludes generated files."
+      }
+    ],
+    "notes": "Go linting requires go mod download first. Python linting is isolated to sdk/python/. pre-commit hooks gate PRs."
+  },
+  "testing": {
+    "framework": "Go testing + pytest",
+    "test_directory": "Go: *_test.go throughout pkg/; Python: sdk/python/test/",
+    "run_command": "Go: make test; Python: pytest ./sdk/python/kubeflow/training/api/training_client_test.py",
+    "run_single_file": "Go: go test {file}; Python: pytest {file}",
+    "run_single_test": "Go: go test -run {TestName} {package}; Python: pytest {file}::{test_name}",
+    "setup_required": [
+      "go mod download",
+      "go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.19",
+      "pip install pytest python-dateutil urllib3 kubernetes"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS=$(setup-envtest use 1.31 -p path) - required for Go tests",
+      "PYTHONPATH=/app/sdk/python - needed if SDK not installed via pip"
+    ],
+    "fixtures_location": "sdk/python/test/conftest.py for pytest fixtures",
+    "mock_patterns": "Python tests use unittest.mock, Go tests use testify/mock",
+    "coverage_command": "Go: go test -coverprofile cover.out {packages}; Python: pytest --cov",
+    "coverage_threshold": null,
+    "notes": "Go tests validate controller logic with envtest (simulated k8s API). Python unit tests mock Kubernetes client. E2E tests (sdk/python/test/e2e/) require real Kubernetes cluster with kind."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/test-go.yaml",
+      ".github/workflows/unittests.yaml",
+      ".github/workflows/test-python.yaml",
+      ".github/workflows/pre-commit.yaml",
+      ".github/workflows/integration-tests.yaml",
+      ".tekton/odh-training-operator-pull-request.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Go code generation check",
+        "command": "go mod tidy && make generate && make fmt && make vet && make golangci-lint",
+        "required": true,
+        "notes": "Workflow: test-go.yaml. Validates generated code is up to date."
+      },
+      {
+        "name": "Go unit tests",
+        "command": "make test ENVTEST_K8S_VERSION=1.31.0",
+        "required": true,
+        "notes": "Workflow: unittests.yaml. Matrix tests against k8s 1.28-1.31."
+      },
+      {
+        "name": "Python SDK tests",
+        "command": "pip install pytest python-dateutil urllib3 kubernetes && pip install -U './sdk/python[huggingface]' && pytest ./sdk/python/kubeflow/training/api/training_client_test.py",
+        "required": true,
+        "notes": "Workflow: test-python.yaml. Matrix tests Python 3.10, 3.11."
+      },
+      {
+        "name": "Pre-commit hooks",
+        "command": "pre-commit run --all-files",
+        "required": true,
+        "notes": "Workflow: pre-commit.yaml. Runs on PRs and main branch."
+      },
+      {
+        "name": "Integration tests",
+        "command": "pytest -s sdk/python/test/e2e --log-cli-level=debug --namespace=default",
+        "required": true,
+        "notes": "Workflow: integration-tests.yaml. Requires kind cluster, gang schedulers. Matrix tests k8s versions and schedulers."
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI also includes Tekton pipelines for OpenShift builds. Integration tests are gating but require cluster infrastructure (kind + gang schedulers). Semgrep security scanning configured in semgrep.yaml."
+  },
+  "build": {
+    "system": "make + go + pip",
+    "install_command": "Go: go mod download; Python: pip install -e './sdk/python'",
+    "build_command": "make build (produces bin/manager) or go build -o bin/manager cmd/training-operator.v1/main.go",
+    "notes": "Code generation via make generate. Docker build via make docker-build. Python SDK uses setup.py (older style). Huggingface extras (transformers, peft) add large dependencies."
+  },
+  "conventions": {
+    "test_file_pattern": "Go: *_test.go; Python: test_*.py",
+    "test_naming": "Go: Test* functions or Ginkgo Describe/It; Python: test_* functions",
+    "import_style": "Python: isort with black profile (grouped imports, sorted alphabetically)",
+    "notes": "Go uses standard Go conventions. Python follows black/isort standards. Generated code (pkg/client/, sdk/python/kubeflow/training/models/) excluded from linting."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25",
+    "system_deps": [
+      "make",
+      "git",
+      "curl",
+      "python3",
+      "python3-pip",
+      "python3-venv"
+    ],
+    "setup_commands": [
+      "go mod download",
+      "go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.19",
+      "pip3 install --break-system-packages pytest python-dateutil urllib3 kubernetes retrying setuptools"
+    ],
+    "lint_commands": [
+      {
+        "command": "go fmt ./...",
+        "validated": true,
+        "notes": "Exit 0. Found 1 file that would be formatted: pkg/controller.v1/mpi/mpijob_controller.go"
+      },
+      {
+        "command": "go vet ./...",
+        "validated": true,
+        "notes": "Exit 0. No issues found."
+      },
+      {
+        "command": "make golangci-lint",
+        "validated": false,
+        "notes": "Exit 1. Type errors in generated client code (pkg/client/applyconfiguration/). May need make generate to fix or exclude generated files."
+      },
+      {
+        "command": "flake8 sdk/python/kubeflow/training/api/",
+        "validated": true,
+        "notes": "Exit 0. No style violations."
+      },
+      {
+        "command": "black --check sdk/python/kubeflow/training/api/",
+        "validated": true,
+        "notes": "Exit 0. All files formatted correctly."
+      },
+      {
+        "command": "isort --check --profile black sdk/python/kubeflow/training/api/",
+        "validated": true,
+        "notes": "Exit 0. Imports sorted correctly."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "KUBEBUILDER_ASSETS=$(setup-envtest use 1.31 -p path) go test ./pkg/apis/kubeflow.org/v1/... ./pkg/cert/... ./pkg/common/... ./pkg/config/... ./pkg/controller.v1/... ./pkg/core/... ./pkg/util/... ./pkg/webhooks/... -coverprofile cover.out",
+        "validated": true,
+        "notes": "Exit 0. All tests passed. Multiple packages tested: jax (66.5% cov), mpi (77.7%), paddlepaddle (65.7%), pytorch (74.6%), tensorflow (79.9%), xgboost (66.2%), webhooks (66-76%)."
+      },
+      {
+        "command": "export PYTHONPATH=/app/sdk/python && pytest ./sdk/python/kubeflow/training/api/training_client_test.py -v",
+        "validated": true,
+        "notes": "Exit 0. 132 tests passed in 0.75s. Tests create_job, get_job, delete_job, wait_for_job_conditions, update_job, list_jobs, get_job_logs."
+      }
+    ],
+    "test_single_file": "Go: go test {file}; Python: pytest {file}",
+    "test_single_test": "Go: go test -run '{TestName}' {package}; Python: pytest {file}::{test_name} or pytest -k '{pattern}'",
+    "env_vars": [
+      "KUBEBUILDER_ASSETS=$(setup-envtest use 1.31 -p path)",
+      "PYTHONPATH=/app/sdk/python (if SDK not pip-installed)",
+      "PATH=/go/bin:$PATH (for setup-envtest binary)"
+    ],
+    "notes": "Python SDK editable install had issues; using PYTHONPATH workaround is more reliable. Installing sdk/python[huggingface] times out due to PyTorch (3GB+ download). For basic testing, huggingface extras not needed."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "EXIT_CODE=0",
+        "notes": "Go dependencies installed successfully."
+      },
+      {
+        "step": "lint",
+        "command": "go fmt ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "pkg/controller.v1/mpi/mpijob_controller.go",
+        "notes": "One file needs formatting but command succeeded."
+      },
+      {
+        "step": "lint",
+        "command": "go vet ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "EXIT_CODE=0",
+        "notes": "No vet issues found."
+      },
+      {
+        "step": "lint",
+        "command": "make golangci-lint",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "b.Kind undefined (type *MPIJobApplyConfiguration has no field or method Kind) (typecheck)\npkg/client/applyconfiguration/kubeflow.org/v1/mpijob.go:44:4: b.Kind undefined",
+        "notes": "golangci-lint fails on generated client code with type errors. Known issue with code generation."
+      },
+      {
+        "step": "test",
+        "command": "make test (via setup-envtest and go test)",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok github.com/kubeflow/training-operator/pkg/controller.v1/pytorch 31.736s coverage: 74.6%\nok github.com/kubeflow/training-operator/pkg/controller.v1/tensorflow 44.374s coverage: 79.9%",
+        "notes": "All Go unit tests passed. Coverage ranges 66-79% across packages."
+      },
+      {
+        "step": "install",
+        "command": "pip3 install pytest python-dateutil urllib3 kubernetes",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed certifi-2026.2.25 charset_normalizer-3.4.6 ... kubernetes-35.0.0 ... pytest-9.0.2",
+        "notes": "Python test dependencies installed successfully."
+      },
+      {
+        "step": "lint",
+        "command": "flake8 sdk/python/kubeflow/training/api/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "EXIT_CODE=0",
+        "notes": "No flake8 violations."
+      },
+      {
+        "step": "lint",
+        "command": "black --check sdk/python/kubeflow/training/api/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All done! ✨ 🍰 ✨\n3 files would be left unchanged.",
+        "notes": "Code is properly formatted with black."
+      },
+      {
+        "step": "lint",
+        "command": "isort --check --profile black sdk/python/kubeflow/training/api/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "EXIT_CODE=0",
+        "notes": "Imports properly sorted."
+      },
+      {
+        "step": "test",
+        "command": "pytest ./sdk/python/kubeflow/training/api/training_client_test.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================= 132 passed in 0.75s ==============================",
+        "notes": "All Python unit tests passed."
+      }
+    ],
+    "summary": "Go tests: OK (all passed, 66-79% coverage). Python tests: OK (132 passed). Go fmt/vet: OK. Python linting: OK (flake8/black/isort all pass). golangci-lint: FAILED on generated code."
+  },
+  "gaps": [
+    "golangci-lint fails on auto-generated client code (pkg/client/applyconfiguration/) - may need make generate first or the repo has known issues",
+    "Integration tests (sdk/python/test/e2e/) require Kubernetes cluster with kind and gang schedulers - cannot validate in basic container",
+    "E2E tests also require building and loading custom Docker images (JAX job example)",
+    "Python SDK editable install fails in container; PYTHONPATH workaround needed for tests",
+    "Installing sdk/python[huggingface] times out due to large PyTorch dependencies (3GB+)",
+    "No coverage threshold configured - coverage is tracked but not enforced",
+    "Pre-commit hooks not validated in container (would need pre-commit install)"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

@@ -1,0 +1,220 @@
+{
+  "repo": "opendatahub-tests",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T19:50:50-04:00",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff check .",
+        "fix_command": "uv run ruff check --fix .",
+        "scope": "full project"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff format --check .",
+        "fix_command": "uv run ruff format .",
+        "scope": "full project"
+      },
+      {
+        "name": "flake8",
+        "config_file": ".flake8",
+        "run_command": "uv run flake8 --config=.flake8",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "mypy",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run mypy --exclude '(docs/|.*test.*\\.py$|utilities/manifests/.*|utilities/plugins/tgis_grpc/.*)' .",
+        "fix_command": null,
+        "scope": "non-test code"
+      }
+    ],
+    "notes": "Pre-commit hooks configured with additional linters (detect-secrets, gitleaks, markdownlint, actionlint). Flake8 requires custom plugins from RedHatQE/flake8-plugins. Mypy currently has 18 type errors in utilities/*.py files."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests",
+    "run_command": "uv run pytest --collect-only",
+    "run_single_file": "uv run pytest {file}",
+    "run_single_test": "uv run pytest {file}::{test_name}",
+    "setup_required": [
+      "uv sync"
+    ],
+    "env_vars": [
+      "Tests require OpenShift/Kubernetes cluster access - most tests will skip without cluster"
+    ],
+    "fixtures_location": "tests/fixtures/, tests/conftest.py, conftest.py",
+    "mock_patterns": "Extensive pytest fixtures for cluster resources, namespaces, models, inference services",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are integration tests requiring OpenShift cluster. Without cluster, tests skip gracefully. Pytest markers: smoke, tier1, tier2, tier3, parallel, slow, pre_upgrade, post_upgrade, component markers (llama_stack, rag, model_explainability). Test collection works (711 tests collected, 131 deselected). Actual test execution requires: OpenDataHub/RHOAI operators, Kubernetes cluster, model servers, inference services."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/tox-tests.yml",
+      ".github/workflows/verify_build_container.yml",
+      ".github/workflows/workflow-review.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Tox Tests",
+        "command": "tox",
+        "required": true
+      },
+      {
+        "name": "Build Container",
+        "command": "make build",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Tox runs two environments: unused-code (checks for unused functions with pyutils-unusedcode) and pytest (validates test collection and setup plan). Pre-commit hooks enforce: conventional commits, signed-off-by, flake8, ruff, mypy, gitleaks, detect-secrets, markdownlint, actionlint. Both CI checks run on pull_request events (opened, synchronize, reopened)."
+  },
+  "build": {
+    "system": "uv + Makefile",
+    "install_command": "uv sync",
+    "build_command": "make build",
+    "notes": "Uses uv (modern Python package manager) instead of pip. Python 3.14 required. Dockerfile based on Fedora 43. System dependencies: python3, git, make, curl. Build creates container image with all dependencies."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/**/test_*.py",
+    "test_naming": "Test classes: TestClassName, test functions: test_function_name. Extensive use of pytest markers for categorization.",
+    "import_style": "Absolute imports preferred. Utilities in utilities/ directory provide helper functions.",
+    "notes": "Line length: 120 chars (ruff/flake8). Type hints enforced by mypy (strict settings). Conventional commit messages required. Signed-off-by required on all commits. Test markers document ownership and execution strategy."
+  },
+  "container_recipe": {
+    "base_image": "fedora:43",
+    "system_deps": [
+      "python3.14",
+      "python3-pip",
+      "git",
+      "make",
+      "curl"
+    ],
+    "setup_commands": [
+      "dnf install -y python3.14 python3-pip git make curl",
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=$HOME/.local/bin:$PATH",
+      "uv sync"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run ruff check .",
+        "validated": true,
+        "notes": "All checks passed"
+      },
+      {
+        "command": "uv run flake8 --config=.flake8",
+        "validated": true,
+        "notes": "Passed (requires flake8 plugins installation first)"
+      },
+      {
+        "command": "uv run mypy --exclude '(docs/|.*test.*\\.py$|utilities/manifests/.*|utilities/plugins/tgis_grpc/.*)' .",
+        "validated": true,
+        "notes": "Found 18 type errors in utilities/ - linter works correctly, code has type issues"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "uv run pytest --collect-only",
+        "validated": true,
+        "notes": "Collected 711 tests (131 deselected) in 4.49s"
+      },
+      {
+        "command": "uv run pytest --setup-plan",
+        "validated": true,
+        "notes": "82 skipped, 131 deselected - tests skip without cluster"
+      },
+      {
+        "command": "tox",
+        "validated": true,
+        "notes": "Both environments passed: unused-code (4.79s) + pytest (9.10s) = 14.51s total"
+      }
+    ],
+    "test_single_file": "uv run pytest {file}",
+    "test_single_test": "uv run pytest {file}::{test_name} -k {test_pattern}",
+    "env_vars": [
+      "UV_PYTHON=python3.14 (for uv)",
+      "PATH=$HOME/.local/bin:$PATH (for uv binaries)"
+    ],
+    "notes": "Tests require OpenShift/RHOAI cluster to actually run. Without cluster, test collection and validation work but tests skip. Flake8 requires: uv pip install flake8 'git+https://github.com/RedHatQE/flake8-plugins.git@v0.0.6' flake8-mutable. Mypy requires: uv pip install mypy types-PyYAML types-requests. Tox requires: uv pip install tox tox-uv python-utility-scripts."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "uv sync",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Resolved 207 packages in 1ms\nInstalled 202 packages in 3.25s",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Ruff linter passed"
+      },
+      {
+        "step": "lint",
+        "command": "uv run flake8 --config=.flake8",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "Flake8 passed"
+      },
+      {
+        "step": "lint",
+        "command": "uv run mypy --exclude '(docs/|.*test.*\\.py$|utilities/manifests/.*|utilities/plugins/tgis_grpc/.*)' .",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "Found 18 errors in 8 files (checked 37 source files)",
+        "notes": "Mypy found type errors - linter works, code has issues"
+      },
+      {
+        "step": "test",
+        "command": "uv run pytest --collect-only",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============== 711/842 tests collected (131 deselected) in 4.49s ===============",
+        "notes": "Test collection successful"
+      },
+      {
+        "step": "test",
+        "command": "uv run pytest --setup-plan",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "===================== 82 skipped, 131 deselected in 3.23s ======================",
+        "notes": "Test setup plan validated - tests skip without cluster"
+      },
+      {
+        "step": "test",
+        "command": "tox",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "unused-code: OK (5.39s)\npytest: OK (9.10s)\ncongratulations :) (14.51 seconds)",
+        "notes": "Both tox environments passed"
+      }
+    ],
+    "summary": "install OK, lint OK (ruff + flake8 pass, mypy finds 18 type errors), tests OK (collection works, 711 tests collected, skip without cluster)"
+  },
+  "gaps": [
+    "Tests require OpenShift/RHOAI cluster - cannot execute actual tests without cluster access",
+    "Mypy type checking finds 18 errors in utilities/ files - these should be fixed",
+    "No coverage reporting configured",
+    "Pre-commit hooks not validated in container (require git repo setup)",
+    "Flake8 requires custom plugin installation (not in standard dependencies)",
+    "No documentation on how to run specific test markers (smoke, tier1, etc.)",
+    "Tests depend on external infrastructure: model servers, inference services, operators"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

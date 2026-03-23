@@ -1,0 +1,165 @@
+{
+  "repo": "ai-edge",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:31:30Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "cd cli && go vet ./...",
+        "fix_command": null,
+        "scope": "cli directory"
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "cd cli && go fmt ./...",
+        "fix_command": "cd cli && go fmt ./...",
+        "scope": "cli directory"
+      }
+    ],
+    "notes": "No linter configuration files found (.golangci.yml, etc.). Standard Go tooling (go vet, go fmt) can be used. During validation, go vet found 8 issues with unkeyed struct fields, and go fmt found 1 file (cmd/main.go) needing formatting."
+  },
+  "testing": {
+    "framework": "Go testing + Tekton pipelines",
+    "test_directory": "cli/pkg/modelregistry (unit tests), test/e2e-tests/tests (e2e), test/shell-pipeline-tests (shell)",
+    "run_command": "cd cli && go test ./cmd/... ./... -v",
+    "run_single_file": "cd cli && go test {file} -v",
+    "run_single_test": "cd cli && go test {file} -run {test_name} -v",
+    "setup_required": [
+      "go mod download"
+    ],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": "Uses httptest.NewMockServer for HTTP mocking in cli/pkg/modelregistry/client_test.go",
+    "coverage_command": "cd cli && go test ./... -cover",
+    "coverage_threshold": null,
+    "notes": "Three test suites: (1) CLI unit tests work standalone and passed validation, (2) E2E tests require OpenShift cluster with Tekton pipelines installed and a config.json file (see test/e2e-tests/README.md), (3) Shell-based pipeline tests require OpenShift cluster with oc CLI and running pipelines. Only CLI unit tests can run in a standard container without cluster access."
+  },
+  "ci": {
+    "system": "None",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI configuration found. The .github/workflows/ directory does not exist. The test/e2e-tests/README.md explicitly states 'CI/CD with Github Actions: Not yet implemented'."
+  },
+  "build": {
+    "system": "Go modules + Make",
+    "install_command": "go mod download",
+    "build_command": "cd cli && go build -o odh ./cmd/main.go",
+    "notes": "Go 1.21.4 required (from cli/go.mod). Makefile provides targets: 'make cli-test' runs CLI unit tests, 'make cli-build' builds the CLI binary, 'make go-test' runs e2e tests (requires cluster), 'make test' runs all tests including shell scripts (requires cluster)."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Go standard: Test* functions for tests, lowercase test_* not used",
+    "import_style": "Standard Go import grouping: stdlib, external, internal",
+    "notes": "Standard Go project layout with cmd/ for CLI entry point, pkg/ for packages. Tests are colocated with source files."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.21",
+    "system_deps": ["make", "git"],
+    "setup_commands": [
+      "cd /app/cli && go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd /app/cli && go vet ./...",
+        "validated": true,
+        "notes": "FAIL: Found 8 issues with unkeyed struct fields in pkg/commands/images and pkg/commands/models"
+      },
+      {
+        "command": "cd /app/cli && go fmt ./...",
+        "validated": true,
+        "notes": "FAIL: Found 1 file needing formatting (cmd/main.go)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd /app/cli && go test ./cmd/... ./... -v",
+        "validated": true,
+        "notes": "PASS: 3 tests passed in pkg/modelregistry (TestClient_GetRegisteredModels with 3 subtests)"
+      },
+      {
+        "command": "cd /app && make cli-test",
+        "validated": true,
+        "notes": "PASS: Makefile target works, runs same tests as direct go test command"
+      },
+      {
+        "command": "cd /app/test/e2e-tests/tests && go test -timeout 60m -shuffle off",
+        "validated": true,
+        "notes": "FAIL: Requires config.json file and OpenShift cluster access. Panics with 'open ../config.json: no such file or directory'"
+      }
+    ],
+    "test_single_file": "cd /app/cli && go test {file} -v",
+    "test_single_test": "cd /app/cli && go test {file} -run {test_name} -v",
+    "env_vars": [],
+    "notes": "CLI unit tests work perfectly in a container without any external dependencies. E2E tests and shell tests require OpenShift cluster with Tekton pipelines, which cannot be containerized for validation. The CLI can be built successfully (59MB binary)."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "cd /app/cli && go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Downloaded all Go module dependencies successfully",
+        "notes": "Dependencies installed cleanly"
+      },
+      {
+        "step": "build",
+        "command": "cd /app/cli && go build -o odh ./cmd/main.go",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "-rwxr-xr-x. 1 root root 59M Mar 22 21:30 odh",
+        "notes": "Built 59MB CLI binary successfully"
+      },
+      {
+        "step": "lint",
+        "command": "cd /app/cli && go vet ./...",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "pkg/commands/images/images.go:64:11: struct literal uses unkeyed fields\npkg/commands/images/images.go:75:11: struct literal uses unkeyed fields\npkg/commands/images/images.go:84:11: struct literal uses unkeyed fields",
+        "notes": "Found 8 issues with unkeyed struct fields - legitimate lint violations, not a broken command"
+      },
+      {
+        "step": "lint",
+        "command": "cd /app/cli && go fmt ./...",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "cmd/main.go",
+        "notes": "Found 1 file needing formatting - legitimate formatting issue, not a broken command"
+      },
+      {
+        "step": "test",
+        "command": "cd /app/cli && go test ./cmd/... ./... -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "=== RUN   TestClient_GetRegisteredModels\n=== RUN   TestClient_GetRegisteredModels/no_models\n=== RUN   TestClient_GetRegisteredModels/one_model\n=== RUN   TestClient_GetRegisteredModels/many_models\n--- PASS: TestClient_GetRegisteredModels (0.00s)\nPASS\nok  \tgithub.com/opendatahub-io/ai-edge/cli/pkg/modelregistry\t0.004s",
+        "notes": "All 3 unit tests passed successfully"
+      },
+      {
+        "step": "test",
+        "command": "cd /app/test/e2e-tests/tests && go test -timeout 60m -shuffle off",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "panic: open ../config.json: no such file or directory\n\ngoroutine 1 [running]:\ngithub.com/opendatahub-io/ai-edge/test/e2e-tests/tests.init.0()\n\t/app/test/e2e-tests/tests/pipelines_test.go:34 +0x94\nexit status 2\nFAIL",
+        "notes": "Requires infrastructure: config.json file and OpenShift cluster with Tekton"
+      }
+    ],
+    "summary": "install OK, build OK (59MB binary), lint FAIL (8 vet issues, 1 fmt issue), CLI unit tests PASS (3/3), e2e tests FAIL (requires cluster)"
+  },
+  "gaps": [
+    "No CI/CD pipeline configured (GitHub Actions not implemented)",
+    "No linter configuration files (.golangci.yml or similar)",
+    "E2E tests require OpenShift cluster with Tekton pipelines installed",
+    "E2E tests require manual config.json setup with S3 credentials, image registry credentials, etc.",
+    "Shell-based pipeline tests require live OpenShift cluster with oc CLI",
+    "No coverage threshold configured or enforced",
+    "go vet currently finds 8 issues that should be fixed",
+    "go fmt currently finds 1 file that needs formatting"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

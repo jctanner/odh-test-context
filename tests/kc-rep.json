@@ -1,0 +1,75 @@
+{
+  "repo": "kc-rep",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:20:20Z",
+  "languages": ["YAML"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting tools configured. This is a configuration-only repository containing Tekton pipeline YAML files. No yamllint, pre-commit hooks, or other validation tools are present."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure exists. This is a configuration repository that stores Tekton/Konflux pipeline definitions for ODH components. There are no unit tests, integration tests, or any test framework."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/okc-replicator.yml"],
+    "gating_checks": [],
+    "advisory_checks": [
+      {
+        "name": "OKC Replicator",
+        "command": "Manual workflow_dispatch only - copies Tekton files to target repositories",
+        "required": false
+      }
+    ],
+    "notes": "The repository has a single GitHub Actions workflow 'okc-replicator.yml' that is manually triggered (workflow_dispatch). It copies Tekton configuration files from this central repository to target component repositories and updates version tags. This workflow does not perform any validation, linting, or testing - it only replicates configuration files."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system. This repository contains only YAML configuration files that are used as-is. There are no dependencies to install and nothing to compile or build."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "This repository follows a simple directory structure: each ODH component has its own subdirectory (e.g., 'data-science-pipelines/', 'odh-dashboard/') containing a '.tekton/' folder with Tekton PipelineRun YAML files. Files are named with pattern '{component-name}-push.yaml'."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No container validation performed. This is a configuration-only repository with no code to build or test. The only validation that could theoretically be performed is YAML syntax checking, but no such tooling is configured in the repository."
+  },
+  "validation": {
+    "results": [],
+    "summary": "Validation skipped - no test or lint infrastructure present in repository"
+  },
+  "gaps": [
+    "No linting tools configured (yamllint, pre-commit hooks, etc.)",
+    "No test infrastructure of any kind",
+    "No YAML schema validation for Tekton pipelines",
+    "No CI checks that validate YAML syntax or Tekton schema correctness",
+    "No automated validation of pull requests",
+    "Repository contains only configuration files - no executable code",
+    "The only GitHub Actions workflow is manually triggered and performs file replication without validation"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

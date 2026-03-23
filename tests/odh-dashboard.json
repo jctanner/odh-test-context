@@ -1,0 +1,191 @@
+{
+  "repo": "odh-dashboard",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:19:57Z",
+  "languages": ["TypeScript", "JavaScript", "Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ESLint",
+        "config_file": ".eslintrc.js (root), frontend/.eslintrc.js, backend/.eslintrc.js, packages/*/.eslintrc.js",
+        "run_command": "npm run lint",
+        "fix_command": "npm run test:fix",
+        "scope": "full project (monorepo with turbo)"
+      },
+      {
+        "name": "Prettier",
+        "config_file": ".prettierrc",
+        "run_command": "npm run format",
+        "fix_command": "npm run format",
+        "scope": "full project"
+      },
+      {
+        "name": "golangci-lint",
+        "config_file": "packages/*/bff/.golangci.yaml",
+        "run_command": "make lint (in each BFF directory)",
+        "fix_command": "make lint-fix",
+        "scope": "Go BFF services"
+      }
+    ],
+    "notes": "Monorepo uses Turbo for orchestration. ESLint uses custom @odh-dashboard/eslint-config. Lint produces 161 warnings but passes (warnings don't fail build)."
+  },
+  "testing": {
+    "framework": "Jest (unit tests), Cypress (e2e tests), Ginkgo/Gomega (Go tests)",
+    "test_directory": "**/__tests__/, frontend/src/__tests__/cypress/, packages/cypress/cypress/tests/",
+    "run_command": "npm run test-unit",
+    "run_single_file": "cd <workspace> && npm run test:jest -- <file>",
+    "run_single_test": "cd <workspace> && npm run test:jest -- -t '<test_name>'",
+    "setup_required": [
+      "npm install"
+    ],
+    "env_vars": [
+      "NODE_ENV=test (.env.test)",
+      "CY_MOCK=1 (for Cypress mocked tests)",
+      "ENVTEST_ASSETS (for Go BFF tests)"
+    ],
+    "fixtures_location": "__mocks__/ directories, packages/cypress/cypress/fixtures/",
+    "mock_patterns": "Jest manual mocks in __mocks__/, Cypress intercepts",
+    "coverage_command": "npm run test-unit-coverage",
+    "coverage_threshold": null,
+    "notes": "Monorepo with multiple test suites. Unit tests run via Turbo (npm run test-unit). Cypress tests require building static assets first (npm run cypress:server:build). Contract tests exist for BFF services (npm run test:contract). Go BFF services have their own test suites (make test in packages/*/bff)."
+  },
+  "ci": {
+    "system": "GitHub Actions, Tekton",
+    "config_files": [
+      ".github/workflows/test.yml",
+      ".github/workflows/modular-arch-quality-gates.yml",
+      ".github/workflows/*-bff-tests.yml",
+      ".tekton/*.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Lint",
+        "command": "NODE_OPTIONS=\"--max-old-space-size=8192\" npm run lint",
+        "required": true
+      },
+      {
+        "name": "Type-Check",
+        "command": "npm run type-check",
+        "required": true
+      },
+      {
+        "name": "Unit-Tests",
+        "command": "npm run test-unit-coverage",
+        "required": true
+      },
+      {
+        "name": "Contract-Tests",
+        "command": "npm run test:contract",
+        "required": true
+      },
+      {
+        "name": "Cypress-Mock-Tests",
+        "command": "npm run test:cypress-ci:coverage:nobuild -- --spec \"../packages/<spec>\"",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Modular Architecture Quality Gates",
+        "command": "Assessment of testing maturity per module",
+        "required": false
+      }
+    ],
+    "notes": "Main gating workflow is .github/workflows/test.yml which runs on push/pull_request. Requires Node 22.x. Uses Turbo cache. Go BFF services have separate workflows with golangci-lint. Tekton pipelines exist for deployment automation."
+  },
+  "build": {
+    "system": "npm, Turbo, Make (for containers and Go)",
+    "install_command": "npm install",
+    "build_command": "npm run build",
+    "notes": "Monorepo managed by npm workspaces + Turbo. Frontend uses Webpack for bundling. Backend is a Fastify Node.js server. BFF services are Go binaries built with make. Container images built with Dockerfile (multi-stage)."
+  },
+  "conventions": {
+    "test_file_pattern": "**/__tests__/**/*.{spec,test}.{ts,tsx,js} (Jest), **/*.cy.ts (Cypress), **/*_test.go (Go)",
+    "test_naming": "describe/it (Jest), cy.describe/cy.it (Cypress), Test* functions (Go)",
+    "import_style": "ES modules, absolute imports from @odh-dashboard/* packages, path aliases configured in tsconfig",
+    "notes": "Monorepo packages use @odh-dashboard/* namespace. Shared configs in packages/eslint-config, packages/jest-config, packages/tsconfig. Pre-commit hooks via Husky run lint-staged."
+  },
+  "container_recipe": {
+    "base_image": "node:22",
+    "system_deps": [
+      "make",
+      "git",
+      "curl"
+    ],
+    "setup_commands": [
+      "npm install"
+    ],
+    "lint_commands": [
+      {
+        "command": "npm run lint",
+        "validated": true,
+        "notes": "Passed with 161 warnings (non-fatal). Turbo orchestrates linting across all workspaces."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "npm run type-check",
+        "validated": false,
+        "notes": "Partial failure: @odh-dashboard/internal has type errors (missing type declarations for monaco-editor and @patternfly/react-topology). Other packages pass."
+      },
+      {
+        "command": "npm run test-unit",
+        "validated": true,
+        "notes": "Passed: 9 test suites successful (cached via Turbo). Tests run in parallel across workspaces."
+      }
+    ],
+    "test_single_file": "cd <workspace> && npm run test:jest -- <file>",
+    "test_single_test": "cd <workspace> && npm run test:jest -- -t '<test_name>'",
+    "env_vars": [
+      "NODE_ENV=test"
+    ],
+    "notes": "For Go BFF tests, need Go 1.24+ installed and additional dependencies (envtest, golangci-lint). Cypress tests require pre-built static assets. Container validation used Node 22.22.1 + npm 10.9.4."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "npm install",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "up to date, audited packages... (Turbo postinstall ran successfully)",
+        "notes": "Dependencies installed cleanly. Turbo postinstall ran install:module for nested packages."
+      },
+      {
+        "step": "lint",
+        "command": "npm run lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Tasks: 19 successful, 19 total (161 warnings found but non-fatal)",
+        "notes": "Lint passed with warnings. All 19 workspace packages linted successfully."
+      },
+      {
+        "step": "type-check",
+        "command": "npm run type-check",
+        "exit_code": 2,
+        "success": false,
+        "output_snippet": "ERROR: @odh-dashboard/internal#type-check exited (2). Type errors in frontend/src regarding monaco-editor and @patternfly/react-topology.",
+        "notes": "Type-check failed for 1 package (@odh-dashboard/internal). 5 packages cached/passed. Known issue with missing type declarations."
+      },
+      {
+        "step": "test",
+        "command": "npm run test-unit",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Tasks: 9 successful, 9 total. Test suites: 1 passed (per package), multiple packages tested.",
+        "notes": "Unit tests passed. Turbo cached results for some packages. Tests run in parallel."
+      }
+    ],
+    "summary": "install OK, lint OK (161 warnings), type-check PARTIAL (1 package failed), tests OK (9 suites passed)"
+  },
+  "gaps": [
+    "Type-check fails for @odh-dashboard/internal due to missing type declarations (monaco-editor, @patternfly/react-topology)",
+    "Cypress e2e tests require pre-built static assets and cannot run in basic validation without additional build steps",
+    "Go BFF tests require Go toolchain (1.24+) and envtest setup not included in Node container",
+    "Contract tests require Go setup and cannot be validated in Node-only environment",
+    "Some npm packages report security vulnerabilities (noted in install output)",
+    "Full CI validation requires external services/infrastructure not accessible in isolated container"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

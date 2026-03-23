@@ -1,0 +1,217 @@
+{
+  "repo": "base-images",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:36:00Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff check ci/ tests/",
+        "fix_command": "uv run ruff check --fix ci/ tests/",
+        "scope": "ci/ and tests/ directories"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff format --check ci/ tests/",
+        "fix_command": "uv run ruff format ci/ tests/",
+        "scope": "ci/ and tests/ directories"
+      },
+      {
+        "name": "pyright",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run pyright --pythonversion 3.12 ci/ tests/",
+        "fix_command": null,
+        "scope": "ci/ and tests/ directories"
+      },
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "PATH=/root/.local/bin:$PATH uv run pre-commit run --all-files",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "Linting is comprehensive with ruff (replaces flake8, isort, etc.), pyright for type checking, and pre-commit hooks. All tools configured in pyproject.toml with extensive rule selection."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "uv run pytest",
+    "run_single_file": "uv run pytest {file}",
+    "run_single_test": "uv run pytest {file}::{test_name}",
+    "setup_required": [
+      "uv sync --locked"
+    ],
+    "env_vars": [
+      "TESTCONTAINERS_RYUK_DISABLED=true (optional, for rootless podman)",
+      "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE (optional, auto-detected)"
+    ],
+    "fixtures_location": "tests/containers/conftest.py",
+    "mock_patterns": "Uses testcontainers for container-based testing, pyfakefs for filesystem mocking",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests use testcontainers library and require Docker/Podman. Tests are parametrized with --image flag to test actual container images. Without --image parameter, most tests are skipped. Test suite validates container images (base images for Jupyter notebooks, etc.). Tests require access to container runtime (Docker/Podman socket)."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/code-quality.yaml",
+      ".github/workflows/build-notebooks-pr.yaml",
+      ".github/workflows/build-notebooks-push.yaml",
+      ".github/workflows/security.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "check-generated-code",
+        "command": "bash ci/generate_code.sh && git status --porcelain",
+        "required": true
+      },
+      {
+        "name": "pytest-tests",
+        "command": "uv sync --locked && uv run pre-commit run --all-files && uv run pytest",
+        "required": true
+      },
+      {
+        "name": "code-static-analysis",
+        "command": "yamllint --strict --config-file ./ci/yamllint-config.yaml, bash ./ci/check-json.sh, hadolint Dockerfiles",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "security-trivy-scan",
+        "command": "trivy scan (filesystem)",
+        "required": false
+      }
+    ],
+    "notes": "Primary gating workflow is code-quality.yaml which runs on push, pull_request, and workflow_dispatch. Validates generated code is up-to-date, runs pre-commit hooks, pytest, and validates YAML/JSON/Dockerfiles. Build workflows handle container image building but are more complex."
+  },
+  "build": {
+    "system": "uv (Astral's Python package manager)",
+    "install_command": "uv sync --locked",
+    "build_command": "make all-images (for container images, not Python package)",
+    "notes": "Project uses uv instead of pip/poetry. No traditional Python package build - this repo builds container images. Use 'uv sync --locked' to install dev dependencies. Container images built via Makefile with podman/docker."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/**/*_test.py",
+    "test_naming": "test_* functions in Test* classes or standalone",
+    "import_style": "Absolute imports, grouped (stdlib, third-party, local)",
+    "notes": "Follows ruff's import sorting (I rule). Uses type hints with pyright checking. Tests organized in tests/containers/ for container-based tests."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12-bookworm",
+    "system_deps": ["curl", "git", "ca-certificates"],
+    "setup_commands": [
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=/root/.local/bin:$PATH",
+      "uv sync --locked"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run ruff check ci/ tests/",
+        "validated": true,
+        "notes": "Passed with 1 minor warning about invalid noqa comment"
+      },
+      {
+        "command": "uv run ruff format --check ci/ tests/",
+        "validated": true,
+        "notes": "All 20 files already formatted"
+      },
+      {
+        "command": "uv run pyright --pythonversion 3.12 ci/ tests/",
+        "validated": true,
+        "notes": "0 errors, 0 warnings"
+      },
+      {
+        "command": "PATH=/root/.local/bin:$PATH uv run pre-commit run --all-files",
+        "validated": true,
+        "notes": "All hooks passed (requires PATH adjustment for pyright hook)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "uv run pytest",
+        "validated": true,
+        "notes": "6 passed, 7 skipped (tests require --image parameter to test container images)"
+      }
+    ],
+    "test_single_file": "uv run pytest {file}",
+    "test_single_test": "uv run pytest {file}::{test_name}",
+    "env_vars": ["PATH=/root/.local/bin:$PATH"],
+    "notes": "UV must be in PATH for pre-commit hooks. Tests use testcontainers and require Docker/Podman runtime. Most image tests skip without --image=<container-image> parameter. Code generation script (scripts/dockerfile_fragments.py) runs cleanly."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "uv sync --locked",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Using CPython 3.12.13 interpreter at: /usr/local/bin/python3.12\nCreating virtual environment at: .venv\nResolved 94 packages in 0.63ms\n...\nInstalled 93 packages in 742ms",
+        "notes": "Installed 93 packages successfully including pytest, ruff, pyright, testcontainers, etc."
+      },
+      {
+        "step": "lint-ruff-check",
+        "command": "uv run ruff check ci/ tests/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "warning: Invalid rule code provided to `# ruff: noqa` at tests/containers/pydantic_schemas/podman_info.py:5: Variable\nAll checks passed!",
+        "notes": "Minor warning about noqa comment but all checks passed"
+      },
+      {
+        "step": "lint-ruff-format",
+        "command": "uv run ruff format --check ci/ tests/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "20 files already formatted",
+        "notes": "All files properly formatted"
+      },
+      {
+        "step": "lint-pyright",
+        "command": "uv run pyright --pythonversion 3.12 ci/ tests/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 errors, 0 warnings, 0 informations\nWARNING: there is a new pyright version available (v1.1.398 -> v1.1.408).",
+        "notes": "Type checking passed, pyright update available but not required"
+      },
+      {
+        "step": "lint-pre-commit",
+        "command": "PATH=/root/.local/bin:$PATH uv run pre-commit run --all-files",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "uv-lock..................................................................Passed\nruff.....................................................................Passed\nruff-format..............................................................Passed\nRun Pyright on all files.................................................Passed",
+        "notes": "All pre-commit hooks passed with PATH adjustment"
+      },
+      {
+        "step": "test",
+        "command": "uv run pytest",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================= test session starts ==============================\nplatform linux -- Python 3.12.13, pytest-8.3.4, pluggy-1.5.0\n...\n================== 6 passed, 7 skipped, 2 warnings in 11.48s ===================",
+        "notes": "Tests passed but 7 skipped because they require --image parameter to test container images. Test framework validated successfully."
+      },
+      {
+        "step": "codegen",
+        "command": "python3 scripts/dockerfile_fragments.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "Code generation script runs successfully, no files modified"
+      }
+    ],
+    "summary": "install OK, lint OK (ruff/pyright/pre-commit all passed), tests OK (6 passed, 7 skipped - require --image), codegen OK"
+  },
+  "gaps": [
+    "Tests require Docker/Podman runtime and actual container images to validate (--image parameter)",
+    "Most base_image_test.py tests skip without container images to test",
+    "No coverage configuration or coverage threshold defined",
+    "Pre-commit pyright hook requires PATH adjustment to find uv binary",
+    "Tests marked with @pytest.mark.openshift are not registered (unknown mark warning)",
+    "Some tests may require OpenShift cluster access (marked with openshift marker)"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

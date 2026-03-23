@@ -1,0 +1,218 @@
+{
+  "repo": "llama-stack-k8s-operator",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:48:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.8.0",
+        "config_file": ".golangci.yml",
+        "run_command": "make lint",
+        "fix_command": "make lint-fix",
+        "scope": "full project",
+        "notes": "Uses golangci-lint v2 with extensive linter configuration. Timeout set to 5m0s. Excludes test files and generated code from some checks."
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --show-diff-on-failure --color=always --all-files",
+        "fix_command": null,
+        "scope": "full project",
+        "notes": "Runs make lint, make generate manifests, make build-installer, make api-docs, plus standard pre-commit hooks"
+      }
+    ],
+    "notes": "Linting is enforced via pre-commit hooks and GitHub Actions. The make lint target invokes golangci-lint with a comprehensive configuration disabling ~30 overly strict linters while enabling all others."
+  },
+  "testing": {
+    "framework": "Go testing with testify, controller-runtime envtest",
+    "test_directory": "controllers/, pkg/, tests/e2e/",
+    "test_file_pattern": "*_test.go",
+    "run_command": "make test",
+    "run_single_file": "GOTOOLCHAIN=auto KUBEBUILDER_ASSETS=/app/bin/k8s/1.31.0-linux-amd64 go test {package}",
+    "run_single_test": "GOTOOLCHAIN=auto KUBEBUILDER_ASSETS=/app/bin/k8s/1.31.0-linux-amd64 go test {package} -run {test_name}",
+    "setup_required": [
+      "make manifests",
+      "make generate",
+      "make fmt",
+      "go vet ./...",
+      "setup-envtest use 1.31.0 --bin-dir ./bin -p path"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS=/app/bin/k8s/1.31.0-linux-amd64",
+      "GOTOOLCHAIN=auto"
+    ],
+    "fixtures_location": "controllers/suite_test.go sets up envtest environment",
+    "mock_patterns": "Uses controller-runtime envtest for Kubernetes API mocking",
+    "coverage_command": "make test (outputs cover.out)",
+    "coverage_threshold": "0% global (enforced via limgo config .limgo.json)",
+    "notes": "Unit tests use envtest which requires KUBEBUILDER_ASSETS. E2E tests (tests/e2e/) require a real Kubernetes cluster and are run separately via 'make test-e2e'. The make test target excludes e2e tests. Tests require Go 1.25.5+ with GOTOOLCHAIN=auto."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/pre-commit.yml",
+      ".github/workflows/code-coverage.yml",
+      ".github/workflows/run-e2e-test.yml",
+      ".tekton/llama-stack-k8s-operator-pull-request.yaml",
+      ".tekton/llama-stack-k8s-operator-push.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "pre-commit",
+        "command": "pre-commit run --show-diff-on-failure --color=always --all-files",
+        "required": true,
+        "trigger": "pull_request to main",
+        "notes": "Runs lint, generate manifests, build-installer, api-docs, and standard checks. Fails if there are uncommitted changes after pre-commit."
+      },
+      {
+        "name": "unit-tests",
+        "command": "make test",
+        "required": true,
+        "trigger": "pull_request to odh branch",
+        "notes": "Runs unit tests with coverage reporting via limgo. Coverage results uploaded as artifacts."
+      },
+      {
+        "name": "e2e-tests",
+        "command": "make test-e2e",
+        "required": true,
+        "trigger": "pull_request to main",
+        "notes": "Requires kind cluster with local registry. Deploys operator to cluster, runs ./hack/deploy-quickstart.sh for Ollama, then runs e2e tests with 30m timeout."
+      },
+      {
+        "name": "tekton-multi-arch-build",
+        "command": "multi-arch container build pipeline",
+        "required": true,
+        "trigger": "pull_request to odh branch",
+        "notes": "Tekton pipeline builds multi-arch container images via ODH Konflux central pipeline"
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Different CI workflows run for different branches: 'main' branch uses GitHub Actions for pre-commit and e2e tests, 'odh' branch uses GitHub Actions for coverage and Tekton for builds. E2E tests create a kind cluster, build and deploy the operator image, and run tests in tests/e2e/."
+  },
+  "build": {
+    "system": "Make + Go",
+    "install_command": "GOTOOLCHAIN=auto go mod download",
+    "build_command": "make build",
+    "notes": "Requires Go 1.25.5+. The Makefile provides comprehensive targets including build, image-build, deploy, test, lint, etc. Container builds use podman by default (CONTAINER_TOOL). Native multi-arch builds supported via make image-buildx."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Test* functions (Go convention). Uses testify for assertions. Subtests use t.Run() with descriptive names.",
+    "import_style": "Grouped imports: standard library, third-party, local packages. Enforced by gci linter via golangci-lint.",
+    "notes": "Controller-based operator using kubebuilder/operator-sdk patterns. API types in api/v1alpha1/, controllers in controllers/, shared packages in pkg/. Generated code in api/v1alpha1/zz_generated.deepcopy.go is excluded from linting."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.22",
+    "system_deps": ["make", "git", "curl"],
+    "setup_commands": [
+      "GOTOOLCHAIN=auto go mod download",
+      "make manifests",
+      "make generate"
+    ],
+    "lint_commands": [
+      {
+        "command": "make lint",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Passed with 0 issues. Downloads golangci-lint v2.8.0 and runs full lint check with 5m timeout."
+      },
+      {
+        "command": "go fmt ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "No formatting issues found."
+      },
+      {
+        "command": "go vet ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "No vet warnings."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make test",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All unit tests passed. Coverage: controllers 59.9%, pkg/compare 31.8%, pkg/deploy 47.1%, pkg/deploy/plugins 83.0%. Excludes e2e tests."
+      }
+    ],
+    "test_single_file": "GOTOOLCHAIN=auto KUBEBUILDER_ASSETS=/app/bin/k8s/1.31.0-linux-amd64 go test {package}",
+    "test_single_test": "GOTOOLCHAIN=auto KUBEBUILDER_ASSETS=/app/bin/k8s/1.31.0-linux-amd64 go test {package} -run {test_name}",
+    "env_vars": [
+      "GOTOOLCHAIN=auto",
+      "KUBEBUILDER_ASSETS=/app/bin/k8s/1.31.0-linux-amd64"
+    ],
+    "notes": "Go 1.25.5 is auto-downloaded by GOTOOLCHAIN=auto. The base golang:1.22 image works because GOTOOLCHAIN handles version switching. The make test target automatically downloads controller-gen, yq, envtest, and golangci-lint to ./bin/. KUBEBUILDER_ASSETS is set by make test but must be explicitly set for direct go test invocations."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "GOTOOLCHAIN=auto go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go: downloading go1.25.5 (linux/amd64)",
+        "notes": "Dependencies downloaded successfully. Go 1.25.5 auto-downloaded."
+      },
+      {
+        "step": "fmt",
+        "command": "go fmt ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "No formatting issues."
+      },
+      {
+        "step": "vet",
+        "command": "go vet ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "No vet warnings."
+      },
+      {
+        "step": "lint",
+        "command": "make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Downloading github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0\n...\n/app/bin/golangci-lint run --timeout=5m0s\n0 issues.",
+        "notes": "Lint passed with 0 issues. Downloaded golangci-lint v2.8.0 to ./bin/"
+      },
+      {
+        "step": "test",
+        "command": "make test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/llamastack/llama-stack-k8s-operator/controllers\t9.845s\tcoverage: 59.9% of statements\nok  \tgithub.com/llamastack/llama-stack-k8s-operator/pkg/cluster\t0.039s\tcoverage: 0.0% of statements\nok  \tgithub.com/llamastack/llama-stack-k8s-operator/pkg/compare\t0.017s\tcoverage: 31.8% of statements\nok  \tgithub.com/llamastack/llama-stack-k8s-operator/pkg/deploy\t5.897s\tcoverage: 47.1% of statements\nok  \tgithub.com/llamastack/llama-stack-k8s-operator/pkg/deploy/plugins\t0.025s\tcoverage: 83.0% of statements",
+        "notes": "All unit tests passed. Total test time ~16s. Coverage ranges from 0% (cluster pkg has no unit tests) to 83% (deploy/plugins)."
+      }
+    ],
+    "summary": "install OK, fmt OK, vet OK, lint OK (0 issues), tests OK (all packages passed, 31-83% coverage)"
+  },
+  "gaps": [
+    "E2E tests require Kubernetes cluster infrastructure (kind/OpenShift) and cannot be validated in a simple container",
+    "Pre-commit hooks require Python pre-commit tool installation which wasn't validated",
+    "Some packages have 0% test coverage (pkg/cluster, pkg/featureflags)",
+    "Container image build validation skipped (requires buildx/manifest tools)",
+    "The make test target downloads several tools (controller-gen, envtest, yq) on first run which adds ~30s overhead"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

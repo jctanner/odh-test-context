@@ -1,0 +1,197 @@
+{
+  "repo": "rag",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:09:57-04:00",
+  "languages": ["Python", "Go", "YAML/Kubernetes"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "version": "0.9.4",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": "ruff check --fix . && ruff format .",
+        "scope": "full project",
+        "direct_commands": {
+          "check": "ruff check .",
+          "format_check": "ruff format --check .",
+          "format_fix": "ruff format ."
+        }
+      },
+      {
+        "name": "pre-commit-hooks",
+        "version": "v5.0.0",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": null,
+        "scope": "full project",
+        "checks": [
+          "check-merge-conflict",
+          "trailing-whitespace",
+          "check-added-large-files",
+          "end-of-file-fixer",
+          "check-yaml",
+          "detect-private-key",
+          "requirements-txt-fixer",
+          "mixed-line-ending",
+          "check-executables-have-shebangs",
+          "check-json",
+          "check-shebang-scripts-are-executable"
+        ]
+      },
+      {
+        "name": "insert-license",
+        "version": "v1.5.4",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": null,
+        "scope": "Python and shell files"
+      },
+      {
+        "name": "blacken-docs",
+        "version": "1.19.0",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": null,
+        "scope": "Documentation files"
+      }
+    ],
+    "notes": "Ruff is configured via pre-commit hooks only (no standalone ruff.toml). Python version is pinned to 3.12. The no-commit-to-branch hook is skipped in CI via SKIP env var."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "NO TESTS EXIST. This is a demo/documentation repository with examples, benchmarks, and deployment guides. No test files, test directories, or test framework configuration found."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/pre-commit.yaml"],
+    "gating_checks": [
+      {
+        "name": "pre-commit",
+        "command": "pre-commit run --all-files",
+        "required": true,
+        "details": "Runs ruff, pre-commit hooks, license insertion, and various file checks. Verifies no uncommitted changes after pre-commit runs."
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on pull_request and push to main branch. Uses Python 3.12, caches pip dependencies. The no-commit-to-branch hook is skipped in CI via SKIP=no-commit-to-branch env var. RUFF_OUTPUT_FORMAT=github for proper PR annotations."
+  },
+  "build": {
+    "system": "make (demo-specific), pip, go build",
+    "install_command": "pip install pre-commit (for linting)",
+    "build_command": null,
+    "notes": "This is a demo/docs repository. Individual demos have requirements.txt files and some have Makefiles for deployment (e.g., demos/redbank-demo/Makefile). The Go component uses go.mod (Go 1.24.2). No unified build system for the entire repository. Demos are deployed to Kubernetes/OpenShift rather than being built as packages."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": "Enforced by ruff (default rules)",
+    "notes": "Python 3.12 is standard. Each demo must include README.md, DEPLOYMENT.md (or deployment section in README), and requirements.txt if needed. License headers are automatically inserted in .py and .sh files via pre-commit hook. Kubernetes manifests use kustomize in stack/ directory."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": ["git", "make"],
+    "setup_commands": [
+      "pip install pre-commit",
+      "pip install ruff==0.9.4"
+    ],
+    "lint_commands": [
+      {
+        "command": "pre-commit run --all-files",
+        "validated": true,
+        "notes": "SUCCESS - All checks passed except no-commit-to-branch (which is expected and skipped in CI)"
+      },
+      {
+        "command": "ruff check .",
+        "validated": true,
+        "notes": "SUCCESS - All checks passed!"
+      },
+      {
+        "command": "ruff format --check .",
+        "validated": true,
+        "notes": "SUCCESS - 41 files already formatted"
+      }
+    ],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": ["SKIP=no-commit-to-branch (to skip the no-commit-to-branch hook in CI)"],
+    "notes": "Git and make are already included in python:3.12 image. No tests to run. Ruff uses default configuration (no custom ruff.toml or pyproject.toml config in repo root)."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y git make",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "git is already the newest version (1:2.47.3-0+deb13u1).\nmake is already the newest version (4.4.1-2).\n0 upgraded, 0 newly installed, 0 to remove and 15 not upgraded.",
+        "notes": "System dependencies already present in base image"
+      },
+      {
+        "step": "install",
+        "command": "pip install pre-commit",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed cfgv-3.5.0 distlib-0.4.0 filelock-3.25.2 identify-2.6.18 nodeenv-1.10.0 platformdirs-4.9.4 pre-commit-4.5.1 python-discovery-1.2.0 pyyaml-6.0.3 virtualenv-21.2.0",
+        "notes": "Pre-commit installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "pip install ruff==0.9.4",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed ruff-0.9.4",
+        "notes": "Ruff installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "pre-commit run --all-files",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "check for merge conflicts................................................Passed\ntrim trailing whitespace.................................................Passed\ncheck for added large files..............................................Passed\nfix end of files.........................................................Passed\ndon't commit to branch...................................................Failed\n- hook id: no-commit-to-branch\n- exit code: 1\ncheck yaml...............................................................Passed\ndetect private key.......................................................Passed\nfix requirements.txt.....................................................Passed\nmixed line ending........................................................Passed\ncheck that executables have shebangs.....................................Passed\ncheck json...............................................................Passed\ncheck that scripts with shebangs are executable..........................Passed\nInsert license in comments...............................................Passed\nruff.....................................................................Passed\nruff-format..............................................................Passed\nblacken-docs.............................................................Passed",
+        "notes": "SUCCESS - All checks passed except no-commit-to-branch which is expected (prevents committing to main). This hook is skipped in CI."
+      },
+      {
+        "step": "lint",
+        "command": "ruff check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "SUCCESS - Ruff linting passed with no issues"
+      },
+      {
+        "step": "lint",
+        "command": "ruff format --check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "41 files already formatted",
+        "notes": "SUCCESS - All Python files are properly formatted"
+      }
+    ],
+    "summary": "install OK, pre-commit OK (all hooks passed), ruff check OK, ruff format OK"
+  },
+  "gaps": [
+    "No tests exist - this is a demo/documentation repository",
+    "No test framework configured (no pytest, unittest, etc.)",
+    "No test files found anywhere in the repository",
+    "No coverage configuration",
+    "No unified build system - individual demos have their own requirements.txt",
+    "No unified dependency management for the entire repo",
+    "Demos require Kubernetes/OpenShift cluster for deployment (cannot be tested in isolation)",
+    "Go component (whatsapp-bot) has no linting configured in pre-commit",
+    "No ruff.toml configuration file (uses defaults only)"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

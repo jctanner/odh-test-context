@@ -1,0 +1,176 @@
+{
+  "repo": "openrag",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T19:53:00Z",
+  "languages": ["Python", "TypeScript", "JavaScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "detect-secrets",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "detect-secrets scan --baseline .secrets.baseline --exclude-lines code_hash",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "biome",
+        "config_file": "frontend/biome.json",
+        "run_command": "cd frontend && npm run lint",
+        "fix_command": "cd frontend && npm run lint:fix",
+        "scope": "frontend directory"
+      },
+      {
+        "name": "next-lint",
+        "config_file": "frontend/.eslintrc* (implicit)",
+        "run_command": "cd frontend && npx next lint",
+        "fix_command": null,
+        "scope": "frontend directory"
+      }
+    ],
+    "notes": "No Python linting configured (no ruff, flake8, pylint, mypy, or black). Frontend uses Biome for fast linting and formatting. Makefile has a 'lint' target that only runs frontend lint."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "uv run pytest tests/ -v",
+    "run_single_file": "uv run pytest {file} -v",
+    "run_single_test": "uv run pytest {file}::{test_name} -v",
+    "setup_required": [
+      "uv sync --group dev"
+    ],
+    "env_vars": [
+      "OPENSEARCH_HOST=localhost",
+      "OPENSEARCH_PORT=9200",
+      "OPENSEARCH_USERNAME=admin",
+      "OPENSEARCH_PASSWORD=<password>",
+      "GOOGLE_OAUTH_CLIENT_ID='' (empty for no-auth mode)",
+      "GOOGLE_OAUTH_CLIENT_SECRET='' (empty for no-auth mode)",
+      "DISABLE_STARTUP_INGEST=true",
+      "LOG_LEVEL=DEBUG"
+    ],
+    "fixtures_location": "tests/conftest.py (session-level fixtures for OpenSearch, session manager, test documents)",
+    "mock_patterns": "Uses pytest-mock for mocking. Session-level onboarding fixture creates test app.",
+    "coverage_command": "uv run pytest tests/ --cov=src --cov-report=html",
+    "coverage_threshold": null,
+    "notes": "Tests are split into unit/ (no external deps, 73 tests) and integration/ (requires OpenSearch, Langflow, docling-serve). Integration tests need full stack: make test-ci or make test-ci-local. E2E tests use Playwright in frontend/ directory. SDK tests in tests/integration/sdk/ require running stack at localhost:3000."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/pr-checks.yml",
+      ".github/workflows/lint-frontend.yml",
+      ".github/workflows/test-integration.yml",
+      ".github/workflows/test-e2e.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "PR Title Check",
+        "command": "amannn/action-semantic-pull-request@v6.1.1 (validates conventional commit format)",
+        "required": true
+      },
+      {
+        "name": "Frontend Lint (Biome)",
+        "command": "cd frontend && npm ci && npm run lint",
+        "required": true
+      },
+      {
+        "name": "Integration Tests",
+        "command": "make test-ci-local (builds all images locally, runs core + SDK integration tests)",
+        "required": true
+      },
+      {
+        "name": "E2E Tests (Playwright)",
+        "command": "cd frontend && npx playwright test",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "Integration tests run on self-hosted ARM64 runners. E2E tests run on ubuntu-latest. Integration tests build all images locally on PR, pull from DockerHub on workflow_dispatch. Tests require OpenSearch with OIDC, Langflow, docling-serve, and generated JWT keys."
+  },
+  "build": {
+    "system": "uv (Python), npm (frontend), make (orchestration)",
+    "install_command": "uv sync --group dev && cd frontend && npm ci",
+    "build_command": "make build (builds all Docker images: OpenSearch, backend, frontend, Langflow)",
+    "notes": "Project uses uv for Python dependency management (modern, fast alternative to pip/poetry). Frontend is Next.js. Container images built via Dockerfile, Dockerfile.backend, Dockerfile.frontend, Dockerfile.langflow. Makefile provides rich targets: dev (full stack with GPU), dev-cpu (CPU only), test, test-ci, etc."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/**/*.py for Python, frontend/**/*.test.ts* for TypeScript",
+    "test_naming": "Python: test_* functions, TypeScript: describe/it/test blocks",
+    "import_style": "Python: absolute imports from src/, TypeScript: relative and @/ alias imports",
+    "notes": "Conventional commits required for PR titles (feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert). Python requires 3.13+. Node requires 20+. Uses detect-secrets to prevent credential leaks."
+  },
+  "container_recipe": {
+    "base_image": "python:3.13 (for backend), node:20 (for frontend)",
+    "system_deps": ["curl", "git", "make"],
+    "setup_commands": [
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=\"/root/.local/bin:$PATH\"",
+      "uv sync --group dev"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd frontend && npm ci && npm run lint",
+        "validated": true,
+        "notes": "Passed with warnings (exit code 0). Biome found console.log usage, any types, missing deps."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "uv run pytest tests/unit/ -v",
+        "validated": true,
+        "notes": "73 tests passed in 1.33s. No external dependencies required."
+      },
+      {
+        "command": "uv run pytest tests/integration/core/ -v",
+        "validated": false,
+        "notes": "Requires OpenSearch, Langflow, docling-serve. Use 'make test-ci-local' for full setup."
+      }
+    ],
+    "test_single_file": "uv run pytest {file} -v",
+    "test_single_test": "uv run pytest {file}::{test_name} -v",
+    "env_vars": [
+      "PATH=/root/.local/bin:$PATH (for uv)"
+    ],
+    "notes": "Python 3.13 is required (specified in pyproject.toml and .python-version). Frontend requires Node 20+. Integration tests need complex infrastructure setup - recommend using 'make test-ci-local' which handles all service orchestration."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "uv sync --group dev",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Resolved 125 packages in 0.69ms\nPrepared 124 packages in 2.36s\nInstalled 124 packages in 540ms",
+        "notes": "Dependencies installed successfully using uv."
+      },
+      {
+        "step": "test",
+        "command": "uv run pytest tests/unit/ -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================= test session starts ==============================\nplatform linux -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0\n============================== 73 passed in 1.33s ==============================",
+        "notes": "All unit tests passed. Tests cover encryption, env management, langflow utils, OAuth, OpenSearch, task service."
+      },
+      {
+        "step": "lint",
+        "command": "cd frontend && npm ci && npm run lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Biome found warnings (console.log, any types, useEffect deps), Next.js lint found react-hooks warnings. Exit code 0.",
+        "notes": "Lint passed with warnings. CI accepts warnings as passing."
+      }
+    ],
+    "summary": "install OK, unit tests OK (73 passed), frontend lint OK (warnings but exit 0)"
+  },
+  "gaps": [
+    "No Python linting configured - no ruff, flake8, pylint, mypy, or black in pyproject.toml or pre-commit",
+    "Integration tests require complex infrastructure: OpenSearch with OIDC configuration, Langflow, docling-serve, JWT key generation",
+    "E2E tests require Playwright browsers and running full stack",
+    "SDK integration tests require external running stack at localhost:3000",
+    "Tests require environment variables for OpenSearch password, OAuth credentials (or empty for no-auth mode)",
+    "No CI workflow for Python backend linting - only frontend is linted in CI",
+    "Integration tests run on self-hosted ARM64 runners - not reproducible on standard x86_64 machines without modification"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

@@ -1,0 +1,237 @@
+{
+  "repo": "odh-ide-extensions",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:40:15Z",
+  "languages": ["TypeScript", "JavaScript", "Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "eslint",
+        "config_file": "eslint.config.mjs",
+        "run_command": "npx eslint \"odh-jupyter-trash-cleanup/**/*.{ts,tsx,js,jsx}\" --cache",
+        "fix_command": "npx eslint \"odh-jupyter-trash-cleanup/**/*.{ts,tsx,js,jsx}\" --cache --fix",
+        "scope": "specific directories (per extension)"
+      },
+      {
+        "name": "prettier",
+        "config_file": ".prettierrc.json",
+        "run_command": "npx prettier \"odh-jupyter-trash-cleanup/**/*{.ts,.tsx,.js,.jsx,.css,.json,.md}\" --check",
+        "fix_command": "npx prettier \"odh-jupyter-trash-cleanup/**/*{.ts,.tsx,.js,.jsx,.css,.json,.md}\" --write",
+        "scope": "specific directories (per extension)"
+      },
+      {
+        "name": "stylelint",
+        "config_file": ".stylelintrc.json",
+        "run_command": "npx stylelint \"odh-jupyter-trash-cleanup/**/*.{css,scss}\"",
+        "fix_command": "npx stylelint \"odh-jupyter-trash-cleanup/**/*.{css,scss}\" --fix",
+        "scope": "specific directories (per extension)"
+      },
+      {
+        "name": "flake8",
+        "config_file": "pyproject.toml",
+        "run_command": "cd odh-jupyter-trash-cleanup && python -m flake8 .",
+        "fix_command": null,
+        "scope": "specific directories (per extension)"
+      },
+      {
+        "name": "black",
+        "config_file": "pyproject.toml",
+        "run_command": "python -m black --check --diff --color .",
+        "fix_command": "cd odh-jupyter-trash-cleanup && python -m black .",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Makefile provides unified lint target: 'make EXTENSION=odh-jupyter-trash-cleanup lint' runs all linters for an extension. Black requires Python 3.10+ (CI uses 3.10)."
+  },
+  "testing": {
+    "framework": "jest (JS/TS) and pytest (Python)",
+    "test_directory": "odh-jupyter-trash-cleanup/src/__tests__ (Jest), odh-jupyter-trash-cleanup/odh_jupyter_trash_cleanup/tests (pytest), odh-jupyter-trash-cleanup/ui-tests (Playwright)",
+    "run_command": "cd odh-jupyter-trash-cleanup && jlpm run test (Jest), cd odh-jupyter-trash-cleanup && pytest -vv -r ap --cov odh_jupyter_trash_cleanup (pytest)",
+    "run_single_file": "cd odh-jupyter-trash-cleanup && jlpm jest {file} (Jest), cd odh-jupyter-trash-cleanup && pytest {file} (pytest)",
+    "run_single_test": "cd odh-jupyter-trash-cleanup && jlpm jest -t '{test_name}' (Jest), cd odh-jupyter-trash-cleanup && pytest {file}::{test_name} (pytest)",
+    "setup_required": [
+      "jlpm install (root directory)",
+      "python -m pip install -U 'jupyterlab>=4.0.0,<5'",
+      "cd odh-jupyter-trash-cleanup && python -m pip install .[test]"
+    ],
+    "env_vars": [],
+    "fixtures_location": "odh-jupyter-trash-cleanup/conftest.py",
+    "mock_patterns": "pytest fixtures for JupyterLab server configuration",
+    "coverage_command": "cd odh-jupyter-trash-cleanup && pytest --cov odh_jupyter_trash_cleanup --cov-report=html",
+    "coverage_threshold": "87% (current coverage)",
+    "notes": "Jest tests are currently placeholder 'todo' tests. Python tests are comprehensive with 6 tests covering trash cleanup functionality. UI tests require Playwright browser installation and are integration tests."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/build_all_extensions.yml",
+      ".github/workflows/build_extension.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Lint the extension",
+        "command": "jlpm install && make EXTENSION=odh-jupyter-trash-cleanup lint",
+        "required": true
+      },
+      {
+        "name": "Test the extension (Jest)",
+        "command": "cd odh-jupyter-trash-cleanup && jlpm run test",
+        "required": true
+      },
+      {
+        "name": "Build and test Python",
+        "command": "cd odh-jupyter-trash-cleanup && python -m pip install .[test] && pytest -vv -r ap --cov odh_jupyter_trash_cleanup",
+        "required": true
+      },
+      {
+        "name": "Package the extension",
+        "command": "cd odh-jupyter-trash-cleanup && python -m pip install build && python -m build",
+        "required": true
+      },
+      {
+        "name": "Integration tests",
+        "command": "make EXTENSION=odh-jupyter-trash-cleanup ui-tests-setup && make EXTENSION=odh-jupyter-trash-cleanup ui-tests",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Check Links",
+        "command": "jupyterlab/maintainer-tools check-links action",
+        "required": false
+      }
+    ],
+    "notes": "CI uses Python 3.10 and Node.js (via jupyterlab/maintainer-tools base-setup action). The workflow is triggered on pull_request and push to main. Multiple jobs run: build, test_isolated, integration-tests, and check_links."
+  },
+  "build": {
+    "system": "Turbo (monorepo), hatchling (Python), JupyterLab builder",
+    "install_command": "jlpm install (root), python -m pip install -U 'jupyterlab>=4.0.0,<5', cd odh-jupyter-trash-cleanup && python -m pip install .[test]",
+    "build_command": "npm run build (dev) or npm run build:prod (production), cd odh-jupyter-trash-cleanup && jlpm build:prod",
+    "notes": "This is a monorepo with workspaces. JupyterLab extensions use jlpm (yarn) for package management. Python package uses hatchling build backend with jupyter-builder hooks for building the labextension."
+  },
+  "conventions": {
+    "test_file_pattern": "**/*.spec.ts (Jest), test_*.py or *_test.py (pytest)",
+    "test_naming": "describe/it blocks (Jest), test_* functions (pytest)",
+    "import_style": "ESM imports, PascalCase for interfaces starting with 'I'",
+    "notes": "Single quotes preferred in TypeScript/JavaScript (enforced by prettier/eslint). Black formatting for Python with 79 character line length. Google import order style for Python."
+  },
+  "container_recipe": {
+    "base_image": "python:3.10",
+    "system_deps": ["curl", "git", "make", "gcc", "g++"],
+    "setup_commands": [
+      "curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs",
+      "python -m pip install -q -r lint_requirements.txt",
+      "python -m pip install -q -U 'jupyterlab>=4.0.0,<5'",
+      "jlpm install"
+    ],
+    "lint_commands": [
+      {
+        "command": "make EXTENSION=odh-jupyter-trash-cleanup lint",
+        "validated": true,
+        "notes": "Passed with 1 ESLint warning (unused variable). Exit code 0."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd odh-jupyter-trash-cleanup && jlpm run test",
+        "validated": true,
+        "notes": "Passed - 2 todo tests, 0 failures. Exit code 0."
+      },
+      {
+        "command": "cd odh-jupyter-trash-cleanup && python -m pip install .[test] && pytest -vv -r ap --cov odh_jupyter_trash_cleanup",
+        "validated": true,
+        "notes": "Passed - 6 tests passed, 87% coverage. Exit code 0."
+      }
+    ],
+    "test_single_file": "cd odh-jupyter-trash-cleanup && jlpm jest {file} OR pytest {file}",
+    "test_single_test": "cd odh-jupyter-trash-cleanup && jlpm jest -t '{name}' OR pytest {file}::{test_name}",
+    "env_vars": [],
+    "notes": "Node.js 20.20.1 and Python 3.10.20 validated. jlpm install takes ~20 seconds. All lint and test commands work without additional infrastructure."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install system deps",
+        "command": "apt-get update && apt-get install -y curl git make gcc g++",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 upgraded, 0 newly installed, 0 to remove",
+        "notes": "System dependencies already present in python:3.10 image"
+      },
+      {
+        "step": "install Node.js",
+        "command": "curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Setting up nodejs (20.20.1-1nodesource1)",
+        "notes": "Node.js 20.20.1 installed successfully"
+      },
+      {
+        "step": "install Python lint deps",
+        "command": "python -m pip install -q -r lint_requirements.txt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "WARNING: Running pip as the 'root' user...",
+        "notes": "Installed black, flake8, and related tools"
+      },
+      {
+        "step": "install JupyterLab",
+        "command": "python -m pip install -q -U 'jupyterlab>=4.0.0,<5'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "/usr/local/bin/jlpm",
+        "notes": "JupyterLab installed, jlpm available"
+      },
+      {
+        "step": "install JS deps",
+        "command": "jlpm install",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Done with warnings in 17s 545ms",
+        "notes": "All dependencies installed successfully via yarn"
+      },
+      {
+        "step": "lint",
+        "command": "make EXTENSION=odh-jupyter-trash-cleanup lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "✖ 1 problem (0 errors, 1 warning)...\nAll linters completed",
+        "notes": "Lint passed. ESLint found 1 unused variable warning (non-blocking). Prettier formatted 3 files. Black passed all files."
+      },
+      {
+        "step": "test Jest",
+        "command": "cd odh-jupyter-trash-cleanup && jlpm run test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Test Suites: 1 passed, 1 total\nTests:       2 todo, 2 total",
+        "notes": "Jest tests are placeholders (todo), but framework works"
+      },
+      {
+        "step": "install Python package",
+        "command": "cd odh-jupyter-trash-cleanup && python -m pip install .[test]",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "WARNING: Running pip as the 'root' user...",
+        "notes": "Package and test dependencies installed"
+      },
+      {
+        "step": "test pytest",
+        "command": "cd odh-jupyter-trash-cleanup && pytest -vv -r ap --cov odh_jupyter_trash_cleanup",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================== 6 passed in 0.20s ===============================",
+        "notes": "All 6 Python tests passed, 87% coverage"
+      }
+    ],
+    "summary": "All validation steps successful: deps installed cleanly, lint OK (1 ESLint warning), Jest OK (2 todo tests), pytest OK (6 passed, 87% coverage)"
+  },
+  "gaps": [
+    "Jest unit tests are currently placeholders (todo tests) - need actual test implementation",
+    "UI/integration tests (Playwright) require browser installation and JupyterLab server - not validated in basic container",
+    "No CI workflow for root-level linting (only per-extension linting)",
+    "Semgrep config present but not integrated into CI workflow",
+    "Gitleaks config present but not integrated into CI workflow"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

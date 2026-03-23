@@ -1,0 +1,245 @@
+{
+  "repo": "base-containers",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:35:00Z",
+  "languages": ["Python", "Containerfile"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff check tests/",
+        "fix_command": "ruff check --fix tests/",
+        "scope": "tests/ directory only"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff format --check tests/",
+        "fix_command": "ruff format tests/",
+        "scope": "tests/ directory only"
+      },
+      {
+        "name": "hadolint",
+        "config_file": ".hadolint.yaml",
+        "run_command": "./scripts/lint-containerfile.sh",
+        "fix_command": null,
+        "scope": "all Containerfile* and Dockerfile* files"
+      }
+    ],
+    "notes": "Ruff is configured for Python 3.12 with strict checks including security (bandit), comprehensions, pyupgrade, and Pylint rules. Hadolint lints all container definitions with ODH-specific label requirements. Can also run via tox: 'tox -e lint'"
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "pytest tests/ -v",
+    "run_single_file": "pytest {file} -v",
+    "run_single_test": "pytest {file}::{test_name} -v",
+    "setup_required": [
+      "pip install -e '.[test]'",
+      "Build container images: ./scripts/build.sh python-3.12 or ./scripts/build.sh cuda-12.8",
+      "Set environment variables: PYTHON_IMAGE and/or CUDA_IMAGE"
+    ],
+    "env_vars": [
+      "PYTHON_IMAGE=localhost/odh-midstream-python-base:3.12 (or quay.io path)",
+      "CUDA_IMAGE=localhost/odh-midstream-cuda-base:12.8-py312 (or quay.io path)",
+      "PYTHON_VERSION=3.12 (optional, for version validation)",
+      "CUDA_VERSION=12.8 (optional, for version validation)"
+    ],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Uses session-scoped ContainerRunner class that starts containers once and reuses them via 'podman exec' for efficiency",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are integration tests that require podman and pre-built container images. Tests use session-scoped fixtures to start containers once per test run. Without PYTHON_IMAGE/CUDA_IMAGE env vars, pytest skips tests. Can also run via tox: 'tox -e test'"
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/check-cuda-versions.yml",
+      ".tekton/*.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "lint",
+        "command": "ruff check tests/ && ruff format --check tests/",
+        "required": true
+      },
+      {
+        "name": "type-check",
+        "command": "mypy tests/",
+        "required": true
+      },
+      {
+        "name": "lint-containerfiles",
+        "command": "hadolint with .hadolint.yaml config",
+        "required": true
+      },
+      {
+        "name": "test-python-image",
+        "command": "./scripts/build.sh python-<version> && pytest tests/test_python_image.py tests/test_common.py -v",
+        "required": true
+      },
+      {
+        "name": "test-cuda-image",
+        "command": "./scripts/build.sh cuda-<version> && pytest tests/test_cuda_image.py tests/test_common.py -v",
+        "required": true
+      },
+      {
+        "name": "ci-status",
+        "command": "Aggregator job that ensures all checks pass",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "check-cuda-versions",
+        "command": "Weekly check for new NVIDIA CUDA versions",
+        "required": false
+      }
+    ],
+    "notes": "CI uses smart path-based filtering to only build/test changed images. Matrix builds for multiple Python/CUDA versions. CUDA builds require ~30GB disk space and use free-disk-space actions. Tekton pipelines handle production builds."
+  },
+  "build": {
+    "system": "podman/docker + custom scripts",
+    "install_command": "pip install -e '.[dev]'",
+    "build_command": "./scripts/build.sh <type>-<version> (e.g., python-3.12, cuda-12.8)",
+    "notes": "Project builds container images, not traditional software. scripts/build.sh wraps podman build with proper build args from <type>/<version>/app.conf files. Dev dependencies include tox, pytest, ruff, mypy."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py",
+    "test_naming": "Functions named test_* with pytest",
+    "import_style": "Absolute imports, sorted with isort (part of ruff), known-first-party=['tests']",
+    "notes": "Tests use session-scoped fixtures and must be idempotent (read-only). Type hints required except in test files. Strict mypy configuration with disallow_untyped_defs."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": ["wget", "hadolint"],
+    "setup_commands": [
+      "pip install -e '.[dev]'",
+      "wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/download/v2.14.0/hadolint-Linux-x86_64 && chmod +x /usr/local/bin/hadolint"
+    ],
+    "lint_commands": [
+      {
+        "command": "ruff check tests/",
+        "validated": true,
+        "notes": "Exit 0: All checks passed!"
+      },
+      {
+        "command": "ruff format --check tests/",
+        "validated": true,
+        "notes": "Exit 0: 5 files already formatted"
+      },
+      {
+        "command": "./scripts/lint-containerfile.sh",
+        "validated": true,
+        "notes": "Exit 0: All 7 Containerfiles passed linting (requires hadolint installed)"
+      },
+      {
+        "command": "mypy tests/",
+        "validated": true,
+        "notes": "Exit 0: Success: no issues found in 5 source files"
+      },
+      {
+        "command": "tox -e lint",
+        "validated": true,
+        "notes": "Exit 0: Runs ruff check, ruff format --check, and lint-containerfile.sh"
+      },
+      {
+        "command": "tox -e type",
+        "validated": true,
+        "notes": "Exit 0: Runs mypy type checking"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "pytest tests/ -v",
+        "validated": false,
+        "notes": "Requires PYTHON_IMAGE and/or CUDA_IMAGE env vars with pre-built container images. Tests skip without these."
+      }
+    ],
+    "test_single_file": "pytest {file} -v",
+    "test_single_test": "pytest {file}::{test_name} -v",
+    "env_vars": [],
+    "notes": "Hadolint must be installed separately (not in PyPI). The lint script can use containerized hadolint if podman/docker is available. Tests require building actual container images first, which needs significant resources."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install -e '.[dev]'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed cachetools-7.0.5 colorama-0.4.6 distlib-0.4.0 filelock-3.25.2 iniconfig-2.3.0 librt-0.8.1 mypy-1.19.1 mypy_extensions-1.1.0 odh-base-containers-0.1.0 packaging-26.0 pathspec-1.0.4 platformdirs-4.9.4 pluggy-1.6.0 pygments-2.19.2 pyproject-api-1.10.0 pytest-9.0.2 python-discovery-1.2.0 ruff-0.15.7 tomli-w-1.2.0 tox-4.50.3 typing_extensions-4.15.0 virtualenv-21.2.0",
+        "notes": "Clean install, all dev dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "ruff check tests/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "No linting violations found"
+      },
+      {
+        "step": "lint",
+        "command": "ruff format --check tests/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "5 files already formatted",
+        "notes": "All Python files properly formatted"
+      },
+      {
+        "step": "lint",
+        "command": "mypy tests/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Success: no issues found in 5 source files",
+        "notes": "Type checking passed with strict mypy config"
+      },
+      {
+        "step": "lint",
+        "command": "./scripts/lint-containerfile.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "✓ All 7 Containerfiles passed linting (Containerfile.cuda.template, Containerfile.python.template, cuda/12.8/Containerfile, cuda/12.9/Containerfile, cuda/13.0/Containerfile, cuda/13.1/Containerfile, python/3.12/Containerfile)",
+        "notes": "All Containerfiles comply with hadolint rules and ODH label requirements"
+      },
+      {
+        "step": "lint",
+        "command": "tox -e lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "lint: OK (3.29 seconds)",
+        "notes": "Tox lint environment successful"
+      },
+      {
+        "step": "lint",
+        "command": "tox -e type",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "type: OK (6.05 seconds)",
+        "notes": "Tox type environment successful"
+      },
+      {
+        "step": "test",
+        "command": "pytest tests/ -v",
+        "exit_code": 0,
+        "success": false,
+        "output_snippet": "collected 74 items, 2 skipped (PYTHON_IMAGE environment variable not set)",
+        "notes": "Tests skip without PYTHON_IMAGE/CUDA_IMAGE env vars. Requires pre-built container images to run."
+      }
+    ],
+    "summary": "install OK, all lint checks OK (ruff, mypy, hadolint, tox), tests SKIP (require container images)"
+  },
+  "gaps": [
+    "Tests require building container images before running, which needs podman and significant resources",
+    "CUDA image builds require ~30GB disk space and are not validated in this analysis",
+    "Integration tests cannot run without PYTHON_IMAGE/CUDA_IMAGE environment variables pointing to built images",
+    "No unit tests exist - all tests are integration tests against running containers",
+    "Build script (./scripts/build.sh) requires podman/docker and cannot be validated without it",
+    "Tekton pipeline configs exist but are not analyzed for local validation"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

@@ -1,0 +1,159 @@
+{
+  "repo": "trustyai-explainability",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-23T00:47:15Z",
+  "languages": ["Java"],
+  "linting": {
+    "tools": [
+      {
+        "name": "formatter-maven-plugin",
+        "config_file": "config/eclipse-format.xml",
+        "run_command": "mvn net.revelc.code.formatter:formatter-maven-plugin:validate",
+        "fix_command": "mvn net.revelc.code.formatter:formatter-maven-plugin:format",
+        "scope": "full project"
+      },
+      {
+        "name": "impsort-maven-plugin",
+        "config_file": "pom.xml (inline configuration)",
+        "run_command": "mvn net.revelc.code:impsort-maven-plugin:check",
+        "fix_command": "mvn net.revelc.code:impsort-maven-plugin:sort",
+        "scope": "full project"
+      }
+    ],
+    "notes": "Formatting is based on Eclipse code style from kogito-ide-config. GRPC-generated files in explainability-connectors/src/main/java/org/kie/trustyai/connectors/kserve/v2/grpc/ are excluded from formatting."
+  },
+  "testing": {
+    "framework": "JUnit 5 (Jupiter)",
+    "test_directory": "*/src/test/java",
+    "run_command": "mvn test",
+    "run_single_file": "mvn test -Dtest=ClassName",
+    "run_single_test": "mvn test -Dtest=ClassName#methodName",
+    "setup_required": [
+      "mvn compile test-compile -Dformatter.skip=true"
+    ],
+    "env_vars": [
+      "MAVEN_OPTS=-Dhttps.protocols=TLSv1.2 -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true",
+      "MAVEN_ARGS=-nsu -fae -e"
+    ],
+    "fixtures_location": "*/src/test/resources",
+    "mock_patterns": "Uses Mockito for mocking, test classes use @QuarkusTest annotation for integration tests",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Multi-module Maven project with 4 modules. Tests are distributed across modules. Total of 226 test files. Surefire plugin configured with -Xmx2048m and --add-opens java.base/java.nio=ALL-UNNAMED. Integration tests are in separate module (explainability-integrationtests) and require -P integration-tests profile."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/test.yaml",
+      ".github/workflows/CI.yaml",
+      ".github/workflows/trivy-scan.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Unit Tests (test.yaml)",
+        "command": "mvn compile test-compile -Dformatter.skip=true && mvn test",
+        "required": true
+      },
+      {
+        "name": "Build (CI.yaml)",
+        "command": "mvn package -Dmaven.test.skip=true -Dformatter.skip=true",
+        "required": true
+      },
+      {
+        "name": "Validate Formatting (CI.yaml)",
+        "command": "mvn net.revelc.code.formatter:formatter-maven-plugin:validate",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Trivy Security Scan",
+        "command": "trivy scan",
+        "required": false
+      }
+    ],
+    "notes": "CI runs on ubuntu-22.04 with Java 17 and Maven versions 3.6.3, 3.8.8, 3.9.2 in a matrix. Formatting validation only runs on Ubuntu to avoid CR/LF issues. CI checks run on both push and pull_request events. Only runs on main repository, not forks."
+  },
+  "build": {
+    "system": "Maven",
+    "install_command": "mvn clean install",
+    "build_command": "mvn package -Dmaven.test.skip=true -Dformatter.skip=true",
+    "notes": "Multi-module Maven project. Modules: explainability-core, explainability-arrow, explainability-connectors, explainability-service. Uses Java 17. Maven wrapper (mvnw) available. Profiles: 'service-minimal' for CPaaS builds, 'integration-tests' to include integration tests, 'validate-formatting' to fail on format issues, 'quickly' to skip tests and formatting."
+  },
+  "conventions": {
+    "test_file_pattern": "**/*Test.java",
+    "test_naming": "JUnit 5 style: methods annotated with @Test, test classes end with 'Test'",
+    "import_style": "Organized by groups: java., javax., org., com., io. Static imports after regular imports.",
+    "notes": "Uses Eclipse code formatting style. No @author tags in Javadoc. Copyright headers enforced via license-maven-plugin."
+  },
+  "container_recipe": {
+    "base_image": "docker.io/library/maven:3.9.2-eclipse-temurin-17",
+    "system_deps": [],
+    "setup_commands": [
+      "mvn compile test-compile -Dformatter.skip=true"
+    ],
+    "lint_commands": [
+      {
+        "command": "mvn net.revelc.code.formatter:formatter-maven-plugin:validate",
+        "validated": true,
+        "notes": "FAILURE: Found 1 file not formatted (KServeConfig.java). This is a real lint violation, not a broken command."
+      },
+      {
+        "command": "mvn net.revelc.code:impsort-maven-plugin:check",
+        "validated": false,
+        "notes": "Not separately tested; typically run as part of formatter validation."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "mvn test",
+        "validated": true,
+        "notes": "SUCCESS: 427 tests run, 1 failure, 5 skipped. Test framework works correctly; failure is in actual test logic."
+      }
+    ],
+    "test_single_file": "mvn test -Dtest=ClassName",
+    "test_single_test": "mvn test -Dtest=ClassName#methodName",
+    "env_vars": [
+      "MAVEN_OPTS=-Dhttps.protocols=TLSv1.2 -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true"
+    ],
+    "notes": "Container needs sufficient memory for Maven builds (2GB+ recommended). Tests include Quarkus integration tests that start embedded services."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "compile",
+        "command": "mvn compile test-compile -Dformatter.skip=true",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "[INFO] BUILD SUCCESS\n[INFO] Total time:  9.695 s\n[INFO] TrustyAI Explainability Core ....................... SUCCESS\n[INFO] TrustyAI Arrow ..................................... SUCCESS\n[INFO] TrustyAI Connectors ................................ SUCCESS\n[INFO] TrustyAI Service ................................... SUCCESS",
+        "notes": "Compilation successful for all modules"
+      },
+      {
+        "step": "lint",
+        "command": "mvn net.revelc.code.formatter:formatter-maven-plugin:validate",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "[INFO] BUILD FAILURE\n[ERROR] Failed to execute goal net.revelc.code.formatter:formatter-maven-plugin:2.13.0:validate on project explainability-connectors: File '/app/explainability-connectors/src/main/java/org/kie/trustyai/connectors/kserve/v2/KServeConfig.java' has not been previously formatted.",
+        "notes": "Linter found 1 formatting violation. This is expected behavior - the codebase has a formatting issue that needs fixing."
+      },
+      {
+        "step": "test",
+        "command": "mvn test",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "[ERROR] Tests run: 427, Failures: 1, Errors: 0, Skipped: 5\n[INFO] BUILD FAILURE",
+        "notes": "Tests run successfully but 1 test failed. This is a test failure in the current codebase, not an infrastructure issue. 426 tests passed, 5 skipped."
+      }
+    ],
+    "summary": "Compile OK, lint found 1 formatting issue (expected), tests OK (427 run, 1 failed, 426 passed)"
+  },
+  "gaps": [
+    "Current codebase has 1 test failure - baseline is not fully green",
+    "Current codebase has 1 formatting violation in KServeConfig.java",
+    "Integration tests require separate profile (-P integration-tests) and are not included in default build",
+    "No code coverage reporting configured in default build",
+    "Tests for explainability-service use Quarkus and embedded databases which may have environmental dependencies"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

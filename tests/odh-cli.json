@@ -1,0 +1,219 @@
+{
+  "repo": "odh-cli",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:34:40Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.8.0",
+        "config_file": ".golangci.yml",
+        "run_command": "GOTOOLCHAIN=auto go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0 run --config .golangci.yml --timeout 10m",
+        "fix_command": "GOTOOLCHAIN=auto go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0 run --config .golangci.yml --timeout 10m --fix",
+        "scope": "full project"
+      }
+    ],
+    "makefile_targets": [
+      {
+        "name": "make lint",
+        "command": "GOTOOLCHAIN=auto make lint",
+        "description": "Run golangci-lint via Makefile"
+      },
+      {
+        "name": "make lint/fix",
+        "command": "GOTOOLCHAIN=auto make lint/fix",
+        "description": "Run golangci-lint with auto-fix"
+      },
+      {
+        "name": "make fmt",
+        "command": "GOTOOLCHAIN=auto make fmt",
+        "description": "Format code using golangci-lint fmt and go fmt"
+      }
+    ],
+    "notes": "golangci-lint v2 with comprehensive configuration. Enables all linters by default, disables specific noisy ones. Custom rules for test files. Requires Go 1.24+ toolchain (auto-downloads via GOTOOLCHAIN=auto). Lint runs clean with 0 issues."
+  },
+  "testing": {
+    "framework": "Go testing + Gomega (no Ginkgo)",
+    "test_directory": "pkg/**/*_test.go, tests/integration/**/*_test.go",
+    "run_command": "GOTOOLCHAIN=auto go test ./...",
+    "run_single_package": "GOTOOLCHAIN=auto go test ./pkg/{package}/",
+    "run_single_test": "GOTOOLCHAIN=auto go test ./pkg/{package}/ -run {TestName}",
+    "setup_required": [
+      "GOTOOLCHAIN=auto go mod download"
+    ],
+    "env_vars": [
+      "GOTOOLCHAIN=auto - enables automatic Go toolchain version download"
+    ],
+    "fixtures_location": "Test data defined as package-level constants in test files",
+    "mock_patterns": "testify/mock framework, centralized in pkg/util/test/mocks/<package>/",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "test_patterns": {
+      "framework": "Standard Go testing with Gomega assertions",
+      "assertion_style": "Dot imports for Gomega (import . \"github.com/onsi/gomega\")",
+      "subtest_pattern": "t.Run() for organizing test cases",
+      "context_usage": "t.Context() instead of context.Background()",
+      "struct_assertions": "HaveField or MatchFields matchers required",
+      "test_data": "Package-level constants, never inline"
+    },
+    "notes": "Requires Go 1.25.7 (specified in go.mod). Use GOTOOLCHAIN=auto to auto-download. 741+ tests across packages. Tests use Gomega for assertions (not Ginkgo). Comprehensive test guidelines in docs/testing.md. All tests passed successfully during validation."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/ci.yml"],
+    "gating_checks": [
+      {
+        "name": "test",
+        "command": "make test",
+        "required": true,
+        "trigger": "pull_request, push to main"
+      },
+      {
+        "name": "lint",
+        "command": "make lint",
+        "required": true,
+        "trigger": "pull_request, push to main"
+      }
+    ],
+    "advisory_checks": [],
+    "workflows": {
+      "test": {
+        "runs_on": "ubuntu-latest",
+        "steps": [
+          "Checkout code",
+          "Set up Go from go.mod (uses go-version-file)",
+          "make test",
+          "make lint"
+        ]
+      },
+      "dev-container": {
+        "runs_on": "ubuntu-latest",
+        "trigger": "push to main",
+        "description": "Build and push dev container image"
+      },
+      "release-container": {
+        "runs_on": "ubuntu-latest",
+        "trigger": "release created",
+        "description": "Build and push release container image"
+      },
+      "release-binary": {
+        "runs_on": "ubuntu-latest",
+        "trigger": "release created",
+        "description": "Run GoReleaser for binary releases"
+      }
+    },
+    "notes": "CI uses GitHub Actions setup-go with go-version-file which reads from go.mod. Test and lint are gating checks that run on all pull requests. Container builds only on push to main or releases."
+  },
+  "build": {
+    "system": "Makefile + go build",
+    "install_command": "GOTOOLCHAIN=auto go mod download",
+    "build_command": "GOTOOLCHAIN=auto make build",
+    "binary_output": "bin/kubectl-odh",
+    "build_flags": "CGO_ENABLED=0, LDFLAGS with version/commit/date",
+    "cross_compilation": "Supports GOOS and GOARCH variables",
+    "container_build": {
+      "system": "Podman (with Docker fallback)",
+      "command": "make build-image",
+      "publish_command": "make publish",
+      "platforms": "linux/amd64,linux/arm64",
+      "base_image": "registry.access.redhat.com/ubi9/go-toolset:1.25"
+    },
+    "notes": "Requires Go 1.25.7. Build uses GOTOOLCHAIN=auto to download correct version. Binary verified working (version command executed successfully). CGO disabled for static binaries."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Test* functions with t.Run() for subtests",
+    "import_style": "Standard lib, external deps, k8s.io packages, project packages, dot imports. Configured via gci formatter.",
+    "error_handling": "Explicit error returns, wrapped errors with context",
+    "code_organization": {
+      "cmd": "Command entry points",
+      "pkg": "Reusable packages",
+      "internal": "Internal-only code",
+      "tests": "Integration tests",
+      "docs": "Comprehensive documentation"
+    },
+    "documentation": {
+      "development": "docs/development.md - main entry point",
+      "coding_conventions": "docs/coding/conventions.md",
+      "testing": "docs/testing.md",
+      "quality": "docs/quality.md"
+    },
+    "notes": "Well-documented project with extensive coding conventions in docs/ directory. Uses functional options pattern, centralized GVK/GVR definitions, and strict test data organization."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.22",
+    "system_deps": ["make", "git"],
+    "setup_commands": [
+      "GOTOOLCHAIN=auto go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "GOTOOLCHAIN=auto make lint",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "0 issues reported"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "GOTOOLCHAIN=auto go test ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All 741+ tests passed across all packages"
+      },
+      {
+        "command": "GOTOOLCHAIN=auto make test",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Makefile target runs go test ./..."
+      }
+    ],
+    "test_single_package": "GOTOOLCHAIN=auto go test ./pkg/{package}/",
+    "test_single_test": "GOTOOLCHAIN=auto go test ./pkg/{package}/ -run {TestName}",
+    "env_vars": ["GOTOOLCHAIN=auto"],
+    "notes": "Requires GOTOOLCHAIN=auto to download Go 1.25.7. golang:1.22 base image works because GOTOOLCHAIN downloads newer version. First lint run downloads golangci-lint dependencies (~1-2 min). Subsequent runs are fast."
+  },
+  "validation": {
+    "container_name": "test-context-odh-cli",
+    "base_image_used": "golang:1.22",
+    "results": [
+      {
+        "step": "install",
+        "command": "GOTOOLCHAIN=auto go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go: downloading go1.25.7 (linux/amd64)\n(completes with no output)",
+        "notes": "Successfully downloaded Go 1.25.7 toolchain and all dependencies"
+      },
+      {
+        "step": "build",
+        "command": "GOTOOLCHAIN=auto make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \\\n\tgo build -ldflags \"-X 'github.com/opendatahub-io/odh-cli/internal/version.Version=74f26e9' ...\" -o bin/kubectl-odh cmd/main.go",
+        "notes": "Binary built successfully, 41MB, version command works"
+      },
+      {
+        "step": "lint",
+        "command": "GOTOOLCHAIN=auto make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go: github.com/golangci/golangci-lint/v2@v2.8.0 requires go >= 1.24.0; switching to go1.25.8\n0 issues.",
+        "notes": "Clean lint run, 0 issues. First run downloads linter deps (~1-2 min)"
+      },
+      {
+        "step": "test",
+        "command": "GOTOOLCHAIN=auto go test ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tgithub.com/opendatahub-io/odh-cli/pkg/backup\t0.017s\nok  \tgithub.com/opendatahub-io/odh-cli/pkg/backup/dependencies/dspa\t0.018s\n...\nok  \tgithub.com/opendatahub-io/odh-cli/tests/integration/lint\t0.011s",
+        "notes": "All tests passed. 741+ individual tests across 38 packages."
+      }
+    ],
+    "summary": "All validation steps passed: install OK, build OK (binary verified working), lint OK (0 issues), tests OK (741+ tests passed)"
+  },
+  "gaps": [],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

@@ -1,0 +1,108 @@
+{
+  "repo": "model-runtimes-agent",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T19:21:04Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting tools configured. No .flake8, .ruff.toml, .pylintrc, .pre-commit-config.yaml, or [tool.ruff] section in pyproject.toml found."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No tests exist. No test files, no test directory, no pytest configuration. README.md states: 'Run `python -m compileall src` for a quick syntax check; add pytest suites under `tests/` as functionality grows.' This confirms tests are planned but not yet implemented."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows directory, no .tekton directory, no Jenkinsfile, no .zuul.yaml."
+  },
+  "build": {
+    "system": "setuptools",
+    "install_command": "pip install -e .",
+    "build_command": null,
+    "notes": "Pure Python package with setuptools build backend. No compilation step needed. Alternative install: 'uv pip install -e .' (README mentions uv as preferred package manager). Entry point 'agent' command maps to runtimes_dep_agent.execute_agent:main. Streamlit UI available via: streamlit run app.py"
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": "Absolute imports from src package structure (e.g., from runtimes_dep_agent.agent.llm_agent import LLMAgent)",
+    "notes": "Standard Python src-layout package structure. Main package: runtimes_dep_agent under src/. Requires Python 3.12+. Uses LangChain framework for LLM agent orchestration."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install -e ."
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {
+        "command": "python -m compileall src",
+        "validated": true,
+        "notes": "Syntax check only - compiles all Python files to bytecode. Exit code 0 indicates no syntax errors. This is NOT a test suite."
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [
+      "GEMINI_API_KEY=<required for agent operation>",
+      "OCI_REGISTRY_PULL_SECRET=<optional, for QA specialist>",
+      "KUBECONFIG=<optional, defaults to ~/.kube/config, for QA specialist>",
+      "VLLM_RUNTIME_IMAGE=<optional override for vLLM runtime>"
+    ],
+    "notes": "No linters or tests to run. Only syntax validation available. The agent requires GEMINI_API_KEY to actually run but not for installation or syntax checking. Optional dependencies (skopeo, podman) are for runtime functionality, not validation."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install -e .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Obtaining file:///app\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Checking if build backend supports build_editable: started\n  Checking if build backend supports build_editable: finished with status 'done'\n  Getting requirements to build editable: started\n  Getting requirements to build editable: finished with status 'done'\n  Preparing editable metadata (pyproject.toml): started\n  Preparing editable metadata (pyproject.toml): finished with status 'done'\nCollecting langchain>=1.0.3 (from runtimes-deployment-agent==0.1.0)\n  Downloading langchain-1.2.13-py3-none-any.whl.metadata (5.8 kB)\nCollecting langchain-core>=0.3.78 (from runtimes-deployment-agent==0.1.0)\n  Downloading langchain_core-1.2.20-py3-none-any.whl.metadata (4.4 kB)\nCollecting langchain-google-genai>=3.2.0 (from runtimes-deployment-agent==0.1.0)\n  Downloading langchain_google_genai-4.2.1-py3-none-any.whl.metadata (2.7 kB)\nCollecting streamlit>=1.28.0 (from runtimes-deployment-agent==0.1.0)\n  Downloading streamlit-1.55.0-py3-none-any.whl.metadata (9.8 kB)\nCollecting pillow>=10.0.0 (from runtimes-deployment-agent==0.1.0)\n  Downloading pillow-12.1.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (8.8 kB)\nCollecting pandas>=2.0.0 (from runtimes-deployment-agent==0.1.0)\n  Downloading pandas-3.0.1-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)",
+        "notes": "Installation succeeded. All dependencies (langchain, streamlit, pandas, plotly, etc.) installed correctly."
+      },
+      {
+        "step": "syntax_check",
+        "command": "python -m compileall src",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Listing 'src'...\nCompiling 'src/__init__.py'...\nListing 'src/runtimes_dep_agent'...\nCompiling 'src/runtimes_dep_agent/__init__.py'...\nListing 'src/runtimes_dep_agent/agent'...\nCompiling 'src/runtimes_dep_agent/agent/__init__.py'...\nCompiling 'src/runtimes_dep_agent/agent/llm_agent.py'...\nListing 'src/runtimes_dep_agent/agent/specialists'...\nCompiling 'src/runtimes_dep_agent/agent/specialists/__init__.py'...\nCompiling 'src/runtimes_dep_agent/agent/specialists/accelerator_specialist.py'...\nCompiling 'src/runtimes_dep_agent/agent/specialists/config_specialist.py'...\nCompiling 'src/runtimes_dep_agent/agent/specialists/decision_specialist.py'...\nCompiling 'src/runtimes_dep_agent/agent/specialists/qa_specialist.py'...\nListing 'src/runtimes_dep_agent/config'...\nCompiling 'src/runtimes_dep_agent/config/__init__.py'...\nCompiling 'src/runtimes_dep_agent/config/model_config.py'...\nCompiling 'src/runtimes_dep_agent/execute_agent.py'...\nCompiling 'src/runtimes_dep_agent/preflight.py'...\nListing 'src/runtimes_dep_agent/report'...\nCompiling 'src/runtimes_dep_agent/report/__init__.py'...\nCompiling 'src/runtimes_dep_agent/report/html_report.py'...",
+        "notes": "All Python source files compiled successfully without syntax errors. 19 Python files validated."
+      },
+      {
+        "step": "cli_check",
+        "command": "agent --help",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "usage: agent [-h] [--config CONFIG] [--model MODEL]\n             [--gemini-api-key GEMINI_API_KEY]\n             [--oci-pull-secret OCI_PULL_SECRET]\n             [--vllm-runtime-image VLLM_RUNTIME_IMAGE] [--oc-login OC_LOGIN]\n             [--report-output REPORT_OUTPUT]\n\nRun the supervisor agent end-to-end.\n\noptions:\n  -h, --help            show this help message and exit\n  --config CONFIG       Path to the model-car YAML config file to preload.\n  --model MODEL         Model name to use for the supervisor agent.\n  --gemini-api-key GEMINI_API_KEY\n                        Gemini API key (falls back to GEMINI_API_KEY env var).\n  --oci-pull-secret OCI_PULL_SECRET\n                        OCI registry pull secret (falls back to\n                        OCI_REGISTRY_PULL_SECRET env var).\n  --vllm-runtime-image VLLM_RUNTIME_IMAGE\n                        vLLM runtime image override (falls back to\n                        VLLM_RUNTIME_IMAGE env var).",
+        "notes": "CLI entry point 'agent' command installed and accessible. Help text confirms expected options."
+      }
+    ],
+    "summary": "install OK, syntax check OK (19 files compiled), CLI OK. No tests or linters to run."
+  },
+  "gaps": [
+    "No tests exist - repository has zero test coverage",
+    "No linting tools configured - no automated code quality checks",
+    "No CI/CD infrastructure - no automated validation on pull requests",
+    "No pre-commit hooks configured",
+    "No test framework (pytest) configured despite dependencies that could be tested",
+    "Only validation available is basic Python syntax checking via compileall",
+    "Cannot validate actual functionality without GEMINI_API_KEY and external LLM services",
+    "Cannot run the agent's core functionality (model-car analysis, QA validation) in isolated container without OpenShift cluster access and API keys"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

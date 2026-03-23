@@ -1,0 +1,94 @@
+{
+  "repo": "odh-automation-serving",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:29:45Z",
+  "languages": [],
+  "linting": {
+    "tools": [
+      {
+        "name": "yamllint",
+        "config_file": null,
+        "run_command": "yamllint .github/workflows/*.yml",
+        "fix_command": null,
+        "scope": "GitHub Actions workflow files only"
+      }
+    ],
+    "notes": "No linting configuration exists. Repository contains only GitHub Actions YAML files. Basic YAML syntax validation could be performed with yamllint, but no project-specific linter configuration is present."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure exists. This is a pure automation repository containing only GitHub Actions workflows that operate on other repositories. There is no source code to test."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/create-upstream-pr-with-given-commit.yml",
+      ".github/workflows/force_push_to_trigger_openshift-ci_builds.yml",
+      ".github/workflows/pull_upstream.yml",
+      ".github/workflows/pull_upstream_with_cherrypick.yml",
+      ".github/workflows/push_cherrypick.yml",
+      ".github/workflows/push_release.yml",
+      ".github/workflows/update_sha.yml"
+    ],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "All workflows are manually triggered (workflow_dispatch). They perform automation tasks on OTHER repositories (syncing upstream/midstream/downstream, cherry-picking commits, creating PRs, retrieving container image SHAs). No CI checks run on this repository itself - it's purely an operations/automation hub."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system exists. Repository contains only YAML workflow files."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Repository follows GitHub Actions workflow naming conventions. All workflows are stored in .github/workflows/ and use descriptive names indicating their purpose (pull_upstream, push_cherrypick, etc.)."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No container recipe applicable. This repository has no source code, tests, or build system to validate. It contains only GitHub Actions workflow definitions."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "discovery",
+        "command": "find . -type f ! -path './.git/*'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Only found GitHub Actions YAML files, LICENSE, and README.md. No source code detected.",
+        "notes": "Repository is a pure automation repository with no source code to validate."
+      }
+    ],
+    "summary": "No validation performed - repository contains no source code, tests, or build configuration."
+  },
+  "gaps": [
+    "No source code - this is a pure automation/operations repository",
+    "No test infrastructure",
+    "No linting configuration",
+    "No build system",
+    "No CI checks that validate this repository itself",
+    "Workflows operate on external repositories and require secrets (PAT_TOKEN, ACTIONS_PAT, QUAY credentials)",
+    "Cannot validate workflow functionality without access to target repositories and credentials"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

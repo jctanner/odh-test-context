@@ -1,0 +1,259 @@
+{
+  "repo": "data-science-pipelines-operator",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:58:30Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v1.64.8",
+        "config_file": ".golangci.yaml",
+        "run_command": "golangci-lint run --timeout=5m",
+        "fix_command": null,
+        "scope": "full project",
+        "enabled_linters": [
+          "errcheck",
+          "gosimple",
+          "govet",
+          "ineffassign",
+          "staticcheck",
+          "typecheck",
+          "unused",
+          "revive"
+        ]
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "yamllint",
+        "config_file": ".yamllint.yaml",
+        "run_command": "yamllint --strict -c .yamllint.yaml .",
+        "fix_command": null,
+        "scope": "YAML files only"
+      }
+    ],
+    "notes": "Pre-commit hooks configured with go-fmt, golangci-lint, go-build, go-mod-tidy, and yamllint. CI runs golangci-lint via pre-commit."
+  },
+  "testing": {
+    "framework": "Go testing with build tags",
+    "test_directory": "controllers/ and tests/",
+    "run_command": "GOTOOLCHAIN=auto go test ./... --tags=test_all",
+    "run_single_file": "GOTOOLCHAIN=auto go test {file}",
+    "run_single_test": "GOTOOLCHAIN=auto go test {package} -run {TestName}",
+    "test_types": {
+      "unit": {
+        "command": "make unittest",
+        "tags": "--tags=test_unit",
+        "location": "controllers/*_test.go",
+        "validated": true,
+        "coverage": "54.9%"
+      },
+      "functional": {
+        "command": "make functest",
+        "tags": "--tags=test_functional",
+        "location": "controllers/*_test.go",
+        "validated": true,
+        "coverage": "59.2%",
+        "env_vars": ["SSL_CERT_FILE=controllers/testdata/tls/ca-bundle.crt", "DSPO_NAMESPACE=opendatahub"]
+      },
+      "integration": {
+        "command": "make integrationtest",
+        "tags": "--tags=test_integration",
+        "location": "tests/*_test.go",
+        "validated": false,
+        "requires_infrastructure": "Kubernetes cluster"
+      }
+    },
+    "setup_required": [
+      "make manifests",
+      "make generate"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS - set by envtest",
+      "SSL_CERT_FILE - for functional tests",
+      "DSPO_NAMESPACE - for functional tests",
+      "GOTOOLCHAIN=auto - to download Go 1.25.7"
+    ],
+    "fixtures_location": "controllers/testdata/",
+    "mock_patterns": "Uses envtest for Kubernetes API mocking",
+    "coverage_command": "go test ./... --tags=test_unit -coverprofile cover.out",
+    "coverage_threshold": null,
+    "notes": "Tests use kubebuilder/envtest framework. Integration tests require a real Kubernetes cluster with minio, mariadb, and DSP operator installed. Coverage profiling may show 'covdata' tool errors but tests pass successfully."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/precommit.yml",
+      ".github/workflows/unittests.yml",
+      ".github/workflows/functests.yml",
+      ".github/workflows/build-prs.yml",
+      ".github/workflows/kind-integration.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Pre-commit (lint)",
+        "workflow": "precommit.yml",
+        "command": "pre-commit run --all-files",
+        "required": true,
+        "trigger": "pull_request"
+      },
+      {
+        "name": "Unit Tests",
+        "workflow": "unittests.yml",
+        "command": "make unittest",
+        "required": true,
+        "trigger": "pull_request"
+      },
+      {
+        "name": "Functional Tests",
+        "workflow": "functests.yml",
+        "command": "make functest",
+        "required": true,
+        "trigger": "pull_request"
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Build PR Image",
+        "workflow": "build-prs.yml",
+        "command": "podman build",
+        "required": false,
+        "trigger": "workflow_run"
+      },
+      {
+        "name": "Integration Tests (Kind)",
+        "workflow": "kind-integration.yml",
+        "command": "make integrationtest",
+        "required": false,
+        "trigger": "label-based or manual"
+      }
+    ],
+    "notes": "Gating checks run on every PR. Integration tests require special infrastructure (Kind cluster with dependencies) and may not run on every PR."
+  },
+  "build": {
+    "system": "make + go",
+    "install_command": "GOTOOLCHAIN=auto go mod download",
+    "build_command": "GOTOOLCHAIN=auto make build",
+    "binary_output": "bin/manager",
+    "container_build": "podman build -t quay.io/opendatahub/data-science-pipelines-operator:main .",
+    "notes": "Build uses Go 1.25.7 (specified in go.mod). GOTOOLCHAIN=auto allows automatic download of correct Go version. Makefile handles code generation (manifests, deepcopy) before build."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "TestFunctionName (standard Go convention)",
+    "import_style": "Grouped imports: stdlib, external, internal",
+    "build_tags": "test_all, test_unit, test_functional, test_integration",
+    "notes": "Uses standard Go project layout with api/, controllers/, config/, tests/ directories. Kubernetes operator pattern with CRDs."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.22",
+    "go_version_required": "1.25.7",
+    "system_deps": [
+      "make",
+      "git",
+      "curl",
+      "python3",
+      "python3-pip"
+    ],
+    "setup_commands": [
+      "GOTOOLCHAIN=auto go mod download",
+      "GOTOOLCHAIN=auto go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8"
+    ],
+    "lint_commands": [
+      {
+        "command": "GOTOOLCHAIN=auto golangci-lint run --timeout=5m",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Passed with no linting errors"
+      },
+      {
+        "command": "GOTOOLCHAIN=auto go fmt ./...",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "No formatting issues"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "GOTOOLCHAIN=auto make unittest",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All unit tests passed, 54.9% coverage. Note: covdata tool error is non-fatal."
+      },
+      {
+        "command": "GOTOOLCHAIN=auto make functest",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All functional tests passed, 59.2% coverage. Requires SSL_CERT_FILE and DSPO_NAMESPACE env vars."
+      }
+    ],
+    "test_single_file": "GOTOOLCHAIN=auto go test {file} --tags=test_unit -v",
+    "test_single_test": "GOTOOLCHAIN=auto go test {package} -run {TestName} --tags=test_unit -v",
+    "env_vars": [
+      "GOTOOLCHAIN=auto",
+      "SSL_CERT_FILE=/app/controllers/testdata/tls/ca-bundle.crt",
+      "DSPO_NAMESPACE=opendatahub"
+    ],
+    "notes": "Go 1.25.7 is auto-downloaded with GOTOOLCHAIN=auto. Integration tests require Kubernetes cluster and cannot be validated in standard container."
+  },
+  "validation": {
+    "container_used": "golang:1.22 with GOTOOLCHAIN=auto",
+    "results": [
+      {
+        "step": "install",
+        "command": "GOTOOLCHAIN=auto go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Go automatically downloaded go1.25.7",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "GOTOOLCHAIN=auto make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go build -o bin/manager main.go",
+        "notes": "Built 56M binary at bin/manager"
+      },
+      {
+        "step": "lint",
+        "command": "GOTOOLCHAIN=auto golangci-lint run --timeout=5m",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - clean pass)",
+        "notes": "No linting errors found"
+      },
+      {
+        "step": "test-unit",
+        "command": "GOTOOLCHAIN=auto make unittest",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "PASS\ncoverage: 54.9% of statements\nok  	github.com/opendatahub-io/data-science-pipelines-operator/controllers",
+        "notes": "All unit tests passed. covdata tool error is non-fatal, tests succeed."
+      },
+      {
+        "step": "test-functional",
+        "command": "GOTOOLCHAIN=auto make functest",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  	github.com/opendatahub-io/data-science-pipelines-operator/controllers	16.642s	coverage: 59.2% of statements",
+        "notes": "All functional tests passed. Requires SSL_CERT_FILE env var."
+      }
+    ],
+    "summary": "All validated commands passed: deps install OK, build OK (56M binary), lint OK (clean), unit tests OK (54.9% coverage), functional tests OK (59.2% coverage)"
+  },
+  "gaps": [
+    "Integration tests require Kubernetes cluster infrastructure (cannot be validated in standard container)",
+    "Coverage profiling shows 'go: no such tool covdata' error - this is a known issue with Go 1.25.x coverage tooling but does not affect test execution",
+    "No coverage threshold defined in CI or config files",
+    "YAML linting (yamllint) not validated in container (requires Python pre-commit setup)"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

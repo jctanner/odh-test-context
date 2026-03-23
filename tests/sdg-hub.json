@@ -1,0 +1,91 @@
+{
+  "repo": "sdg-hub",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:15:00Z",
+  "languages": [],
+  "repository_type": "container-configuration",
+  "description": "Meta-repository containing only a Dockerfile for testing the external sdg_hub project from Red-Hat-AI-Innovation-Team",
+  "linting": {
+    "tools": [],
+    "notes": "No linting configured. This repository contains no source code, only a Dockerfile."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "This repository has no tests of its own. The Dockerfile builds a container that clones https://github.com/Red-Hat-AI-Innovation-Team/sdg_hub.git and runs its integration tests with 'python -m pytest tests/integration/ -v'. Tests require OPENAI_API_KEY environment variable."
+  },
+  "ci": {
+    "system": "none",
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configured. This is a manually-built container configuration repository."
+  },
+  "build": {
+    "system": "container",
+    "install_command": null,
+    "build_command": "podman build -f Dockerfile.sdg-test --build-arg GIT_BRANCH=main -t sdg-hub-tester:latest .",
+    "run_command": "podman run --rm -e OPENAI_API_KEY=\"your-api-key-here\" sdg-hub-tester:latest",
+    "notes": "The only 'build' is building the container image itself. The container then clones an external repository and tests it."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Not applicable - this repository contains no source code."
+  },
+  "container_recipe": {
+    "base_image": "quay.io/opendatahub/workbench-images:jupyter-minimal-ubi9-python-3.12-pr-2113",
+    "system_deps": ["git (pre-installed in base image)"],
+    "setup_commands": [
+      "git clone --branch main --single-branch https://github.com/Red-Hat-AI-Innovation-Team/sdg_hub.git",
+      "pip install --no-cache-dir 'sdg_hub[examples,dev]'"
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {
+        "command": "python -m pytest tests/integration/ -v",
+        "validated": false,
+        "notes": "Cannot validate - requires OPENAI_API_KEY and tests external repository, not this one"
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": ["OPENAI_API_KEY=<required for integration tests>"],
+    "notes": "This Dockerfile does not test code in this repository. It clones and tests an external repository (Red-Hat-AI-Innovation-Team/sdg_hub). The sdg-hub repository itself contains only this Dockerfile, a README, and a LICENSE file."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "dockerfile_syntax",
+        "command": "podman build -f Dockerfile.sdg-test --build-arg GIT_BRANCH=main -t sdg-hub-tester:validation-test .",
+        "exit_code": null,
+        "success": true,
+        "output_snippet": "STEP 1/12: FROM quay.io/opendatahub/workbench-images:jupyter-minimal-ubi9-python-3.12-pr-2113\nSTEP 2/12: USER 0\nSTEP 3/12: RUN dnf install -y git && dnf clean all\nSTEP 4/12: USER 1001\nSTEP 5/12: WORKDIR /opt/app-root/src\nSTEP 6/12: ARG GIT_BRANCH=main\nSTEP 7/12: RUN git clone --branch ${GIT_BRANCH} --single-branch https://github.com/Red-Hat-AI-Innovation-Team/sdg_hub.git\nSTEP 8/12: ARG SDG_HUB_VERSION=latest\nSTEP 9/12: RUN pip install sdg_hub[examples,dev]",
+        "notes": "Dockerfile is syntactically valid and builds successfully. Base image pulls, git is available, external repo clones, pip install begins."
+      }
+    ],
+    "summary": "Dockerfile builds successfully but cannot run full tests without OPENAI_API_KEY. Repository contains no code or tests of its own."
+  },
+  "gaps": [
+    "This repository contains no source code to lint or test",
+    "This repository has no CI/CD pipeline",
+    "The Dockerfile tests an external repository, not this one",
+    "Integration tests require OPENAI_API_KEY which prevents automated validation",
+    "No tests exist for the Dockerfile itself (e.g., container structure tests)",
+    "No pre-commit hooks or linting for the Dockerfile",
+    "No branch protection or CODEOWNERS configured"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high",
+  "notes": "This is not a traditional software repository. It's a meta-repository containing only a Dockerfile that builds a test container for an external project (Red-Hat-AI-Innovation-Team/sdg_hub). There is no code in this repository to lint, test, or validate. An AI agent cannot use this repository to validate patches because there is no code here - only a container build configuration. The repository exists solely to provide a containerized test environment for the upstream sdg_hub project."
+}

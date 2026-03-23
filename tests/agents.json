@@ -1,0 +1,73 @@
+{
+  "repo": "agents",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": ["Python", "Go"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. This is an experimental repository with no code quality enforcement. No .pre-commit-config.yaml, no ruff config in pyproject.toml files, no .flake8, .pylintrc, .golangci.yml, or ESLint configs detected."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "A few test-like files exist (examples/langchain-langgraph/test_langchain_mcp.py, examples/langchain-langgraph/test_langchain_guardrails.py, tools/mcp-tester/test-mcp-server.py) but these are manual testing scripts, not automated test suites. They require external services (Kubernetes clusters, MCP servers, LLMs) and are not designed for automated CI execution. The langchain-langgraph pyproject.toml includes pytest as a dependency but has no pytest configuration and no test runner setup."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD infrastructure found. No .github/workflows/ directory, no .tekton/, no Jenkinsfile, no .zuul.yaml. This is an experimental sandbox repository with no automated validation."
+  },
+  "build": {
+    "system": "multiple (uv for Python, go for Go)",
+    "install_command": null,
+    "build_command": null,
+    "notes": "Repository contains multiple independent sub-projects. Python projects use pyproject.toml with uv (examples/langchain-langgraph, examples/ai_assistant_for_troubleshooting_apps, tools/mcp-tester, tools/llama-stack/local). Go projects use go.mod (examples/github-mcp, examples/gsuite-mcp, examples/kubernetes-mcp, examples/servicenow-mcp, examples/slack-mcp). No project-level build system at the repository root. Each sub-project must be built independently. Python: 'uv sync' then 'source .venv/bin/activate'. Go: 'go build'."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py (Python), *_test.go (Go, though no Go test files exist)",
+    "test_naming": "Python: test_* functions; Go: Test* functions",
+    "import_style": "Not standardized - experimental code",
+    "notes": "As an experimental repository, there are no enforced conventions. Code style, import organization, and naming patterns vary across examples. The README.md explicitly states this is a sandbox for experimentation with incomplete/broken code, sparse documentation, and no stability guarantees."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "Container validation was not performed because there are no lint or test commands to validate. This repository has no test infrastructure."
+  },
+  "validation": {
+    "results": [],
+    "summary": "No validation performed - repository has no test or lint infrastructure to validate."
+  },
+  "gaps": [
+    "No CI/CD infrastructure whatsoever",
+    "No linting configuration or code quality tools",
+    "No formal test framework or test suite",
+    "No automated tests that can run without external dependencies",
+    "Test-like files require external services: Kubernetes clusters, MCP servers, Llama Stack, LLMs, GitHub tokens",
+    "No build automation at repository root level",
+    "No code coverage measurement",
+    "No dependency management at repository level",
+    "Repository explicitly labeled as experimental with no stability guarantees",
+    "Multiple independent sub-projects with inconsistent tooling",
+    "No documentation on testing approach or validation strategy"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

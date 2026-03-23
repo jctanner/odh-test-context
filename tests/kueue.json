@@ -1,0 +1,198 @@
+{
+  "repo": "kueue",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T22:35:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "config_file": ".golangci.yaml",
+        "run_command": "./bin/golangci-lint run --timeout 15m0s",
+        "fix_command": "./bin/golangci-lint run --fix --timeout 15m0s",
+        "scope": "full project"
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "go fmt ./...",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "go vet ./...",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "shellcheck",
+        "config_file": ".shellcheckrc",
+        "run_command": "./hack/shellcheck/verify.sh",
+        "fix_command": null,
+        "scope": "shell scripts"
+      }
+    ],
+    "notes": "Primary linting via golangci-lint with extensive configuration including gocritic, goheader, govet, gci, ginkgolinter, perfsprint, revive, and others. Run via 'make ci-lint' or 'make verify' for full verification."
+  },
+  "testing": {
+    "framework": "Ginkgo/Gomega for integration and e2e tests, gotestsum for unit tests",
+    "test_directory": "test/ (integration, e2e, performance subdirectories) and *_test.go files throughout pkg/",
+    "run_command": "go test ./pkg/...",
+    "run_single_file": "go test {file}",
+    "run_single_test": "go test -run {test_name} {package}",
+    "setup_required": [
+      "go mod download",
+      "make golangci-lint",
+      "make envtest",
+      "make ginkgo"
+    ],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS (for integration tests)",
+      "ENVTEST_K8S_VERSION=1.32 (default)",
+      "TEST_LOG_LEVEL=-3 (default)",
+      "INTEGRATION_NPROCS=4 (parallel test processes)",
+      "GO_TEST_FLAGS=-race (default)"
+    ],
+    "fixtures_location": "test/util and test/integration/framework",
+    "mock_patterns": "Uses envtest for simulated Kubernetes API server in integration tests",
+    "coverage_command": "go test ./pkg/... -coverpkg=./... -coverprofile bin/cover.out",
+    "coverage_threshold": null,
+    "notes": "227 test files found. Unit tests via 'make test' or 'go test ./pkg/...'. Integration tests via 'make test-integration' (requires envtest setup). E2E tests via 'make test-e2e' (requires Kind cluster). Performance tests available. Tests use Ginkgo BDD framework with parallel execution support."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/odh-build-and-publish-kueue-image.yaml",
+      ".github/workflows/odh-release.yml",
+      ".github/workflows/krew-release.yml",
+      ".github/workflows/openvex.yaml",
+      ".github/workflows/sbom.yaml"
+    ],
+    "gating_checks": [],
+    "advisory_checks": [
+      {
+        "name": "Build and Publish image",
+        "command": "make image-push",
+        "required": false
+      }
+    ],
+    "notes": "This is an ODH fork of kubernetes-sigs/kueue. The GitHub workflows present are ODH-specific for image building and publishing to quay.io/opendatahub. The upstream kueue project has extensive CI (unit tests, integration tests, e2e tests across multiple k8s versions) but those workflows are not present in this fork. Based on commit history, this fork carries ODH-specific patches on top of upstream releases."
+  },
+  "build": {
+    "system": "make and go",
+    "install_command": "go mod download",
+    "build_command": "make build",
+    "notes": "Go 1.24.0 required (specified in go.mod). Build produces bin/manager binary. Multiple build targets: 'make build' for main controller, 'make kueuectl' for CLI tool, 'make image-build' for container images. CGO_ENABLED=0 by default for static linking."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Go standard test naming (TestXxx functions) and Ginkgo BDD style (Describe/It/Context blocks)",
+    "import_style": "gci enforces import grouping: standard library, third-party, sigs.k8s.io/kueue prefix, blank imports, dot imports",
+    "notes": "Code requires Apache 2.0 license header (enforced by goheader linter). Uses controller-gen for code generation. Follows Kubernetes coding conventions. Tests organized by component: singlecluster, multikueue, e2e, performance."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.24.0",
+    "system_deps": [
+      "make",
+      "git",
+      "curl"
+    ],
+    "setup_commands": [
+      "go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "make golangci-lint && ./bin/golangci-lint run --timeout 15m0s",
+        "validated": true,
+        "notes": "Linter ran successfully and found 1 legitimate issue (unused function)"
+      },
+      {
+        "command": "go fmt ./...",
+        "validated": true,
+        "notes": "Passed with no formatting issues"
+      },
+      {
+        "command": "go vet ./...",
+        "validated": true,
+        "notes": "Passed with no issues"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "go test -short ./pkg/...",
+        "validated": true,
+        "notes": "All unit tests passed successfully (87 packages tested, 0 failures)"
+      }
+    ],
+    "test_single_file": "go test {file}",
+    "test_single_test": "go test -run {test_name} {package}",
+    "env_vars": [],
+    "notes": "Container validation successful with golang:1.24.0 base image. All basic validation commands work without additional configuration. Integration and e2e tests require additional setup (envtest, kind cluster) and were not validated in container. Build produces 108MB binary."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - successful download)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "go build -o /tmp/kueue ./cmd/kueue/main.go",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Build successful\n-rwxr-xr-x. 1 root root 108M Mar 22 22:35 /tmp/kueue",
+        "notes": "Build successful, produced 108MB binary"
+      },
+      {
+        "step": "lint",
+        "command": "./bin/golangci-lint run --timeout 5m0s ./pkg/...",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "pkg/controller/jobs/statefulset/statefulset_webhook.go:193:6: func `isManagedByKueue` is unused (unused)",
+        "notes": "Linter found 1 legitimate issue (unused function) - command works correctly"
+      },
+      {
+        "step": "lint",
+        "command": "go fmt ./pkg/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "No formatting issues found"
+      },
+      {
+        "step": "lint",
+        "command": "go vet ./pkg/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "No vet issues found"
+      },
+      {
+        "step": "test",
+        "command": "go test -short ./pkg/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ok  \tsigs.k8s.io/kueue/pkg/cache\t0.637s\nok  \tsigs.k8s.io/kueue/pkg/config\t0.055s\n...\nok  \tsigs.k8s.io/kueue/pkg/workload\t0.040s",
+        "notes": "All unit tests passed (87 packages tested)"
+      }
+    ],
+    "summary": "install OK, build OK (108MB binary), lint OK (found 1 unused function), fmt OK, vet OK, tests OK (87 packages passed)"
+  },
+  "gaps": [
+    "No CI workflows for automated testing in this ODH fork (upstream kueue has extensive CI)",
+    "Integration tests require envtest setup and were not validated in container",
+    "E2E tests require Kind cluster and external CRDs (jobset, kubeflow, ray-operator, etc.)",
+    "Performance tests require specific setup and were not validated",
+    "Shell script linting (shellcheck) not validated in container",
+    "Helm chart linting not validated",
+    "Code generation verification (make generate, make manifests) not validated"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

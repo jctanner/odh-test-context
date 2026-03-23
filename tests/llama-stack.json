@@ -1,0 +1,178 @@
+{
+  "repo": "llama-stack",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:42:15-04:00",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff check .",
+        "fix_command": "uv run ruff check . --fix",
+        "scope": "full project"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff format --check .",
+        "fix_command": "uv run ruff format .",
+        "scope": "full project"
+      },
+      {
+        "name": "mypy",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run --group dev --group type_checking mypy",
+        "fix_command": null,
+        "scope": "src/llama_stack and src/llama_stack_api (with extensive excludes)"
+      }
+    ],
+    "notes": "Pre-commit hooks enforce many additional checks: license headers, YAML/JSON validation, custom security checks (FIPS compliance, SQL injection prevention), code generation checks, and API conformance. Full pre-commit can be run with 'pre-commit run --all-files' but requires Node.js, oasdiff, and other tools."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "uv run --with-editable . --group unit pytest tests/unit/ -v",
+    "run_single_file": "uv run --with-editable . --group unit pytest {file} -v",
+    "run_single_test": "uv run --with-editable . --group unit pytest {file}::{test_name} -v",
+    "setup_required": [
+      "uv sync --group dev --group unit --extra client"
+    ],
+    "env_vars": [
+      "PYTHONPATH can be set to include repo root for script execution"
+    ],
+    "fixtures_location": "tests/unit/fixtures/ and tests/integration/fixtures/",
+    "mock_patterns": "pytest-socket blocks network by default for unit tests; @pytest.mark.allow_network marker permits specific tests to use network",
+    "coverage_command": "uv run --python 3.12 --with-editable . --group unit coverage run --source=src/llama_stack -m pytest -s -v tests/unit/",
+    "coverage_threshold": null,
+    "notes": "Unit tests are in tests/unit/, integration tests in tests/integration/. Some unit tests require optional dependencies (torch, qdrant-client, llama-stack-client) which are in the 'unit' dependency group. The --with-editable flag is important for proper module resolution. Integration tests require infrastructure (Ollama, Docker, etc.) and run in replay mode in CI. Tests use pytest asyncio_mode=auto."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/pre-commit.yml",
+      ".github/workflows/unit-tests.yml",
+      ".github/workflows/integration-tests.yml",
+      ".github/workflows/ci-status.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Pre-commit",
+        "command": "pre-commit run --show-diff-on-failure --color=always --all-files",
+        "required": true
+      },
+      {
+        "name": "mypy (full type_checking)",
+        "command": "uv run --group dev --group type_checking mypy",
+        "required": true
+      },
+      {
+        "name": "Unit Tests (Python 3.12)",
+        "command": "PYTHON_VERSION=3.12 ./scripts/unit-tests.sh --junitxml=pytest-report-3.12.xml",
+        "required": true
+      },
+      {
+        "name": "Unit Tests (Python 3.13)",
+        "command": "PYTHON_VERSION=3.13 ./scripts/unit-tests.sh --junitxml=pytest-report-3.13.xml",
+        "required": true
+      },
+      {
+        "name": "Integration Tests (Replay)",
+        "command": "./scripts/integration-tests.sh --stack-config <config> --suite <suite> --setup <setup> --inference-mode replay",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "The ci-status workflow aggregates all GitHub Actions checks and is the final gating check. Integration tests run in multiple configurations (library, docker, server) with different Python versions and client versions. Pre-commit workflow skips 'no-commit-to-branch' and 'mypy' hooks (mypy runs separately with full type_checking group). Tests on pull_request, merge_group, and push to main/release branches."
+  },
+  "build": {
+    "system": "uv + setuptools",
+    "install_command": "uv sync --group dev --group unit --extra client",
+    "build_command": "No explicit build needed for library development",
+    "notes": "Project uses uv (>=0.7.0) as package manager. The package is installed in editable mode during development. Uses setuptools-scm for versioning from git tags. Python >=3.12 required. Some dependencies (torch, torchvision) are fetched from PyTorch CPU index. The uv.lock file pins all dependencies."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py or *_test.py",
+    "test_naming": "test_* functions, Test* classes for pytest",
+    "import_style": "Ruff enforces import ordering (I rule) - stdlib, third-party, first-party. No star imports except in API __init__.py files.",
+    "notes": "Coverage config (.coveragerc) excludes tests/, providers/, templates/, UI code, and __init__.py files. Pytest configured with asyncio_mode=auto, so no @pytest.mark.asyncio needed. Custom markers include 'allow_network' for tests that need network access. Code must be FIPS-compliant (no md5, sha1). SQL queries must use parameterized bind variables, not f-strings. Logging must use llama_stack.log, not direct logging imports."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12-bookworm",
+    "system_deps": ["git", "curl", "ca-certificates"],
+    "setup_commands": [
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=\"$HOME/.local/bin:$PATH\"",
+      "uv sync --group dev --group unit --extra client"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run ruff check .",
+        "validated": true,
+        "notes": "Found 1 fixable import ordering issue in scripts/generate_prompt_format.py (exit code 1, expected for repos with violations)"
+      },
+      {
+        "command": "uv run ruff format --check .",
+        "validated": true,
+        "notes": "All 891 files already formatted (exit code 0)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "uv run --with-editable . --group unit pytest tests/unit/ -v",
+        "validated": true,
+        "notes": "1663 passed, 4 skipped (exit code 0). Must exclude tests requiring torch/qdrant: --ignore=tests/unit/providers/utils/inference/test_transformers_inference.py --ignore=tests/unit/providers/vector_io --ignore=tests/unit/distribution/test_library_client_initialization.py"
+      }
+    ],
+    "test_single_file": "uv run --with-editable . --group unit pytest {file} -v",
+    "test_single_test": "uv run --with-editable . --group unit pytest {file}::{test_name} -v",
+    "env_vars": [],
+    "notes": "The --with-editable flag is critical for proper module resolution in tests. Some tests require additional dependencies from the 'unit' group that may not install cleanly in all environments (torch, qdrant-client). Core tests work without these. Full mypy check requires --group type_checking in addition to --group dev."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "uv sync --group dev --group unit --extra client",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Using CPython 3.12.13 interpreter\nCreating virtual environment at: .venv\nResolved 342 packages in 1ms\nBuilding llama-stack-api and llama-stack from local sources\nInstalled successfully",
+        "notes": "Clean install, no errors. Takes ~2-3 minutes to download and install all dependencies."
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff check .",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "I001 [*] Import block is un-sorted or un-formatted\n  --> scripts/generate_prompt_format.py:12:1\nFound 1 error.\n[*] 1 fixable with the `--fix` option.",
+        "notes": "Linter runs successfully; exit code 1 indicates lint violations found (1 fixable import ordering issue). This is expected behavior, not a broken linter."
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff format --check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "891 files already formatted",
+        "notes": "All files are properly formatted."
+      },
+      {
+        "step": "test",
+        "command": "uv run --with-editable . --group unit pytest tests/unit/ --ignore=tests/unit/providers/utils/inference/test_transformers_inference.py --ignore=tests/unit/providers/vector_io --ignore=tests/unit/distribution/test_library_client_initialization.py -q",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "1663 passed, 4 skipped, 8 warnings in 27.60s",
+        "notes": "Tests pass successfully. Excluded 3 test files/directories that require optional heavy dependencies (torch, qdrant-client). Core functionality tests all pass."
+      }
+    ],
+    "summary": "install OK, lint OK (1 fixable violation), format OK, tests OK (1663 passed)"
+  },
+  "gaps": [
+    "Some unit tests require heavyweight dependencies (torch, qdrant-client) that may not install or may be slow in standard containers",
+    "Integration tests require external infrastructure (Ollama, Docker containers, external APIs) and cannot be validated in isolated container",
+    "Full pre-commit validation requires Node.js (for UI linting), Go (for oasdiff), and other tools not in base Python container",
+    "Mypy with full type_checking group requires installing many type stubs and optional dependencies",
+    "The 'unit' dependency group includes many optional provider dependencies that may have installation issues in some environments"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

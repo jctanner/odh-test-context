@@ -1,0 +1,242 @@
+{
+  "repo": "kubeflow-sdk",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T18:33:00Z",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "version": ">=0.12.2",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff check --show-fixes --output-format=github .",
+        "fix_command": "uv run ruff check --fix .",
+        "scope": "full project"
+      },
+      {
+        "name": "ruff-format",
+        "version": ">=0.12.2",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff format --check kubeflow",
+        "fix_command": "uv run ruff format kubeflow",
+        "scope": "kubeflow directory"
+      },
+      {
+        "name": "ty",
+        "version": ">=0.0.11",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ty check kubeflow/hub",
+        "fix_command": null,
+        "scope": "kubeflow/hub directory only"
+      }
+    ],
+    "notes": "Makefile 'verify' target runs: uv lock --check, ruff check, ruff format --check, and ty check. Pre-commit hooks configured with ruff-check and ruff-format."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "kubeflow/",
+    "run_command": "uv run coverage run --source=kubeflow -m pytest ./kubeflow/",
+    "run_single_file": "uv run pytest {file}",
+    "run_single_test": "uv run pytest {file}::{test_name}",
+    "setup_required": [
+      "uv sync --extra spark"
+    ],
+    "env_vars": [],
+    "fixtures_location": "co-located conftest.py files (if present)",
+    "mock_patterns": "pytest-mock plugin used for mocking",
+    "coverage_command": "uv run coverage report --omit='*_test.py' --skip-covered --skip-empty",
+    "coverage_threshold": "60% (current coverage level, not enforced)",
+    "notes": "Tests are co-located with source code using *_test.py naming. 548 tests total. Markers: integration, slow, smoke, timeout, options. Some tests may require Kubernetes cluster (marked as 'integration'). Spark extra required for full test suite."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/test-python.yaml",
+      ".github/workflows/validate-lockfile.yaml",
+      ".github/workflows/check-pr-title.yaml",
+      ".github/workflows/docs.yaml",
+      ".github/workflows/test-e2e.yaml",
+      ".github/workflows/snyk-security-scan.yaml",
+      ".github/workflows/trivy-cve-scan.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Unit Test - Python",
+        "command": "make verify && make test-python report=xml",
+        "required": true,
+        "notes": "Runs on all PRs. Includes lint (ruff check, ruff format, ty check) and unit tests with coverage."
+      },
+      {
+        "name": "Validate Lockfile Security",
+        "command": "uv lock --check",
+        "required": true,
+        "notes": "Runs when uv.lock or pyproject.toml change. Ensures lockfile is in sync and checks for CVE regressions."
+      },
+      {
+        "name": "Check PR Title",
+        "command": "semantic-pr-check",
+        "required": true,
+        "notes": "Validates PR title follows conventional commits (chore, fix, feat, revert). Scopes: ci, docs, deps, examples, scripts, test, trainer."
+      },
+      {
+        "name": "Documentation",
+        "command": "uv sync --group docs && uv run sphinx-build -b html docs/source docs/_build/html",
+        "required": true,
+        "notes": "Runs when docs/, kubeflow/, .readthedocs.yaml, or docs workflow change. Ensures documentation builds successfully."
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "E2E Tests",
+        "command": "see .github/workflows/test-e2e.yaml",
+        "required": false,
+        "notes": "Requires Kind cluster with Spark operator. Runs on manual trigger or labeled PRs."
+      },
+      {
+        "name": "Snyk Security Scan",
+        "command": "snyk scan",
+        "required": false,
+        "notes": "Security vulnerability scanning. May produce warnings but not blocking."
+      },
+      {
+        "name": "Trivy CVE Scan",
+        "command": "trivy scan",
+        "required": false,
+        "notes": "Container and dependency CVE scanning. Advisory only."
+      }
+    ],
+    "notes": "CI uses Python 3.11. UV is installed via astral-sh/setup-uv@v5 action. Coverage uploaded to Coveralls."
+  },
+  "build": {
+    "system": "uv (with hatchling build backend)",
+    "install_command": "uv sync",
+    "build_command": "uv build (not required for testing)",
+    "notes": "Pure Python package. No compilation step. Optional extras: docker, podman, rhai, spark, hub. Dev dependencies include pytest, coverage, ruff, pre-commit. UV is modern Python package manager (replacement for pip/poetry). Install UV: curl -LsSf https://astral.sh/uv/install.sh | sh"
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.py",
+    "test_naming": "test_* functions in *_test.py files, co-located with source code",
+    "import_style": "Absolute imports from kubeflow package. First-party imports grouped and sorted by isort rules in ruff config.",
+    "notes": "Line length: 100 chars. Target Python 3.10+. Quote style: double. Tests use pytest markers for categorization. Pre-commit hooks enforce formatting and linting."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11-slim",
+    "system_deps": ["make", "git", "curl"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y make git curl",
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=\"$HOME/.local/bin:$PATH\"",
+      "uv sync --extra spark"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run ruff check --show-fixes --output-format=github .",
+        "validated": true,
+        "notes": "exit 0 - no lint violations found"
+      },
+      {
+        "command": "uv run ruff format --check kubeflow",
+        "validated": true,
+        "notes": "exit 0 - 94 files already formatted"
+      },
+      {
+        "command": "uv run ty check kubeflow/hub",
+        "validated": true,
+        "notes": "exit 0 - All checks passed!"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "uv run coverage run --source=kubeflow -m pytest ./kubeflow/",
+        "validated": true,
+        "notes": "exit 0 - 548 passed in 65.81s"
+      },
+      {
+        "command": "uv run coverage report --omit='*_test.py' --skip-covered --skip-empty",
+        "validated": true,
+        "notes": "60% coverage - 4995 statements, 1983 missed, 41 files with 100% coverage"
+      }
+    ],
+    "test_single_file": "uv run pytest {file}",
+    "test_single_test": "uv run pytest {file}::{test_name}",
+    "env_vars": [],
+    "notes": "All commands validated successfully in container. UV installs to $HOME/.local/bin. No external services required for unit tests. Integration tests (marked with @pytest.mark.integration) require Kind cluster but are not run by default."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install-system-deps",
+        "command": "apt-get update && apt-get install -y make git curl",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "53 newly installed, 0 to remove",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "install-uv",
+        "command": "curl -LsSf https://astral.sh/uv/install.sh | sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "uv 0.10.12 (x86_64-unknown-linux-gnu)",
+        "notes": "UV installed successfully"
+      },
+      {
+        "step": "install-deps",
+        "command": "uv sync --extra spark",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Resolved 129 packages in 0.72ms",
+        "notes": "All dependencies synced including git dependencies from kubeflow repos"
+      },
+      {
+        "step": "lint-check",
+        "command": "uv run ruff check --show-fixes --output-format=github .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - clean)",
+        "notes": "No lint violations found"
+      },
+      {
+        "step": "lint-format",
+        "command": "uv run ruff format --check kubeflow",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "94 files already formatted",
+        "notes": "All files properly formatted"
+      },
+      {
+        "step": "type-check",
+        "command": "uv run ty check kubeflow/hub",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Type checking passed for hub module"
+      },
+      {
+        "step": "test",
+        "command": "uv run coverage run --source=kubeflow -m pytest ./kubeflow/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "======================== 548 passed in 65.81s (0:01:05) ========================",
+        "notes": "All 548 unit tests passed"
+      },
+      {
+        "step": "coverage-report",
+        "command": "uv run coverage report --omit='*_test.py' --skip-covered --skip-empty",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "TOTAL 4995 1983 60%",
+        "notes": "60% code coverage, 41 files with 100% coverage skipped"
+      }
+    ],
+    "summary": "install OK, lint OK (no violations), format OK, type check OK, tests OK (548 passed), coverage 60%"
+  },
+  "gaps": [
+    "E2E tests require Kind cluster with Spark operator - not validated in container",
+    "Integration tests (marked @pytest.mark.integration) require Kubernetes cluster",
+    "Some backends (docker/podman local execution) have low test coverage (16-21%) but this doesn't block basic validation",
+    "Documentation build not validated (would require sphinx and doc dependencies)"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

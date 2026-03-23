@@ -1,0 +1,153 @@
+{
+  "repo": "text-generation-inference",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:25:00-04:00",
+  "languages": ["Rust", "Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "rustfmt",
+        "config_file": "rustfmt.toml",
+        "run_command": "cargo fmt --check",
+        "fix_command": "cargo fmt",
+        "scope": "full project"
+      },
+      {
+        "name": "clippy",
+        "config_file": "rust-toolchain.toml",
+        "run_command": "cargo clippy -- -D warnings",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "No Python linting tools configured in pyproject.toml files. Rustfmt check found formatting violations in launcher/src/main.rs and router/src/main.rs. Clippy is available but not validated due to missing protobuf generated files in validation environment."
+  },
+  "testing": {
+    "framework": "pytest (Python), cargo test (Rust - no tests found)",
+    "test_directory": "server/tests (Python unit tests), integration_tests/text_generation_tests (integration tests)",
+    "run_command": "pytest -sv --ignore=server/tests/test_utils.py server/tests",
+    "run_single_file": "pytest -sv {file}",
+    "run_single_test": "pytest -sv {file}::{test_name}",
+    "setup_required": [
+      "cd server && make gen-server",
+      "pip install torch==2.2.1+cpu --index-url https://download.pytorch.org/whl/cpu --no-cache-dir",
+      "cd server && pip install -e '.[accelerate]' --no-cache-dir"
+    ],
+    "env_vars": ["CUDA_VISIBLE_DEVICES="],
+    "fixtures_location": "server/tests/conftest.py",
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "35 Python unit tests pass successfully. Integration tests require a running text-generation-server with a loaded model, making them infrastructure-dependent. No Rust unit tests found in router or launcher components."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/build.yml", ".github/workflows/test.yml"],
+    "gating_checks": [
+      {
+        "name": "Build Docker image (server-release)",
+        "command": "docker build --target=server-release --build-arg GIT_COMMIT_HASH=$(git rev-parse HEAD) -t text-gen-server .",
+        "required": true
+      },
+      {
+        "name": "Python unit tests",
+        "command": "make python-tests",
+        "required": true
+      },
+      {
+        "name": "Integration tests",
+        "command": "make integration-tests",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "All CI checks run on pull_request and push to main. Both python-tests and integration-tests run inside a Docker container (cpu-tests stage). The build workflow builds and pushes container images to quay.io/wxpe/text-gen-server."
+  },
+  "build": {
+    "system": "Cargo (Rust), Poetry (Python), Docker, Make",
+    "install_command": "See setup_commands in container_recipe",
+    "build_command": "docker build --target=server-release -t text-gen-server . (or) cargo install --path router (or) cd server && make install",
+    "notes": "Multi-language project with complex build. Rust components (router, launcher) are built separately. Python server requires protobuf generation, PyTorch installation, and Poetry dependencies. Production build uses multi-stage Dockerfile."
+  },
+  "conventions": {
+    "test_file_pattern": "server/tests/test_*.py, integration_tests/text_generation_tests/test_*.py",
+    "test_naming": "Python: test_* functions, pytest style. Rust: #[test] annotations (none found)",
+    "import_style": "Python: standard imports. Rust: configured for group_imports = StdExternalCrate, imports_granularity = Crate (requires nightly)",
+    "notes": "Project uses Poetry for Python dependency management. Rust uses workspace with members: router, router/client, launcher. Protobuf files are generated during build."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["make", "git", "gcc", "g++", "curl", "unzip", "protobuf-compiler"],
+    "setup_commands": [
+      "pip install --upgrade pip",
+      "pip install pytest pytest-asyncio",
+      "pip install 'torch==2.2.1+cpu' --index-url https://download.pytorch.org/whl/cpu --no-cache-dir",
+      "cd /app/server && make gen-server",
+      "cd /app/server && pip install -e '.[accelerate]' --no-cache-dir"
+    ],
+    "lint_commands": [
+      {
+        "command": "cargo fmt --check",
+        "validated": true,
+        "notes": "Found formatting violations in launcher/src/main.rs and router/src/main.rs. Requires Rust toolchain 1.77.2. Some rustfmt features require nightly channel."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "pytest -sv --ignore=server/tests/test_utils.py server/tests",
+        "validated": true,
+        "notes": "All 35 Python unit tests passed successfully in 24.04s"
+      },
+      {
+        "command": "cd integration_tests && pytest -sv text_generation_tests/test_server.py",
+        "validated": false,
+        "notes": "Integration tests require a running text-generation-server with a loaded model. Cannot be validated without infrastructure."
+      }
+    ],
+    "test_single_file": "pytest -sv {file}",
+    "test_single_test": "pytest -sv {file}::{test_name}",
+    "env_vars": ["CUDA_VISIBLE_DEVICES="],
+    "notes": "The server requires editable install (pip install -e) for protobuf imports to work correctly. PyTorch CPU version is sufficient for unit tests. Integration tests would require GPU support and model downloads."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "cd /app/server && make gen-server && pip install -e '.[accelerate]' --no-cache-dir",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed text-generation-server-0.1.0 accelerate-0.27.2 transformers-4.40.2 ...",
+        "notes": "Installation successful. Protobuf generation and all Python dependencies installed correctly."
+      },
+      {
+        "step": "lint",
+        "command": "cargo fmt --check",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "Diff in /app/launcher/src/main.rs at line 181...\nDiff in /app/router/src/main.rs at line 7...",
+        "notes": "Rustfmt found formatting violations. Also warns about unstable features (imports_granularity, group_imports) requiring nightly channel. Errors about missing pb.rs files expected (generated during build)."
+      },
+      {
+        "step": "test",
+        "command": "pytest -sv --ignore=server/tests/test_utils.py server/tests",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================= test session starts ==============================\ncollected 35 items\n...\n============================= 35 passed in 24.04s ==============================",
+        "notes": "All Python unit tests passed. Tests cover logit processors, prompt cache functionality, and utility conversions."
+      }
+    ],
+    "summary": "Install OK, lint FAIL (rustfmt violations), Python tests OK (35 passed), integration tests not validated (require infrastructure)"
+  },
+  "gaps": [
+    "No Python linting tools configured (ruff, flake8, mypy, black, etc.)",
+    "Rustfmt violations exist in current codebase",
+    "No Rust unit tests found in router or launcher components",
+    "Integration tests require running server infrastructure (model loading, GPU access)",
+    "Clippy linting cannot be validated without full Rust build (protobuf generation)",
+    "No pre-commit hooks configured",
+    "No coverage measurement configured for Python tests",
+    "Dockerfile-based test approach makes local testing complex"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

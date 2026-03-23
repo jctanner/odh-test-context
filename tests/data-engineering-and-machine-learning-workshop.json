@@ -1,0 +1,116 @@
+{
+  "repo": "data-engineering-and-machine-learning-workshop",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T21:54:30Z",
+  "languages": ["Python", "Jupyter Notebook"],
+  "linting": {
+    "tools": [],
+    "notes": "No linter configuration found. No .flake8, pylintrc, ruff config, or pre-commit hooks configured."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test infrastructure found. This is a workshop/training repository with example code and Jupyter notebooks. No test files, test frameworks (pytest, unittest), or test directories exist."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD infrastructure found. No .github/workflows, .tekton, Jenkinsfile, or other CI configuration detected."
+  },
+  "build": {
+    "system": "pip (manual)",
+    "install_command": "pip install 'tensorflow==1.13.*' 'protobuf<4.0' boto3",
+    "build_command": null,
+    "notes": "No build system configured (no setup.py, pyproject.toml, Makefile). Dependencies are specified in requirements.txt files for train and serve components. TensorFlow 1.9.0 (train) is no longer available; TensorFlow 1.13.* (serve) requires protobuf<4.0 and Python 3.7 for compatibility. This is legacy code from 2018-2019 era."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": "Standard Python imports",
+    "notes": "Workshop repository structure: source/ contains training materials (notebooks, dashboards, tf-random-forest training/serving code), deploy/ contains OpenShift templates, doc/ contains workshop documentation, slides/ contains presentation materials."
+  },
+  "container_recipe": {
+    "base_image": "python:3.7",
+    "system_deps": [],
+    "setup_commands": [
+      "pip install 'tensorflow==1.13.*' boto3",
+      "pip install 'protobuf<4.0'"
+    ],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "Python 3.7 required for TensorFlow 1.13 compatibility. Protobuf must be downgraded to <4.0 due to incompatibility with TensorFlow 1.x. Code syntax is valid and imports successfully with correct environment. No automated tests exist to run."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "syntax_check",
+        "command": "python -m py_compile source/tf-random-forest/train/app.py source/tf-random-forest/serve/ForestMnist.py",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "All Python files have valid syntax"
+      },
+      {
+        "step": "install",
+        "command": "pip install 'tensorflow==1.13.*' boto3",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed tensorflow-1.13.2 boto3-1.33.13 and dependencies",
+        "notes": "TensorFlow 1.13.2 installs successfully. Note: train/requirements.txt specifies TF 1.9.0 which is no longer available"
+      },
+      {
+        "step": "install_fix",
+        "command": "pip install 'protobuf<4.0'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed protobuf-3.20.3",
+        "notes": "Protobuf downgrade required for TensorFlow 1.13 compatibility"
+      },
+      {
+        "step": "import_test",
+        "command": "python -c 'import tensorflow as tf; print(tf.__version__)'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "TensorFlow version: 1.13.2 (with FutureWarnings about numpy dtypes)",
+        "notes": "TensorFlow imports successfully with deprecation warnings"
+      },
+      {
+        "step": "code_import",
+        "command": "python -c 'from ForestMnist import ForestMnist'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ForestMnist class imported successfully",
+        "notes": "Application code imports without errors"
+      }
+    ],
+    "summary": "Syntax valid, dependencies install with version adjustments (TF 1.13.2 instead of 1.9.0, protobuf<4.0), code imports successfully. No tests exist to run."
+  },
+  "gaps": [
+    "No test infrastructure - no tests, test frameworks, or test directories",
+    "No CI/CD - no GitHub Actions, Tekton, or other CI configuration",
+    "No linting configuration - no flake8, ruff, pylint, or pre-commit setup",
+    "No build system - no setup.py, pyproject.toml, or Makefile",
+    "Deprecated dependencies - TensorFlow 1.9.0/1.13.* from 2018, no longer maintained",
+    "train/requirements.txt specifies TensorFlow 1.9.0 which is no longer available on PyPI",
+    "Code requires legacy Python 3.7 and protobuf<4.0 for compatibility",
+    "No documentation on how to run or validate the code",
+    "Workshop/training code - not production-grade software",
+    "Code requires external infrastructure (S3-compatible storage, OpenShift cluster) to actually execute"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

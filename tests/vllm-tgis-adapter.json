@@ -1,0 +1,320 @@
+{
+  "repo": "vllm-tgis-adapter",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:47:30-04:00",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": "pre-commit run --all-files",
+        "scope": "full project",
+        "hooks": [
+          "pre-commit-hooks (check-added-large-files, check-case-conflict, check-docstring-first, etc.)",
+          "ruff (linting)",
+          "ruff-format (code formatting)",
+          "codespell (spelling)",
+          "pretty-format-toml",
+          "pretty-format-yaml",
+          "pyupgrade (Python syntax modernization)"
+        ]
+      },
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff check .",
+        "fix_command": "ruff check --fix .",
+        "scope": "full project",
+        "version": "0.11.11"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff format .",
+        "fix_command": "ruff format .",
+        "scope": "full project"
+      },
+      {
+        "name": "mypy",
+        "config_file": "pyproject.toml",
+        "run_command": "python -m mypy",
+        "fix_command": null,
+        "scope": "src and tests directories",
+        "version": "1.15.0"
+      },
+      {
+        "name": "nox-lint",
+        "config_file": "noxfile.py",
+        "run_command": "nox -s lint-3.12",
+        "fix_command": null,
+        "scope": "full project via pre-commit"
+      }
+    ],
+    "notes": "Primary linting is via pre-commit hooks. The nox lint session runs pre-commit and optionally mypy. Ruff handles both linting and formatting. All lint checks passed successfully during validation."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "pytest --cov --cov-config=pyproject.toml --no-cov-on-fail tests",
+    "run_single_file": "pytest {file}",
+    "run_single_test": "pytest {file}::{test_name} or pytest -k {test_name}",
+    "setup_required": [
+      "pip install -e '.[tests]' or pip install -e '.[dev]'",
+      "Requires specific vLLM version (built from source for CPU testing)"
+    ],
+    "env_vars": [
+      "VLLM_TARGET_DEVICE=cpu (for CPU-only testing)",
+      "UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu",
+      "UV_INDEX_STRATEGY=unsafe-best-match",
+      "VLLM_ALLOW_LONG_MAX_MODEL_LEN=1",
+      "VLLM_USE_V1=1 (required for vLLM >=0.10.0 on CPU)",
+      "VLLM_VERSION_OVERRIDE=<path_to_vllm_wheel> (optional, for custom vLLM build)"
+    ],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Uses pytest fixtures for server setup, mocking handled via pytest-mock",
+    "coverage_command": "pytest --cov --cov-config=pyproject.toml --cov-report=xml tests",
+    "coverage_threshold": null,
+    "pytest_options": "-ra -k \"not hf_data\" (default, skips HuggingFace data download tests)",
+    "markers": {
+      "hf_data": "marks tests that download data from HF hub (deselect with '-m \"not hf_data\"')"
+    },
+    "notes": "Tests require specific vLLM version compatibility. The adapter is tightly coupled to vLLM's API. CI builds vLLM from source for versions v0.10.0, v0.10.1.1, v0.10.2, v0.11.0, v0.11.2. Tests involve starting actual gRPC and HTTP servers with vLLM engine. conftest.py provides fixtures for server setup and ports."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/tests.yaml",
+      ".github/workflows/pre-commit-autoupdate.yml",
+      ".github/workflows/release.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Lint code and check dependencies",
+        "command": "nox --envdir ~/.nox --reuse-venv=yes -v -s lint-3.12",
+        "required": true,
+        "env": {
+          "RUFF_OUTPUT_FORMAT": "github"
+        }
+      },
+      {
+        "name": "Run tests",
+        "command": "nox --envdir ~/.nox --reuse-venv=yes -v -s tests-3.12 -- --cov-report=xml",
+        "required": true,
+        "matrix": {
+          "python": ["3.12"],
+          "os": ["ubuntu-latest"],
+          "vllm_ref": ["v0.10.0", "v0.10.1.1", "v0.10.2", "v0.11.0", "v0.11.2"]
+        }
+      },
+      {
+        "name": "Build package",
+        "command": "nox --envdir ~/.nox --reuse-venv=yes -s build-3.12",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "environment_vars": {
+      "FORCE_COLOR": "1",
+      "VLLM_TARGET_DEVICE": "cpu",
+      "UV_EXTRA_INDEX_URL": "https://download.pytorch.org/whl/cpu",
+      "UV_INDEX_STRATEGY": "unsafe-best-match",
+      "VLLM_ALLOW_LONG_MAX_MODEL_LEN": "1",
+      "VLLM_REPO": "vllm-project/vllm",
+      "VLLM_USE_V1": "1"
+    },
+    "system_dependencies": [
+      "ccache",
+      "libnuma-dev",
+      "libdnnl-dev",
+      "opencl-dev"
+    ],
+    "vllm_build_steps": [
+      "Check out vllm repository at specific ref",
+      "Create venv with uv",
+      "Run .github/scripts/install_vllm_build_deps.py",
+      "python setup.py bdist_wheel",
+      "Set VLLM_VERSION_OVERRIDE to built wheel path"
+    ],
+    "notes": "CI runs tests against multiple vLLM versions. Each test run requires building vLLM from source with CPU support. Uses uv for dependency management and nox for session management. Caches include nox envs, ccache, and HuggingFace hub."
+  },
+  "build": {
+    "system": "setuptools with setuptools_scm",
+    "install_command": "pip install -e '.[dev]'",
+    "build_command": "python -m build",
+    "build_backend": "setuptools.build_meta",
+    "custom_build_steps": [
+      "Protobuf generation via grpc_tools.protoc (runs during build_py)",
+      "Generates Python files from src/vllm_tgis_adapter/grpc/pb/generation.proto"
+    ],
+    "build_requirements": [
+      "setuptools>=48",
+      "setuptools_scm[toml]>=6.3.1",
+      "grpcio-tools==1.75.1",
+      "protobuf==6.32.1 (on s390x)",
+      "mypy-protobuf==3.6.0",
+      "types-protobuf>=3.20.4"
+    ],
+    "dependency_groups": {
+      "tests": ["pytest==8.3.5", "pytest-cov==6.0.0", "pytest-mock==3.14.0", "pytest-asyncio==0.25.3", "requests==2.32.3"],
+      "dev": ["includes tests group", "ruff==0.11.11", "mypy==1.15.0", "types-protobuf", "types-requests"],
+      "flash_attn": ["flash-attn==2.6.3", "packaging", "ninja"]
+    },
+    "nox_sessions": {
+      "build": "nox -s build-3.12",
+      "dev": "nox -s dev -- venv (creates development venv)"
+    },
+    "notes": "Uses setuptools_scm for version management. Custom build command generates gRPC/protobuf files. setup.py defines BuildPyAndGenerateGrpc class extending build_py."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py",
+    "test_naming": "Functions prefixed with test_*, pytest-style fixtures in conftest.py",
+    "import_style": "Absolute imports, isort configured via ruff with known-first-party=['vllm_tgis_adapter']",
+    "code_style": "Ruff formatting, comprehensive linting rules (select ALL with specific ignores)",
+    "python_versions": "3.9, 3.10, 3.11, 3.12",
+    "type_checking": "mypy enabled for src and tests, check_untyped_defs=false, allows missing imports for grpc",
+    "notes": "Project uses ruff for both linting and formatting. Type checking is optional but configured. Tests use pytest fixtures extensively for server setup. Pre-commit hooks enforce formatting and style."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": ["git", "make", "build-essential"],
+    "setup_commands": [
+      "pip install uv nox",
+      "pip install -e '.[dev]'"
+    ],
+    "lint_commands": [
+      {
+        "command": "pre-commit run --all-files",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All hooks passed: ruff, ruff-format, codespell, pre-commit-hooks, pyupgrade, TOML/YAML formatters"
+      },
+      {
+        "command": "ruff check .",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "All checks passed!"
+      },
+      {
+        "command": "python -m mypy",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Type checking passed with some import-untyped warnings (grpc modules)"
+      },
+      {
+        "command": "nox -s lint-3.12",
+        "validated": true,
+        "exit_code": 0,
+        "notes": "Runs pre-commit in isolated nox environment, all checks passed"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "pytest --cov --cov-config=pyproject.toml --no-cov-on-fail tests",
+        "validated": false,
+        "exit_code": 4,
+        "notes": "ImportError: cannot import name 'maybe_register_tokenizer_info_endpoint' from vLLM. Tests require specific vLLM version built from source. Standard pip-installed vLLM (0.18.0) incompatible with adapter code expecting vLLM 0.10.x-0.11.x API."
+      },
+      {
+        "command": "nox -s tests-3.12",
+        "validated": false,
+        "notes": "Would have same ImportError. Requires VLLM_VERSION_OVERRIDE pointing to compatible wheel built from source."
+      }
+    ],
+    "test_single_file": "pytest {file}",
+    "test_single_test": "pytest {file}::{test_name} or pytest -k '{test_name}'",
+    "env_vars": [
+      "VLLM_TARGET_DEVICE=cpu (for CPU testing)",
+      "UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu",
+      "UV_INDEX_STRATEGY=unsafe-best-match",
+      "VLLM_USE_V1=1",
+      "VLLM_ALLOW_LONG_MAX_MODEL_LEN=1"
+    ],
+    "notes": "Linting works perfectly in a standard container. Testing requires building vLLM from source at specific versions (see CI workflow for exact process). The adapter is tightly coupled to vLLM API versions. For full test validation, must build vLLM from source following .github/workflows/tests.yaml steps."
+  },
+  "validation": {
+    "container_name": "test-context-vllm-tgis-adapter",
+    "base_image_used": "python:3.12",
+    "results": [
+      {
+        "step": "install-system-deps",
+        "command": "apt-get update && apt-get install -y git make build-essential",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "System deps installed successfully",
+        "notes": "System dependencies installed without issues"
+      },
+      {
+        "step": "install-uv-nox",
+        "command": "pip install --no-cache-dir uv nox",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed argcomplete-3.6.3 attrs-26.1.0 colorlog-6.10.1 ... nox-2026.2.9 ... uv-0.10.12 virtualenv-21.2.0",
+        "notes": "uv and nox installed successfully"
+      },
+      {
+        "step": "install-dev-dependencies",
+        "command": "pip install --no-cache-dir -e '.[dev]'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed ... vllm-0.18.0 vllm-tgis-adapter-0.10.0 ...",
+        "notes": "All dependencies including vLLM 0.18.0 installed. However, this vLLM version is incompatible with the adapter code."
+      },
+      {
+        "step": "lint-pre-commit",
+        "command": "pre-commit run --all-files",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "check for added large files...Passed\nruff...Passed\nruff-format...Passed\ncodespell...Passed\npyupgrade...Passed",
+        "notes": "All 18 pre-commit hooks passed successfully"
+      },
+      {
+        "step": "lint-ruff",
+        "command": "ruff check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Ruff linting passed with no violations"
+      },
+      {
+        "step": "lint-mypy",
+        "command": "python -m mypy",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Various import-untyped warnings for grpc modules",
+        "notes": "Type checking passed. Warnings about missing stubs for grpc modules are expected and configured to be ignored."
+      },
+      {
+        "step": "lint-nox",
+        "command": "nox -s lint-3.12",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "nox > Session lint-3.12 was successful in a second.",
+        "notes": "Nox lint session (running pre-commit in isolated env) passed"
+      },
+      {
+        "step": "test-pytest",
+        "command": "pytest --cov --cov-config=pyproject.toml --no-cov-on-fail tests",
+        "exit_code": 4,
+        "success": false,
+        "output_snippet": "ImportError: cannot import name 'maybe_register_tokenizer_info_endpoint' from 'vllm.entrypoints.openai.api_server'",
+        "notes": "Tests failed to run due to vLLM API incompatibility. The pip-installed vLLM 0.18.0 has different API than what the adapter expects (vLLM 0.10.x-0.11.x)."
+      }
+    ],
+    "summary": "Linting: ✅ ALL PASSED (pre-commit, ruff, mypy, nox). Testing: ❌ FAILED - requires specific vLLM version built from source. Standard pip install gets vLLM 0.18.0 which is incompatible with adapter code expecting 0.10.x-0.11.x API."
+  },
+  "gaps": [
+    "Tests cannot run with standard pip-installed vLLM - require specific version built from source",
+    "The adapter is tightly coupled to specific vLLM API versions (v0.10.0 through v0.11.2)",
+    "CI builds vLLM from source with CPU support - complex setup not easily reproducible",
+    "Tests require actual vLLM engine initialization which needs model files or mocking",
+    "No simple way to run tests without building matching vLLM version",
+    "Tests involve starting actual servers (gRPC/HTTP) and require significant resource setup",
+    "HuggingFace hub tests download model data (skipped by default with -k 'not hf_data')",
+    "No documented minimum/maximum vLLM version compatibility range"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high",
+  "agent_readiness_justification": "Linting is fully functional and validated (high confidence). Testing requires complex vLLM build from source which is well-documented in CI but not easily automated. An agent can validate lint changes reliably but cannot validate test changes without building specific vLLM versions."
+}

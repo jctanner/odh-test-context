@@ -1,0 +1,209 @@
+{
+  "repo": "caikit",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T17:44:40-04:00",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "version": "0.4.7",
+        "config_file": "pyproject.toml",
+        "run_command": "ruff check caikit examples",
+        "fix_command": "ruff check --fix caikit examples",
+        "scope": "caikit/ and examples/ directories"
+      },
+      {
+        "name": "pre-commit",
+        "version": ">=3.0.4,<4.0",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "pre-commit run --all-files",
+        "fix_command": "pre-commit run --all-files",
+        "scope": "all files (prettier, black, isort)"
+      }
+    ],
+    "notes": "Ruff is the primary linter with select rules: E, F, UP, B, SIM, I. Pre-commit runs prettier (for non-Python), black (Python formatting), and isort (import sorting). The fmt.sh script wraps pre-commit."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "pytest --cov=caikit --cov-report=html --cov-report=xml tests -m 'not (examples or slow)' -W error::UserWarning",
+    "run_single_file": "pytest {file}",
+    "run_single_test": "pytest {file}::{test_name}",
+    "setup_required": [
+      "pip install --upgrade pip",
+      "pip install -r setup_requirements.txt",
+      "pip install -e '.[all-dev]'"
+    ],
+    "env_vars": [
+      "DFTYPE=pandas_all (set by tox)",
+      "LOG_LEVEL, LOG_FILTERS, LOG_FORMATTER, LOG_THREAD_ID, LOG_CHANNEL_WIDTH (optional logging config)"
+    ],
+    "fixtures_location": "tests/fixtures/",
+    "mock_patterns": "pytest fixtures in conftest.py, test helpers in tests/base.py and tests/data_model_helpers.py",
+    "coverage_command": "pytest --cov=caikit --cov-report=html --cov-report=xml tests",
+    "coverage_threshold": null,
+    "notes": "Tests use pytest markers: 'examples' for e2e examples, 'slow' for pyspark tests. Standard test run excludes both. Tests require full 'all' + 'dev-test' extras. Some tests require pyspark and will fail without it."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/build-library.yml",
+      ".github/workflows/lint-code.yml",
+      ".github/workflows/publish-library.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Build and Test (matrix: Python 3.8-3.11, proto3, core)",
+        "command": "tox -e {py38|py39|py310|py311|proto3|core}",
+        "required": true,
+        "workflow": "build-library.yml"
+      },
+      {
+        "name": "Lint and Format",
+        "command": "tox -e lint",
+        "required": true,
+        "workflow": "lint-code.yml"
+      },
+      {
+        "name": "Check Formatting",
+        "command": "tox -e fmt",
+        "required": true,
+        "workflow": "lint-code.yml"
+      },
+      {
+        "name": "Enforce import rules",
+        "command": "tox -e imports",
+        "required": true,
+        "workflow": "lint-code.yml",
+        "notes": "Requires graphviz to be installed"
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on push to main and pull_request to main. Build job uses matrix testing across Python 3.8-3.11, plus special proto3 and core environments. Lint job runs on Python 3.9. All checks are gating (required for merge)."
+  },
+  "build": {
+    "system": "setuptools with setuptools-scm",
+    "install_command": "pip install -e '.[all-dev]'",
+    "build_command": "python -m build",
+    "notes": "Version is dynamically generated from git tags via setuptools-scm and written to caikit/_version.py. Use 'all-dev' extra for complete development environment including runtime, interfaces, and dev tools."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py or *_test.py in tests/ directory",
+    "test_naming": "test_* functions, organized by module under tests/",
+    "import_style": "isort enforced via pre-commit, grouped imports",
+    "notes": "Coverage config omits caikit/runtime/protobufs/* and tests/**. Ruff excludes caikit/runtime/protobufs/*.py. Line length is 100 characters (ruff config)."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": ["make", "git", "graphviz"],
+    "setup_commands": [
+      "python -m pip install --upgrade pip",
+      "pip install -r setup_requirements.txt",
+      "pip install -e '.[all-dev]'"
+    ],
+    "lint_commands": [
+      {
+        "command": "tox -e lint",
+        "validated": true,
+        "notes": "Passed - All checks passed!"
+      },
+      {
+        "command": "ruff check caikit examples",
+        "validated": true,
+        "notes": "Passed - All checks passed!"
+      },
+      {
+        "command": "pre-commit run --all-files",
+        "validated": true,
+        "notes": "Passed - prettier, black, isort all passed"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "tox -e py -- tests -m 'not (examples or slow)'",
+        "validated": true,
+        "notes": "Partial pass - 1369 passed, 351 failed (mostly pyspark-related), 13 skipped, 5 errors. Core tests work well."
+      },
+      {
+        "command": "pytest tests/config/test_configs.py -v",
+        "validated": true,
+        "notes": "Passed - 12 tests passed in 0.19s"
+      }
+    ],
+    "test_single_file": "pytest {file}",
+    "test_single_test": "pytest {file}::{test_name}",
+    "env_vars": [],
+    "notes": "Tox creates isolated virtualenvs and takes ~50-90 seconds to set up each environment. Direct pytest is faster for single test files. Some tests require pyspark infrastructure and will fail in basic container environment. For core functionality validation, use 'tests/core' or 'tests/config' directories."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install -r setup_requirements.txt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed build-1.4.0 cachetools-7.0.5 colorama-0.4.6 distlib-0.4.0 filelock-3.25.2 packaging-26.0 platformdirs-4.9.4 pluggy-1.6.0 pyproject-api-1.10.0 pyproject_hooks-1.2.0 python-discovery-1.2.0 tomli-w-1.2.0 tox-4.50.3 virtualenv-21.2.0",
+        "notes": "Tox and build tools installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "pip install -e '.[all-dev]'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed PyYAML-6.0.3 Pygments-2.19.2 alabaster-0.7.16 alchemy-config-1.2.0 alchemy-logging-1.6.0 ... (109 packages total)",
+        "notes": "Full development environment installed successfully including all extras"
+      },
+      {
+        "step": "lint",
+        "command": "tox -e lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "ruff check caikit examples\nAll checks passed!\n  lint: OK (86.25=setup[86.23]+cmd[0.02] seconds)",
+        "notes": "Ruff linting passed with no violations"
+      },
+      {
+        "step": "lint",
+        "command": "ruff check caikit examples",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Direct ruff invocation also works"
+      },
+      {
+        "step": "lint",
+        "command": "pre-commit run --all-files",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "prettier.................................................................Passed\nblack....................................................................Passed\nisort....................................................................Passed",
+        "notes": "All formatting checks passed"
+      },
+      {
+        "step": "test",
+        "command": "pytest tests/config/test_configs.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "============================== 12 passed in 0.19s ==============================",
+        "notes": "Sample test file passed all 12 tests"
+      },
+      {
+        "step": "test",
+        "command": "tox -e py -- tests -m 'not (examples or slow)'",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "= 351 failed, 1369 passed, 13 skipped, 278 deselected, 18 warnings, 5 errors in 179.43s (0:02:59) =",
+        "notes": "Partial failure - 1369 tests passed, but 351 failed (mostly pyspark-related tests that require additional infrastructure). Core tests work well."
+      }
+    ],
+    "summary": "Install OK, lint OK (ruff + pre-commit), core tests OK (1369 passed), pyspark tests failed (351 failures)"
+  },
+  "gaps": [
+    "Some tests require pyspark infrastructure and fail in basic container (351 failures out of 1720 total tests)",
+    "Tests marked 'slow' are excluded from standard runs and require pyspark dependencies",
+    "Tests marked 'examples' are excluded from standard runs and test end-to-end scenarios",
+    "Import rules check (tox -e imports) requires graphviz to be installed",
+    "No explicit coverage threshold configured, but coverage reporting is enabled"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

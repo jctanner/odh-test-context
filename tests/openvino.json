@@ -1,0 +1,253 @@
+{
+  "repo": "openvino",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:56:00Z",
+  "languages": ["C++", "Python", "JavaScript", "Shell"],
+  "linting": {
+    "tools": [
+      {
+        "name": "clang-format-15",
+        "config_file": ".clang-format (implicit)",
+        "run_command": "cmake -DENABLE_PYTHON=ON -DENABLE_TESTS=ON -B build && cmake --build build --target clang_format_fix_all -j8",
+        "fix_command": "cmake --build build --target clang_format_fix_all -j8",
+        "scope": "full project"
+      },
+      {
+        "name": "flake8",
+        "config_file": "src/bindings/python/setup.cfg",
+        "run_command": "cd src/bindings/python && python3 -m flake8 ./src/openvino --config=setup.cfg",
+        "fix_command": "cd src/bindings/python && python3 -m black -l 160 -S ./src/openvino",
+        "scope": "Python bindings and API"
+      },
+      {
+        "name": "flake8",
+        "config_file": "setup.cfg",
+        "run_command": "cd samples/python && python3 -m flake8 ./ --config=setup.cfg",
+        "fix_command": "cd samples/python && python3 -m black -l 160 -S ./",
+        "scope": "Python samples"
+      },
+      {
+        "name": "mypy",
+        "config_file": "src/bindings/python/setup.cfg",
+        "run_command": "cd src/bindings/python && python3 -m mypy ./src/openvino --config-file ./setup.cfg",
+        "fix_command": null,
+        "scope": "Python API type checking"
+      },
+      {
+        "name": "shellcheck",
+        "config_file": null,
+        "run_command": "cmake -B build && cmake --build build --target ov_shellcheck -j8",
+        "fix_command": null,
+        "scope": "shell scripts"
+      },
+      {
+        "name": "ncc_naming_style",
+        "config_file": "cmake/developer_package/ncc_naming_style/",
+        "run_command": "cmake -B build && cmake --build build --target ncc_all -j8",
+        "fix_command": null,
+        "scope": "C++ naming conventions"
+      }
+    ],
+    "notes": "Python linting can run without building C++ code. C++ linting requires CMake configuration and build system setup. All linters are gating checks in CI."
+  },
+  "testing": {
+    "framework": "gtest (C++), pytest (Python)",
+    "test_directory": "tests/, src/bindings/python/tests/, src/frontends/*/tests/",
+    "run_command": "Requires full build: cmake --build build --parallel && ctest --test-dir build",
+    "run_single_file": "pytest {file} (Python only, requires built OpenVINO package)",
+    "run_single_test": "pytest {file}::{test_name} (Python only)",
+    "setup_required": [
+      "git submodule update --init --recursive",
+      "sudo ./install_build_dependencies.sh",
+      "cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_PYTHON=ON -DENABLE_TESTS=ON -B build",
+      "cmake --build build --parallel"
+    ],
+    "env_vars": [
+      "OV_BACKEND=CPU (for ONNX tests)",
+      "PYTHONPATH={build_dir}/bin/intel64/Release/python (for Python tests)"
+    ],
+    "fixtures_location": "tests/conftest.py, src/bindings/python/tests/conftest.py",
+    "mock_patterns": "Mock directories exist in src/bindings/python/tests/mock/",
+    "coverage_command": "cmake -DENABLE_COVERAGE=ON -B build && cmake --build build && run tests",
+    "coverage_threshold": null,
+    "notes": "OpenVINO is a large C++ project. Full test suite requires: (1) submodule initialization (~20 submodules), (2) full C++ build (60+ minutes on 16 cores), (3) built artifacts. Python unit tests for the Python API can run independently but require the openvino Python wheel to be built and installed. Layer tests and model tests require full OpenVINO installation."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ubuntu_22.yml",
+      ".github/workflows/code_style.yml",
+      ".github/workflows/py_checks.yml",
+      ".github/workflows/job_cxx_unit_tests.yml",
+      ".github/workflows/job_python_unit_tests.yml",
+      ".github/workflows/job_cpu_functional_tests.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "clang-format (C++ code style)",
+        "command": "cmake -DENABLE_PYTHON=ON -DENABLE_TESTS=ON -B build && cmake --build build --target clang_format_fix_all -j8",
+        "required": true
+      },
+      {
+        "name": "ShellCheck",
+        "command": "cmake -B build && cmake --build build --target ov_shellcheck -j8",
+        "required": true
+      },
+      {
+        "name": "Python flake8 (API)",
+        "command": "cd src/bindings/python && python -m flake8 ./src/openvino --config=setup.cfg",
+        "required": true
+      },
+      {
+        "name": "Python flake8 (samples)",
+        "command": "cd samples/python && python -m flake8 ./ --config=setup.cfg",
+        "required": true
+      },
+      {
+        "name": "Python mypy",
+        "command": "cd src/bindings/python && python -m mypy ./src/openvino --config-file ./setup.cfg",
+        "required": true
+      },
+      {
+        "name": "C++ Unit Tests",
+        "command": "After build: ./install/tests/ov_core_unit_tests --gtest_print_time=1",
+        "required": true
+      },
+      {
+        "name": "Python Unit Tests",
+        "command": "After build and wheel install: pytest tests -m 'not template_extension' -v",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI uses a Smart CI system to skip tests for unchanged components. Full CI matrix includes Linux (multiple versions), Windows, macOS, Android, and WebAssembly builds. Most workflows require successful build before running tests. Python linting checks run on pull_request events when Python files change."
+  },
+  "build": {
+    "system": "CMake",
+    "install_command": "git submodule update --init --recursive && sudo ./install_build_dependencies.sh",
+    "build_command": "cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_PYTHON=ON -DENABLE_TESTS=ON -B build && cmake --build build --parallel",
+    "notes": "Build time: 60-90 minutes on 16-core machine. Requires ~20GB disk space. Python wheel build: add -DENABLE_WHEEL=ON and install pip requirements from src/bindings/python/wheel/requirements-dev.txt. Submodule initialization required before build."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.cpp (C++), test_*.py (Python)",
+    "test_naming": "C++: TEST(TestSuite, TestName) or TEST_F(Fixture, TestName). Python: test_function_name() or class TestClassName with test_method_name()",
+    "import_style": "Python uses absolute imports from openvino package",
+    "notes": "C++ code follows Google C++ Style Guide with clang-format enforcement. Python code uses flake8 with max line length 160, Google docstring convention."
+  },
+  "container_recipe": {
+    "base_image": "ubuntu:22.04",
+    "system_deps": [
+      "git",
+      "cmake",
+      "build-essential",
+      "python3",
+      "python3-pip",
+      "clang-format-15",
+      "shellcheck",
+      "curl",
+      "wget",
+      "ca-certificates"
+    ],
+    "setup_commands": [
+      "apt-get update",
+      "apt-get install -y git cmake build-essential python3 python3-pip curl wget ca-certificates software-properties-common",
+      "apt-get install -y clang-format-15 shellcheck",
+      "python3 -m pip install --no-cache-dir -r src/bindings/python/requirements_test.txt"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd src/bindings/python && python3 -m flake8 ./src/openvino --config=setup.cfg",
+        "validated": true,
+        "notes": "SUCCESS: Found 1 style warning (A005 - module shadows builtin), but this is acceptable and consistent with CI behavior"
+      },
+      {
+        "command": "cd samples/python && python3 -m flake8 ./ --config=setup.cfg",
+        "validated": true,
+        "notes": "SUCCESS: No issues found"
+      },
+      {
+        "command": "cd src/bindings/python && python3 -m mypy ./src/openvino --config-file ./setup.cfg",
+        "validated": true,
+        "notes": "SUCCESS: No issues found in 105 source files"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cmake --build build --parallel && ctest --test-dir build",
+        "validated": false,
+        "notes": "NOT VALIDATED: Requires submodule initialization and full build (60+ minutes). Build infrastructure too heavy for validation container."
+      }
+    ],
+    "test_single_file": "pytest {file} (requires openvino Python package installed)",
+    "test_single_test": "pytest {file}::{test_name}",
+    "env_vars": [
+      "PYTHONPATH=/app/build/bin/intel64/Release/python (after build)"
+    ],
+    "notes": "Python linting validates successfully without building C++ code. Full test suite requires: (1) git submodule update --init --recursive (~20 submodules, 10-15 min), (2) install_build_dependencies.sh, (3) cmake build (60-90 min on 16 cores). For Python-only validation, only lint checks are practical."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get install -y git cmake build-essential python3 python3-pip && pip install -r src/bindings/python/requirements_test.txt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed flake8, mypy, black, pytest and dependencies",
+        "notes": "Python tooling installed successfully in Ubuntu 22.04 container"
+      },
+      {
+        "step": "lint",
+        "command": "cd src/bindings/python && python3 -m flake8 ./src/openvino --config=setup.cfg",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "./src/openvino/runtime/utils/types.py:0:1: A005 the module is shadowing a Python builtin module \"types\"",
+        "notes": "Flake8 ran successfully. One A005 warning is expected and matches CI behavior."
+      },
+      {
+        "step": "lint",
+        "command": "cd samples/python && python3 -m flake8 ./ --config=setup.cfg",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "",
+        "notes": "Flake8 found no issues in Python samples"
+      },
+      {
+        "step": "lint",
+        "command": "cd src/bindings/python && python3 -m mypy ./src/openvino --config-file ./setup.cfg",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Success: no issues found in 105 source files",
+        "notes": "Mypy type checking passed for all Python API files"
+      },
+      {
+        "step": "build",
+        "command": "cmake -DENABLE_PYTHON=ON -DENABLE_TESTS=ON -B build",
+        "exit_code": null,
+        "success": false,
+        "output_snippet": "CMake configuration started but requires git submodules to be initialized",
+        "notes": "SKIPPED: Full build requires submodule init (20+ submodules) and 60-90 minute compile time. Not practical for validation."
+      },
+      {
+        "step": "test",
+        "command": "pytest tests",
+        "exit_code": null,
+        "success": false,
+        "output_snippet": "",
+        "notes": "SKIPPED: Tests require built OpenVINO artifacts. Cannot run without full build."
+      }
+    ],
+    "summary": "Python lint tools (flake8, mypy) validated successfully. C++ build and tests skipped due to infrastructure requirements (submodules, 60+ min build time)."
+  },
+  "gaps": [
+    "Full C++ build requires git submodule initialization (~20 submodules, 10-15 minutes)",
+    "C++ compilation takes 60-90 minutes on a 16-core machine with 32GB RAM",
+    "Tests cannot run without building the entire project first",
+    "C++ linting (clang-format, ncc) requires CMake configuration which depends on submodules",
+    "No quick validation path for C++ code changes - requires full build pipeline",
+    "Python tests require the openvino wheel to be built and installed",
+    "Layer tests and model tests require external model files and additional dependencies",
+    "Some tests require GPU, NPU, or other specialized hardware"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

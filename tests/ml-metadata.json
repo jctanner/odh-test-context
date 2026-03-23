@@ -1,0 +1,137 @@
+{
+  "repo": "ml-metadata",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:10:00Z",
+  "languages": ["C++", "Python", "Go"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. No .pylintrc, .flake8, ruff config, or clang-format files present. The project does not appear to enforce code style via linters in CI."
+  },
+  "testing": {
+    "framework": "Bazel (googletest for C++, absltest for Python)",
+    "test_directory": "Tests are co-located with source files throughout ml_metadata/ directory",
+    "run_command": "USE_BAZEL_VERSION=5.3.0 bazel test //...",
+    "run_single_file": "USE_BAZEL_VERSION=5.3.0 bazel test //ml_metadata/{package}:{test_target}",
+    "run_single_test": "USE_BAZEL_VERSION=5.3.0 bazel test //ml_metadata/{package}:{test_target} --test_filter={test_name}",
+    "setup_required": [
+      "Install Bazel 5.3.0 (exact version required, pinned in ml_metadata/.bazelversion)",
+      "Patch WORKSPACE file for zetasql dependency (checksum mismatch)",
+      "Install system dependencies: gcc, clang, cmake, make, openssl-devel, libcurl-devel, git, python3"
+    ],
+    "env_vars": [
+      "USE_BAZEL_VERSION=5.3.0"
+    ],
+    "fixtures_location": "Test utilities in ml_metadata/metadata_store/test_util.h and test suite base classes",
+    "mock_patterns": "Uses googletest mocking for C++, mock_proto for protobuf mocking",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "All tests (C++ and Python) are run through Bazel. Python tests cannot run standalone - they require compiled protobuf files and C++ extensions built by Bazel. C++ tests are in *_test.cc files, Python tests in *_test.py files. Some tests require external databases (MySQL, PostgreSQL) and are tagged 'manual' - they must be run explicitly with external database servers."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/build-pr.yaml",
+      ".github/workflows/build-master.yaml",
+      ".tekton/odh-mlmd-grpc-server-pull-request.yaml",
+      ".tekton/odh-mlmd-grpc-server-push.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Container Image Build",
+        "command": "./ml_metadata/tools/docker_server/build_docker_image.sh",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI only builds container images - does not run tests or linting. The build-pr.yaml workflow triggers on pull_request and builds a container image using Dockerfile.redhat. No test or lint gates exist. The Dockerfile patches the WORKSPACE file to fix dependency checksum issues before building."
+  },
+  "build": {
+    "system": "Bazel 5.3.0",
+    "install_command": "pip install -e .",
+    "build_command": "USE_BAZEL_VERSION=5.3.0 bazel build -c opt --define grpc_no_ares=true //ml_metadata/metadata_store:metadata_store_server",
+    "notes": "Project uses Bazel as primary build system. Python package (setup.py) wraps Bazel - running 'python setup.py bdist_wheel' invokes Bazel to build C++ extensions and protobuf files. The build requires patching WORKSPACE file to fix zetasql dependency checksum mismatch (upstream changed). Production builds use docker-compose with manylinux2010 image for wheel building, or Dockerfile.redhat for server image."
+  },
+  "conventions": {
+    "test_file_pattern": "**/*_test.cc (C++), **/*_test.py (Python), **/*_test.go (Go)",
+    "test_naming": "C++: TestCaseName with TEST() or TEST_F() macros; Python: test_* methods in classes inheriting from absltest.TestCase",
+    "import_style": "Python: absolute imports (from ml_metadata import ...), C++: double-quoted includes",
+    "notes": "Tests are defined in Bazel BUILD files using ml_metadata_cc_test (C++) or Bazel py_test rules. Some tests tagged 'manual' and 'local' for database tests that require external servers."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": [
+      "wget",
+      "gnupg2",
+      "git",
+      "curl",
+      "build-essential",
+      "cmake"
+    ],
+    "setup_commands": [
+      "wget -q https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64 -O /usr/local/bin/bazel && chmod +x /usr/local/bin/bazel",
+      "pip install absl-py attrs grpcio protobuf 'numpy~=1.22.0'"
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {
+        "command": "USE_BAZEL_VERSION=5.3.0 bazel test //ml_metadata/metadata_store:test_util_test",
+        "validated": false,
+        "notes": "Failed: WORKSPACE file has zetasql dependency checksum mismatch. Requires patching before tests can run."
+      }
+    ],
+    "test_single_file": "USE_BAZEL_VERSION=5.3.0 bazel test //ml_metadata/{package}:{test_target}",
+    "test_single_test": "USE_BAZEL_VERSION=5.3.0 bazel test //ml_metadata/{package}:{test_target} --test_filter={test_name}",
+    "env_vars": [
+      "USE_BAZEL_VERSION=5.3.0"
+    ],
+    "notes": "Tests cannot be run in a simple container without addressing WORKSPACE dependency issues. The zetasql dependency has an outdated checksum that must be patched (see Dockerfile.redhat lines 27-33). Python tests cannot run standalone without Bazel build."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y wget gnupg2 git curl build-essential cmake",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed system dependencies",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "wget bazelisk && pip install absl-py attrs grpcio protobuf numpy~=1.22.0",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed absl-py-2.4.0 attrs-26.1.0 grpcio-1.78.0 protobuf-7.34.1",
+        "notes": "Python dependencies installed successfully"
+      },
+      {
+        "step": "test",
+        "command": "python -m ml_metadata.metadata_store.metadata_store_test",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "ImportError: cannot import name 'metadata_store_pb2' from partially initialized module 'ml_metadata.proto'",
+        "notes": "Python tests cannot run standalone - require compiled protobuf files and C++ extensions from Bazel build"
+      },
+      {
+        "step": "test",
+        "command": "USE_BAZEL_VERSION=5.3.0 bazel test //ml_metadata/metadata_store:test_util_test",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "ERROR: Error downloading zetasql: Checksum was 86f81591ab5ec20457a5394eb2c5c981e6f6c89f4c49c211d096c3acffec1eb1 but wanted afb6b1673d680e0ae7b21b6b119b0d4c8cce41b075358f87a0d7ad815c2b865d",
+        "notes": "Bazel test failed due to zetasql dependency checksum mismatch in WORKSPACE. Requires patching WORKSPACE file before tests can run."
+      }
+    ],
+    "summary": "install OK, Python test import failed (missing Bazel build), Bazel test failed (WORKSPACE checksum mismatch)"
+  },
+  "gaps": [
+    "No linting tools or configuration",
+    "No test or lint checks in CI - only container builds",
+    "Tests cannot run without patching WORKSPACE file (zetasql dependency issue)",
+    "Python tests cannot run standalone - require full Bazel build",
+    "No documentation on running tests locally",
+    "Some tests require external MySQL/PostgreSQL servers (tagged 'manual')",
+    "WORKSPACE file has outdated dependency checksums that differ from what's actually downloaded"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

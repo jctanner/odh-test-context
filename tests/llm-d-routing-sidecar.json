@@ -1,0 +1,175 @@
+{
+  "repo": "llm-d-routing-sidecar",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:00:46Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.1.6",
+        "config_file": ".golangci.yml",
+        "run_command": "golangci-lint run",
+        "fix_command": null,
+        "scope": "full project",
+        "enabled_linters": [
+          "copyloopvar",
+          "dupword",
+          "durationcheck",
+          "fatcontext",
+          "ginkgolinter",
+          "gocritic",
+          "govet",
+          "loggercheck",
+          "misspell",
+          "perfsprint",
+          "revive",
+          "unconvert",
+          "makezero",
+          "errcheck",
+          "goconst",
+          "ineffassign",
+          "nakedret",
+          "prealloc",
+          "unparam",
+          "unused"
+        ]
+      },
+      {
+        "name": "gofmt",
+        "config_file": null,
+        "run_command": "gofmt -l -w .",
+        "fix_command": "gofmt -w .",
+        "scope": "full project"
+      }
+    ],
+    "notes": "golangci-lint runs with 5m timeout and allows parallel runners. Both golangci-lint and gofmt are configured in pre-commit hooks."
+  },
+  "testing": {
+    "framework": "Ginkgo v2.23.4 with Gomega matchers",
+    "test_directory": "internal/proxy/*_test.go, test/e2e/*_test.go",
+    "run_command": "go install github.com/onsi/ginkgo/v2/ginkgo@latest && ginkgo -v ./internal/...",
+    "run_single_file": "ginkgo -v {file}",
+    "run_single_test": "ginkgo -v --focus=\"{test_name}\"",
+    "setup_required": [
+      "go mod download",
+      "go install github.com/onsi/ginkgo/v2/ginkgo@latest"
+    ],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": "Tests use Ginkgo BDD style with Describe/Context/It blocks. HTTP test servers are started in-process for each test case.",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Unit tests in internal/proxy/ test the reverse proxy logic. E2E tests in test/e2e/ require a Kind cluster and are run separately with 'make kind-e2e-test'. The Makefile test target runs only unit tests."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/ci-pr-checks.yaml",
+      ".github/workflows/ci-release.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Markdown link checker",
+        "command": "uses: ./.github/actions/markdown-link-checker with args '--quiet --retry'",
+        "required": true
+      },
+      {
+        "name": "golangci-lint",
+        "command": "golangci-lint run --config=./.golangci.yml",
+        "required": true
+      },
+      {
+        "name": "Unit tests",
+        "command": "make test",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on pull_request to main branch. Uses Go 1.24.0 in CI (slightly different from go.mod which specifies 1.24.2, but compatible). CI uses golangci-lint-action@v8 which installs golangci-lint v2.1.6."
+  },
+  "build": {
+    "system": "Go with Makefile",
+    "install_command": "go mod download",
+    "build_command": "go build -o bin/llm-d-routing-sidecar cmd/llm-d-routing-sidecar/main.go",
+    "container_build_command": "podman build -t llm-d-routing-sidecar:dev .",
+    "notes": "Multi-stage Dockerfile uses golang:1.24 for build and ubi9 for runtime. CGO is enabled. Binary is statically linked with CGO."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Ginkgo BDD style: Describe/Context/It blocks. Test suite files named *_suite_test.go",
+    "import_style": "Standard Go grouping: stdlib, external, internal. Dot imports allowed for Ginkgo/Gomega with nolint:revive comment",
+    "notes": "Apache 2.0 license headers required on all .go files. Uses klog for logging. Pre-commit hooks enforce trailing whitespace, EOF newlines, and YAML validation."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.24",
+    "system_deps": ["make", "git", "curl", "jq"],
+    "setup_commands": [
+      "go mod download",
+      "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v2.1.6",
+      "go install github.com/onsi/ginkgo/v2/ginkgo@latest"
+    ],
+    "lint_commands": [
+      {
+        "command": "golangci-lint run",
+        "validated": true,
+        "notes": "Exit 0, 0 issues found"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "ginkgo -v ./internal/...",
+        "validated": true,
+        "notes": "18 tests passed in 16.5s. Version mismatch warning between CLI (2.28.1) and go.mod (2.23.4) but tests ran successfully."
+      }
+    ],
+    "test_single_file": "ginkgo -v {file}",
+    "test_single_test": "ginkgo -v --focus=\"{test_name}\"",
+    "env_vars": [],
+    "notes": "Ginkgo binary installed to /go/bin/ginkgo. Can use 'go run github.com/onsi/ginkgo/v2/ginkgo' to match exact version in go.mod. Build creates 22MB binary."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - success)",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "golangci-lint run",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 issues.",
+        "notes": "Linting passed with no issues"
+      },
+      {
+        "step": "test",
+        "command": "ginkgo -v ./internal/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Ran 18 of 18 Specs in 16.470 seconds\nSUCCESS! -- 18 Passed | 0 Failed | 0 Pending | 0 Skipped",
+        "notes": "All 18 unit tests passed. Minor version mismatch warning (CLI 2.28.1 vs go.mod 2.23.4) does not affect execution."
+      },
+      {
+        "step": "build",
+        "command": "go build -o bin/llm-d-routing-sidecar cmd/llm-d-routing-sidecar/main.go",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "-rwxr-xr-x. 1 root root 22M Mar 22 23:00 llm-d-routing-sidecar",
+        "notes": "Build succeeded, created 22MB binary"
+      }
+    ],
+    "summary": "All validation steps passed: deps OK, lint OK (0 issues), tests OK (18/18 passed), build OK (22MB binary)"
+  },
+  "gaps": [
+    "E2E tests in test/e2e/ require a Kind Kubernetes cluster and are not included in standard 'make test'",
+    "No coverage reporting configured in the test commands",
+    "Pre-commit hooks configured but not automatically installed (requires manual 'make install-hooks')"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

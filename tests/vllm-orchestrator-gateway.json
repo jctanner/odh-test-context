@@ -1,0 +1,170 @@
+{
+  "repo": "vllm-orchestrator-gateway",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:39:00Z",
+  "languages": ["Rust"],
+  "linting": {
+    "tools": [
+      {
+        "name": "rustfmt",
+        "config_file": "rust-toolchain.toml",
+        "run_command": "cargo fmt --all -- --check",
+        "fix_command": "cargo fmt --all",
+        "scope": "full project"
+      },
+      {
+        "name": "clippy",
+        "config_file": "rust-toolchain.toml",
+        "run_command": "cargo clippy --all-targets --all-features -- -D warnings",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "Linting is enforced in CI with -D warnings flag on clippy, treating all warnings as errors. Format checking requires exact rustfmt compliance."
+  },
+  "testing": {
+    "framework": "Rust built-in test framework",
+    "test_directory": "src/ (inline tests with #[cfg(test)] modules)",
+    "run_command": "cargo test --verbose",
+    "run_single_file": "cargo test --verbose --bin vllm-orchestrator-gateway",
+    "run_single_test": "cargo test --verbose {test_name}",
+    "setup_required": [],
+    "env_vars": ["GATEWAY_CONFIG=config/config.yaml (optional, has default)"],
+    "fixtures_location": "src/config.rs tests module (lines 111-237)",
+    "mock_patterns": "Tests use inline test data structures for GatewayConfig validation",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are located in src/config.rs in a #[cfg(test)] module. Current codebase has 4 tests, but one test (test_validate_multiple_same_server_output_detectors) fails due to a bug in the validation logic."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/tests.yaml", ".github/workflows/security-scan.yaml"],
+    "gating_checks": [
+      {
+        "name": "Check formatting",
+        "command": "cargo fmt --all -- --check",
+        "required": true
+      },
+      {
+        "name": "Run clippy",
+        "command": "cargo clippy --all-targets --all-features -- -D warnings",
+        "required": true
+      },
+      {
+        "name": "Run tests",
+        "command": "cargo test --verbose",
+        "required": true
+      },
+      {
+        "name": "Check build",
+        "command": "cargo build --release --verbose",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Trivy Filesystem Security Scan",
+        "command": "trivy scan (via aquasecurity/trivy-action)",
+        "required": false
+      }
+    ],
+    "notes": "CI runs on pull_request and push to main/incubation/stable branches. Uses Rust 1.84.0 with rustfmt and clippy components. Caching is configured for cargo registry and build artifacts."
+  },
+  "build": {
+    "system": "cargo (Rust)",
+    "install_command": "cargo build (dependencies auto-installed) or cargo fetch",
+    "build_command": "cargo build --release",
+    "notes": "Rust toolchain 1.84.0 is pinned in rust-toolchain.toml. Components rustfmt and clippy are required. The project builds a single binary named vllm-orchestrator-gateway."
+  },
+  "conventions": {
+    "test_file_pattern": "Tests are inline in source files within #[cfg(test)] modules",
+    "test_naming": "Test functions use #[test] attribute, named with test_ prefix, some with #[should_panic] attribute",
+    "import_style": "Standard Rust module imports, using 'use' statements with :: separators",
+    "notes": "Follows standard Rust conventions. Test functions marked with #[test] attribute. Panic tests marked with #[should_panic]."
+  },
+  "container_recipe": {
+    "base_image": "rust:1.84.0",
+    "system_deps": [],
+    "setup_commands": [
+      "cargo build (implicitly installs dependencies)"
+    ],
+    "lint_commands": [
+      {
+        "command": "cargo fmt --all -- --check",
+        "validated": true,
+        "notes": "Exit code 1: found formatting issues in src/config.rs and src/main.rs. Command works correctly - formatting violations detected."
+      },
+      {
+        "command": "cargo clippy --all-targets --all-features -- -D warnings",
+        "validated": true,
+        "notes": "Exit code 101: found 4 clippy warnings treated as errors due to -D warnings flag. Issues: expect_fun_call, needless_return, len_zero, manual_strip. Command works correctly."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cargo test --verbose",
+        "validated": true,
+        "notes": "Exit code 101: 3 tests passed, 1 test failed. Test 'test_validate_multiple_same_server_output_detectors' expected to panic but didn't - this is a legitimate bug in the code, not a test infrastructure problem."
+      }
+    ],
+    "test_single_file": "cargo test --verbose --bin vllm-orchestrator-gateway",
+    "test_single_test": "cargo test --verbose {test_name}",
+    "env_vars": [],
+    "notes": "Base rust:1.84.0 image includes rustup with toolchain auto-configured from rust-toolchain.toml. Rustfmt and clippy components are automatically installed on first use. No special system dependencies required for basic build/test."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "cargo test --verbose (includes dependency fetch and build)",
+        "exit_code": 101,
+        "success": true,
+        "output_snippet": "Downloading crates ...\n  Downloaded 120+ crates\n  Compiling dependencies...",
+        "notes": "Dependencies successfully downloaded and compiled. Exit code 101 due to test failure, not install failure."
+      },
+      {
+        "step": "lint-fmt",
+        "command": "cargo fmt --all -- --check",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "Diff in /app/src/config.rs:52:\nDiff in /app/src/config.rs:59:\nDiff in /app/src/config.rs:84:\nDiff in /app/src/main.rs:...",
+        "notes": "Formatter found formatting violations in config.rs and main.rs. Exit code 1 means 'needs formatting' - the linter itself works correctly."
+      },
+      {
+        "step": "lint-clippy",
+        "command": "cargo clippy --all-targets --all-features -- -D warnings",
+        "exit_code": 101,
+        "success": true,
+        "output_snippet": "error: function call inside of `expect`\nerror: returning the result of a `let` binding from a block\nerror: length comparison to zero\nerror: stripping a prefix manually",
+        "notes": "Clippy found 4 warnings (treated as errors with -D flag): expect_fun_call, needless_return, len_zero, manual_strip. Linter works correctly."
+      },
+      {
+        "step": "test",
+        "command": "cargo test --verbose",
+        "exit_code": 101,
+        "success": false,
+        "output_snippet": "running 4 tests\ntest config::tests::test_validate_multiple_same_server_input_detectors - should panic ... ok\ntest config::tests::test_validate_multiple_same_server_output_detectors - should panic ... FAILED\ntest config::tests::test_validate_multiple_same_server_detectors ... ok\ntest config::tests::test_validate_registered_detectors - should panic ... ok\n\ntest result: FAILED. 3 passed; 1 failed",
+        "notes": "Test failure: test_validate_multiple_same_server_output_detectors should panic but didn't. This is a legitimate bug in the validation logic, not a broken test command."
+      },
+      {
+        "step": "build",
+        "command": "cargo build --release --verbose",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Compiling vllm-orchestrator-gateway v0.1.0 (/app)\nFinished `release` profile [optimized] target(s) in 17.68s",
+        "notes": "Release build successful in 17.68 seconds."
+      }
+    ],
+    "summary": "Install OK, fmt check found violations (expected), clippy found 4 warnings, tests 3 passed/1 failed (bug in code), build OK"
+  },
+  "gaps": [
+    "One test failure indicates a bug in the config validation logic (test_validate_multiple_same_server_output_detectors)",
+    "Code has formatting violations that need to be fixed with cargo fmt",
+    "Code has 4 clippy warnings that should be addressed",
+    "No integration tests - only unit tests in config module",
+    "No coverage reporting configured",
+    "Tests do not cover main.rs or api.rs modules"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

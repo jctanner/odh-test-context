@@ -1,0 +1,69 @@
+{
+  "repo": ".github",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T16:50:00Z",
+  "languages": [],
+  "linting": {
+    "tools": [],
+    "notes": "This is a GitHub organization configuration repository containing only YAML/Markdown templates. No linting infrastructure is present or needed."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "This repository contains no code or tests. It provides organization-level GitHub templates (issue templates, PR templates, organization profile)."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD workflows present. This repository serves static configuration files for the opendatahub-io GitHub organization."
+  },
+  "build": {
+    "system": null,
+    "install_command": null,
+    "build_command": null,
+    "notes": "No build system. Repository contains only static YAML and Markdown template files."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "Repository follows GitHub's conventions for organization-level configuration: ISSUE_TEMPLATE/ directory for issue forms, PULL_REQUEST_TEMPLATE.md for PR template, profile/README.md for organization profile."
+  },
+  "container_recipe": {
+    "base_image": null,
+    "system_deps": [],
+    "setup_commands": [],
+    "lint_commands": [],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No container recipe needed. This repository contains only static configuration files with no executable code."
+  },
+  "validation": {
+    "results": [],
+    "summary": "No validation performed - repository contains only static GitHub configuration templates with no code, tests, or build processes."
+  },
+  "gaps": [
+    "This is not a code repository - it's a GitHub organization configuration repository",
+    "Contains only 5 files: 2 issue templates (YAML), 1 PR template (Markdown), 1 organization profile README, and 1 LICENSE",
+    "No code files in any programming language",
+    "No test infrastructure (intentional - nothing to test)",
+    "No linting configuration (intentional - static templates only)",
+    "No CI/CD workflows (intentional - no validation needed for templates)",
+    "No build system (intentional - no build artifacts)"
+  ],
+  "agent_readiness": "none",
+  "confidence": "high"
+}

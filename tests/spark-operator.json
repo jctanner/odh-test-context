@@ -1,0 +1,211 @@
+{
+  "repo": "spark-operator",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:20:56-04:00",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "config_file": ".golangci.yaml",
+        "run_command": "make go-lint",
+        "fix_command": "make go-lint-fix",
+        "scope": "full project"
+      },
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "make go-fmt",
+        "fix_command": "go fmt ./...",
+        "scope": "full project"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "make go-vet",
+        "fix_command": null,
+        "scope": "full project"
+      }
+    ],
+    "notes": "golangci-lint v2.1.6 configured with custom linters: copyloopvar, dupword, importas, predeclared, tagalign, unconvert, unused. Also runs goimports formatter."
+  },
+  "testing": {
+    "framework": "Ginkgo/Gomega (e2e) + standard Go testing (unit)",
+    "test_directory": "test/e2e/ (e2e tests), *_test.go files throughout codebase (unit tests)",
+    "run_command": "make unit-test",
+    "run_single_file": "go test ./{package}/ -v",
+    "run_single_test": "go test ./{package}/ -run {TestName} -v",
+    "setup_required": ["make setup-envtest"],
+    "env_vars": [
+      "KUBEBUILDER_ASSETS - set automatically by make unit-test"
+    ],
+    "fixtures_location": "test/e2e/bad_examples/ for e2e negative tests",
+    "mock_patterns": "Uses Ginkgo's BeforeEach/AfterEach for test setup/teardown",
+    "coverage_command": "go test ./... -coverprofile cover.out && go tool cover -html=cover.out -o cover.html",
+    "coverage_threshold": null,
+    "notes": "Unit tests use controller-runtime's envtest for mocking Kubernetes API. E2E tests require Kind cluster with operator deployed. Unit tests exclude e2e package via: go list ./... | grep -v /e2e"
+  },
+  "ci": {
+    "system": "GitHub Actions (primary) + Tekton (container builds)",
+    "config_files": [
+      ".github/workflows/integration.yaml",
+      ".github/workflows/openshift-spark-pi-e2e.yaml",
+      ".github/workflows/openshift-docling-e2e.yaml",
+      ".tekton/spark-operator-ci-pull-request.yaml",
+      ".tekton/spark-operator-ci-push.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "code-check",
+        "command": "go mod tidy && make generate && make verify-codegen && make go-fmt && make go-vet && make go-lint",
+        "required": true
+      },
+      {
+        "name": "build-api-docs",
+        "command": "make build-api-docs",
+        "required": true
+      },
+      {
+        "name": "build-spark-operator",
+        "command": "make unit-test && make build-operator",
+        "required": true
+      },
+      {
+        "name": "build-helm-chart",
+        "command": "make manifests && make detect-crds-drift && make helm-unittest && ct lint && make helm-docs",
+        "required": true
+      },
+      {
+        "name": "e2e-test",
+        "command": "make kind-create-cluster && make kind-load-image && make e2e-test",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "openshift-spark-pi-e2e",
+        "command": "Kind cluster + OpenShift examples validation",
+        "required": false
+      },
+      {
+        "name": "openshift-docling-e2e",
+        "command": "Kind cluster + Docling example validation",
+        "required": false
+      }
+    ],
+    "notes": "CI runs on pull_request and push to main/master/release-* branches. E2E tests run on matrix of Kubernetes versions 1.24-1.32. Helm chart tests only run if chart files changed. OpenShift e2e tests only trigger on specific path changes."
+  },
+  "build": {
+    "system": "Go modules + Makefile",
+    "install_command": "go mod download",
+    "build_command": "make build-operator",
+    "notes": "Uses controller-gen for generating CRDs/RBAC manifests, setup-envtest for test infrastructure. Binary output: bin/spark-operator. Container build via Dockerfile using golang:1.24.10 builder."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Test* functions for standard tests, Ginkgo Describe/It blocks for e2e",
+    "import_style": "Grouped imports with aliases enforced by golangci-lint importas: k8s.io/api/core/v1 -> corev1, k8s.io/apimachinery/pkg/apis/meta/v1 -> metav1, sigs.k8s.io/controller-runtime -> ctrl",
+    "notes": "Follows Kubernetes operator conventions. Uses controller-runtime and kubebuilder patterns. Suite test files (suite_test.go) set up Ginkgo test suites."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.24.10",
+    "system_deps": ["make", "git"],
+    "setup_commands": [
+      "go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "make go-fmt",
+        "validated": true,
+        "notes": "Passed - Go code is formatted"
+      },
+      {
+        "command": "make go-vet",
+        "validated": true,
+        "notes": "Passed - 0 issues"
+      },
+      {
+        "command": "make go-lint",
+        "validated": true,
+        "notes": "Passed - 0 issues from golangci-lint"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "make unit-test",
+        "validated": true,
+        "notes": "Passed - All unit tests passed, coverage report generated"
+      },
+      {
+        "command": "make build-operator",
+        "validated": true,
+        "notes": "Built successfully - binary at bin/spark-operator"
+      }
+    ],
+    "test_single_file": "go test ./{package}/ -v",
+    "test_single_test": "go test ./{package}/ -run {TestName} -v",
+    "env_vars": [],
+    "notes": "All validation passed without external dependencies. E2E tests (make e2e-test) require Kind cluster and are not validated in this basic container. System deps (make, git) are pre-installed in golang:1.24.10 image."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - success)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "build",
+        "command": "make build-operator",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Building spark-operator binary...",
+        "notes": "Binary built successfully at bin/spark-operator"
+      },
+      {
+        "step": "lint",
+        "command": "make go-fmt",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Running go fmt...\nGo code is formatted.",
+        "notes": "No formatting issues found"
+      },
+      {
+        "step": "lint",
+        "command": "make go-vet",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Running go vet...",
+        "notes": "No vet issues found"
+      },
+      {
+        "step": "lint",
+        "command": "make go-lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Running golangci-lint run...\n0 issues.",
+        "notes": "No linter issues found"
+      },
+      {
+        "step": "test",
+        "command": "make unit-test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Running unit tests...\nok  \tgithub.com/kubeflow/spark-operator/v2/api/v1beta2\t0.037s\tcoverage: 5.1% of statements\nok  \tgithub.com/kubeflow/spark-operator/v2/internal/controller/scheduledsparkapplication\t6.309s\tcoverage: 14.4% of statements\nok  \tgithub.com/kubeflow/spark-operator/v2/internal/controller/sparkapplication\t8.784s\tcoverage: 43.9% of statements",
+        "notes": "All unit tests passed. Coverage report generated at cover.html"
+      }
+    ],
+    "summary": "install OK, build OK, lint OK (go-fmt, go-vet, golangci-lint all 0 issues), tests OK (all unit tests passed)"
+  },
+  "gaps": [
+    "E2E tests require Kind cluster and cannot be validated in simple container",
+    "Helm chart tests require Helm and chart-testing tools",
+    "Some CI checks require code generation verification (make generate, make verify-codegen) which may modify files",
+    "OpenShift-specific e2e tests require OpenShift cluster and are only triggered on specific path changes"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

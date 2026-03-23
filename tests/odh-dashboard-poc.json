@@ -1,0 +1,150 @@
+{
+  "repo": "odh-dashboard-poc",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T19:34:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "go fmt",
+        "config_file": null,
+        "run_command": "cd dashboard-model-registry/backend && go fmt ./...",
+        "fix_command": "cd dashboard-model-registry/backend && go fmt ./...",
+        "scope": "dashboard-model-registry/backend only"
+      },
+      {
+        "name": "go vet",
+        "config_file": null,
+        "run_command": "cd dashboard-model-registry/backend && go vet ./...",
+        "fix_command": null,
+        "scope": "dashboard-model-registry/backend only"
+      }
+    ],
+    "notes": "No golangci-lint or advanced linting configuration found. Only basic go fmt and go vet from Makefile audit target. .prettierrc exists at repo root but no JavaScript/TypeScript code present."
+  },
+  "testing": {
+    "framework": "Go standard testing package",
+    "test_directory": "dashboard-model-registry/backend/internal/application",
+    "run_command": "cd dashboard-model-registry/backend && go test -race -vet=off ./...",
+    "run_single_file": "cd dashboard-model-registry/backend && go test -race -vet=off {file}",
+    "run_single_test": "cd dashboard-model-registry/backend && go test -race -vet=off ./... -run {test_name}",
+    "setup_required": [
+      "go mod download"
+    ],
+    "env_vars": [],
+    "fixtures_location": "dashboard-model-registry/backend/internal/application/testing_app.go provides test helpers",
+    "mock_patterns": "Uses httptest.NewRecorder() for HTTP handler testing",
+    "coverage_command": "cd dashboard-model-registry/backend && go test -race -vet=off -cover ./...",
+    "coverage_threshold": null,
+    "notes": "Only 1 test file exists (healthcheck__handler_test.go) for 19 Go source files. Test file currently has compilation errors - wrong function signature (missing httprouter.Params argument). Tests cannot run until this is fixed."
+  },
+  "ci": {
+    "system": null,
+    "config_files": [],
+    "gating_checks": [],
+    "advisory_checks": [],
+    "notes": "No CI/CD configuration found. No .github/workflows, .tekton, Jenkinsfile, or other CI systems detected."
+  },
+  "build": {
+    "system": "go modules + Makefile",
+    "install_command": "cd dashboard-model-registry/backend && go mod download",
+    "build_command": "cd dashboard-model-registry/backend && go build -o bin/api ./cmd/root",
+    "notes": "This is a simple HTTP API server. The 'make run' target runs it directly with 'go run ./cmd/root -env=development'. No compiled artifacts are required for development. The Makefile 'audit' target runs: go mod tidy, go mod verify, go fmt, go vet, and go test."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Test functions follow TestFunctionName(t *testing.T) pattern",
+    "import_style": "Standard Go imports with internal packages using full module path: github.com/opendatahub-io/odh-dashboard-poc/dashboard-model-registry/internal/*",
+    "notes": "Standard Go project layout with cmd/ for entrypoints and internal/ for application code. Package structure: application (handlers), data (models), integrations (k8s/http clients), utils (helpers), validation."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.22",
+    "system_deps": ["make"],
+    "setup_commands": [
+      "cd dashboard-model-registry/backend",
+      "go mod download",
+      "go mod tidy",
+      "go mod verify"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd dashboard-model-registry/backend && go fmt ./...",
+        "validated": true,
+        "notes": "SUCCESS - no files needed formatting"
+      },
+      {
+        "command": "cd dashboard-model-registry/backend && go vet ./...",
+        "validated": false,
+        "notes": "FAILED - found error in test file: healthcheck__handler_test.go:23 calls HealthcheckHandler with wrong number of arguments (expects httprouter.Params as third arg)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd dashboard-model-registry/backend && go test -race -vet=off ./...",
+        "validated": false,
+        "notes": "FAILED - compilation error due to wrong function signature in test. Test file needs httprouter.Params argument added to HealthcheckHandler call."
+      }
+    ],
+    "test_single_file": "cd dashboard-model-registry/backend && go test -race -vet=off {file}",
+    "test_single_test": "cd dashboard-model-registry/backend && go test -race -vet=off ./... -run {test_name}",
+    "env_vars": [],
+    "notes": "make is already included in golang:1.22 image. Tests are currently broken and cannot run due to compilation error. Only the dashboard-model-registry/backend directory contains actual code - all other directories (dashboard-appshell/*, dashboard-model-registry/frontend) are empty placeholders."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "cd dashboard-model-registry/backend && go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - dependencies downloaded successfully)",
+        "notes": "Dependencies installed successfully"
+      },
+      {
+        "step": "verify",
+        "command": "cd dashboard-model-registry/backend && go mod tidy && go mod verify",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go: downloading github.com/google/go-cmp v0.6.0\n[...]\nall modules verified",
+        "notes": "Module dependencies verified successfully"
+      },
+      {
+        "step": "lint",
+        "command": "cd dashboard-model-registry/backend && go fmt ./...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output)",
+        "notes": "No files needed formatting"
+      },
+      {
+        "step": "lint",
+        "command": "cd dashboard-model-registry/backend && go vet ./...",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "# github.com/opendatahub-io/odh-dashboard-poc/dashboard-model-registry/internal/application\nvet: internal/application/healthcheck__handler_test.go:23:30: not enough arguments in call to app.HealthcheckHandler\n\thave (*httptest.ResponseRecorder, *http.Request)\n\twant (http.ResponseWriter, *http.Request, httprouter.Params)",
+        "notes": "go vet found code issue: test calls HealthcheckHandler with 2 args but function expects 3 (including httprouter.Params)"
+      },
+      {
+        "step": "test",
+        "command": "cd dashboard-model-registry/backend && go test -race -vet=off ./...",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "# github.com/opendatahub-io/odh-dashboard-poc/dashboard-model-registry/internal/application [github.com/opendatahub-io/odh-dashboard-poc/dashboard-model-registry/internal/application.test]\ninternal/application/healthcheck__handler_test.go:23:29: not enough arguments in call to app.HealthcheckHandler\n\thave (*httptest.ResponseRecorder, *http.Request)\n\twant (http.ResponseWriter, *http.Request, httprouter.Params)\nFAIL\tgithub.com/opendatahub-io/odh-dashboard-poc/dashboard-model-registry/internal/application [build failed]",
+        "notes": "Test compilation failed due to wrong function signature - same error as go vet"
+      }
+    ],
+    "summary": "install OK, verify OK, fmt OK, vet FAILED (1 error), tests FAILED (compilation error)"
+  },
+  "gaps": [
+    "No CI/CD configuration - no GitHub Actions, Tekton, or other CI system",
+    "Test suite has compilation errors and cannot run (wrong function signature in healthcheck__handler_test.go)",
+    "Minimal test coverage - only 1 test file for 19 Go source files",
+    "No golangci-lint or advanced linting configuration",
+    "No code coverage requirements or thresholds defined",
+    "Most of the repository is empty placeholder directories (dashboard-appshell/*, dashboard-model-registry/frontend)",
+    "No pre-commit hooks or git hooks configured",
+    "No integration tests or end-to-end tests found"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

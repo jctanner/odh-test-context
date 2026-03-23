@@ -1,0 +1,158 @@
+{
+  "repo": "modelmesh-runtime-adapter",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:26:00Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v1.60.3",
+        "config_file": ".golangci.yaml",
+        "run_command": "golangci-lint run",
+        "fix_command": null,
+        "scope": "full project",
+        "notes": "Configured with errcheck, gosimple, govet, ineffassign, staticcheck, typecheck, unused, goconst, gofmt, goimports. Pre-commit hook also runs prettier for non-Go files."
+      }
+    ],
+    "notes": "Lint runs via pre-commit hooks in CI (pre-commit run --all-files). The .golangci.yaml has some deprecated config options that generate warnings but don't fail the build."
+  },
+  "testing": {
+    "framework": "Go testing",
+    "test_directory": "Multiple: internal/util/, model-mesh-*-adapter/server/, model-serving-puller/, pullman/",
+    "run_command": "bash scripts/run_tests.sh",
+    "run_single_file": "go test -v {file}",
+    "run_single_test": "go test -v {package} -run {TestName}",
+    "setup_required": ["go mod download"],
+    "env_vars": [],
+    "fixtures_location": "model-mesh-mlserver-adapter/server/testdata/",
+    "mock_patterns": "Uses golang/mock for generating mocks (mockgen). Mock files follow *_mock.go naming pattern.",
+    "coverage_command": "go test -coverprofile=coverage.out ./...",
+    "coverage_threshold": null,
+    "notes": "Project has 6 sub-packages (model-mesh-mlserver-adapter, model-mesh-ovms-adapter, model-mesh-torchserve-adapter, model-mesh-triton-adapter, model-serving-puller, pullman). Each has its own scripts/run_tests.sh. The main scripts/run_tests.sh runs all sub-package tests sequentially. Some sub-package tests build mock servers before running tests. Test scripts use bash-specific syntax but have #!/bin/sh shebang - requires bash to run."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [".github/workflows/test.yml", ".github/workflows/build.yml", ".github/workflows/codeql.yml"],
+    "gating_checks": [
+      {
+        "name": "test / Run lint",
+        "command": "./scripts/develop.sh make fmt",
+        "required": true,
+        "notes": "Runs inside develop container image built from Dockerfile. Executes pre-commit run --all-files which runs golangci-lint and prettier."
+      },
+      {
+        "name": "test / Run unit test",
+        "command": "./scripts/develop.sh make test",
+        "required": true,
+        "notes": "Runs inside develop container. Executes ./scripts/run_tests.sh which tests all 6 sub-packages."
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "build / Build and push runtime image",
+        "command": "docker build . --target runtime",
+        "required": false,
+        "notes": "Multi-platform build (linux/amd64, linux/arm64). Runs on PRs but doesn't push. Only pushes on main branch."
+      }
+    ],
+    "notes": "CI builds a developer container (kserve/modelmesh-runtime-adapter-develop) based on UBI9 go-toolset:1.23 with pre-commit, protoc, and go tools installed. Tests run inside this container. The test workflow is triggered on PRs to main or release-* branches."
+  },
+  "build": {
+    "system": "Makefile + Docker",
+    "install_command": "go mod download",
+    "build_command": "make build (builds Docker image) or go build -o <binary> <package>/main.go",
+    "notes": "Multi-stage Dockerfile with 'develop' stage for local dev, 'build' stage for compilation, and 'runtime' stage for final image. The runtime image includes Python 3.11 and tensorflow for model conversion. Builds 5 different binaries: puller, triton-adapter, mlserver-adapter, ovms-adapter, torchserve-adapter."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Standard Go conventions: Test* functions, table-driven tests with t.Run for subtests",
+    "import_style": "Standard Go import grouping: stdlib, external packages, internal packages. goimports enforces formatting.",
+    "notes": "Uses golang/mock for mocking gRPC services. Proto files in internal/proto/ with generated .pb.go files. License headers required on all files (scripts/add_headers.sh)."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.23",
+    "system_deps": ["git", "make", "curl", "bash"],
+    "setup_commands": [
+      "go mod download",
+      "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v1.60.3"
+    ],
+    "lint_commands": [
+      {
+        "command": "golangci-lint run",
+        "validated": true,
+        "notes": "Passed with exit code 0. Generated some config deprecation warnings but no lint errors."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "bash scripts/run_tests.sh",
+        "validated": true,
+        "notes": "Runs tests for all 6 sub-packages. Validated pullman and mlserver-adapter successfully. Requires bash due to ${BASH_SOURCE[0]} usage in scripts."
+      },
+      {
+        "command": "go test -v ./...",
+        "validated": true,
+        "notes": "Alternative command that runs all tests recursively. Tested internal/util successfully."
+      }
+    ],
+    "test_single_file": "go test -v {file}",
+    "test_single_test": "go test -v {package} -run ^{TestName}$",
+    "env_vars": [],
+    "notes": "Test scripts have a minor portability issue: they use #!/bin/sh but contain bash syntax. Must run with bash explicitly or ensure /bin/sh is bash. The CI environment uses UBI9 where this isn't an issue. Some sub-package tests build mock servers before running (e.g., mlserver-adapter builds main and mockmlserver binaries)."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - successful download)",
+        "notes": "Dependencies downloaded successfully"
+      },
+      {
+        "step": "lint",
+        "command": "golangci-lint run",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "level=warning msg=\"[config_reader] The configuration option `output.format` is deprecated, please use `output.formats`\"\nlevel=warning msg=\"[config_reader] The configuration option `linters.govet.check-shadowing` is deprecated. Please enable `shadow` instead, if you are not using `enable-all`.\"\nlevel=warning msg=\"[config_reader] The configuration option `linters.errcheck.ignore` is deprecated, please use `linters.errcheck.exclude-functions`.\"",
+        "notes": "Linter passed successfully. Config warnings are due to deprecated golangci-lint options in .golangci.yaml, but they don't prevent successful linting."
+      },
+      {
+        "step": "test",
+        "command": "bash pullman/scripts/run_tests.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "=== RUN   Test_Cache_SetAndGet\n--- PASS: Test_Cache_SetAndGet (0.00s)\n=== RUN   Test_Cache_ClientLifecycle\n--- PASS: Test_Cache_ClientLifecycle (0.00s)\n...\nPASS\nok  \tgithub.com/kserve/modelmesh-runtime-adapter/pullman\t0.004s",
+        "notes": "Pullman package tests passed: 6 tests covering cache, config, client lifecycle, and storage providers (Azure, GCS, HTTP, PVC, S3)"
+      },
+      {
+        "step": "test",
+        "command": "bash model-mesh-mlserver-adapter/scripts/run_tests.sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "=== RUN   TestAdaptModelLayoutForRuntime\n--- PASS: TestAdaptModelLayoutForRuntime (0.02s)\n=== RUN   TestAdapter\n--- PASS: TestAdapter (10.01s)\n=== RUN   TestProcessConfigJSON\n--- PASS: TestProcessConfigJSON (0.00s)\nPASS\nok  \tgithub.com/kserve/modelmesh-runtime-adapter/model-mesh-mlserver-adapter/server\t10.046s",
+        "notes": "MLServer adapter tests passed: 14 tests covering model layout adaptation, adapter functionality, and config processing. Tests include mock gRPC server interaction."
+      },
+      {
+        "step": "test",
+        "command": "go test -v ./internal/util/...",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "=== RUN   TestResolveLocalGrpcEndpoint\n--- PASS: TestResolveLocalGrpcEndpoint (0.00s)\n=== RUN   TestSecureJoin\n--- PASS: TestSecureJoin (0.00s)\nPASS\nok  \tgithub.com/kserve/modelmesh-runtime-adapter/internal/util\t0.003s",
+        "notes": "Internal utility tests passed: 2 tests for gRPC endpoint resolution and secure path joining"
+      }
+    ],
+    "summary": "All validation steps passed. Lint OK (config warnings only), tests OK (22+ tests across 3 validated packages). Total validation time ~15s excluding installs."
+  },
+  "gaps": [
+    "Test scripts use #!/bin/sh shebang but contain bash-specific syntax (${BASH_SOURCE[0]}). Works in CI (UBI9 base) but requires explicit bash invocation on systems where /bin/sh is dash/ash.",
+    "No coverage threshold configured or enforced in CI",
+    "Pre-commit configuration uses deprecated golangci-lint options (output.format, linters.govet.check-shadowing, linters.errcheck.ignore) - should update .golangci.yaml to remove warnings",
+    "No documented way to run a single sub-package's tests without entering the directory (would need make target like 'make test-pullman')",
+    "CI runs tests inside a custom Docker image which adds setup complexity for local development"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

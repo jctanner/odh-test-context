@@ -1,0 +1,205 @@
+{
+  "repo": "manifests",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:03:30Z",
+  "languages": ["YAML/Kustomize", "Python", "Go", "Shell"],
+  "linting": {
+    "tools": [
+      {
+        "name": "flake8",
+        "config_file": ".flake8",
+        "run_command": "flake8 .",
+        "fix_command": null,
+        "scope": "full project",
+        "notes": "Configured but NOT used in CI. Config exists but no workflows execute flake8. Running it finds 100+ violations."
+      }
+    ],
+    "notes": "No active linting enforcement in CI. The .flake8 config is dead code. Kustomize produces deprecation warnings but these are not treated as errors."
+  },
+  "testing": {
+    "framework": "pytest (for Python unit tests) + kustomize build validation + KinD integration tests",
+    "test_directory": "tests/gh-actions",
+    "run_command": "kustomize build example",
+    "run_single_file": "pytest {file} -v",
+    "run_single_test": "pytest {file}::{test_name} -v",
+    "setup_required": [
+      "curl -L https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.2.1/kustomize_v5.2.1_linux_amd64.tar.gz | tar -xz",
+      "chmod +x kustomize && sudo mv kustomize /usr/local/bin/"
+    ],
+    "env_vars": [],
+    "fixtures_location": "tests/gh-actions/kf-objects",
+    "mock_patterns": "Uses pytest fixtures for HTTP server mocking in pipelines-profile-controller tests",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Most tests are integration tests requiring KinD cluster deployment. Only a few unit tests (pipelines-profile-controller sync tests) can run standalone. The main 'test' in CI is 'kustomize build example' which validates manifests build correctly."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/manifests_example_test.yaml",
+      ".github/workflows/pipeline_test.yaml",
+      ".github/workflows/notebook_controller_test.yaml",
+      ".github/workflows/kserve_test.yaml",
+      ".github/workflows/katib_test.yaml",
+      ".github/workflows/admission_webhook_test.yaml",
+      ".github/workflows/centraldashboard_test.yaml",
+      ".github/workflows/dex_test.yaml",
+      ".github/workflows/jupyter_web_application_test.yaml",
+      ".github/workflows/kserve_cni_test.yaml",
+      ".github/workflows/kserve_m2m_test.yaml",
+      ".github/workflows/model_registry_test.yaml",
+      ".github/workflows/notebook_controller_m2m_test.yaml",
+      ".github/workflows/profiles_test.yaml",
+      ".github/workflows/ray_test.yaml",
+      ".github/workflows/seldon_test.yaml",
+      ".github/workflows/tensorboard_controller_test.yaml",
+      ".github/workflows/tensorboards_web_application_test.yaml",
+      ".github/workflows/train_operator_test.yaml",
+      ".github/workflows/volumes_web_application_test.yaml",
+      ".github/workflows/bentoml_test.yaml",
+      ".github/workflows/metacontroller_test.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Unit Test (manifests_example_test.yaml)",
+        "command": "kustomize build example",
+        "required": true,
+        "trigger": "push, pull_request"
+      },
+      {
+        "name": "Component integration tests",
+        "command": "Various - create KinD cluster, deploy components, validate readiness",
+        "required": true,
+        "trigger": "pull_request with path filters",
+        "notes": "22 separate component test workflows that run when their specific paths change. Each creates a KinD cluster, deploys components, and validates deployment."
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Issue Triage",
+        "command": "GitHub action for project board management",
+        "required": false,
+        "trigger": "issues events"
+      }
+    ],
+    "notes": "CI is path-based: workflows only run when specific component paths change. All component tests require full KinD cluster deployment which takes several minutes. No lint checks in CI despite .flake8 config existing."
+  },
+  "build": {
+    "system": "kustomize",
+    "install_command": "curl -L https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.2.1/kustomize_v5.2.1_linux_amd64.tar.gz | tar -xz && chmod +x kustomize && sudo mv kustomize /usr/local/bin/",
+    "build_command": "kustomize build {path}",
+    "notes": "This is a Kubernetes manifests repository. 'Building' means rendering Kustomize manifests to YAML. The main build target is 'example' which includes all components. Individual components can be built with 'kustomize build apps/{component}/upstream/...' or 'kustomize build contrib/{component}/...'"
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py",
+    "test_naming": "pytest standard: test_* functions, @pytest fixtures",
+    "import_style": "Standard Python imports, Kubernetes client library usage",
+    "notes": "Manifests use Kustomize conventions: base/ for base configs, overlays/ for variants. Shell scripts in tests/gh-actions/ use kebab-case naming like install_*.sh. YAML manifests follow Kubernetes resource conventions."
+  },
+  "container_recipe": {
+    "base_image": "python:3.9-slim",
+    "system_deps": ["curl", "tar", "gzip", "ca-certificates"],
+    "setup_commands": [
+      "apt-get update && apt-get install -y curl tar gzip ca-certificates",
+      "curl -L https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.2.1/kustomize_v5.2.1_linux_amd64.tar.gz -o kustomize.tar.gz && tar -xzf kustomize.tar.gz && chmod +x kustomize && mv kustomize /usr/local/bin/",
+      "pip install flake8 pytest requests"
+    ],
+    "lint_commands": [
+      {
+        "command": "flake8 .",
+        "validated": true,
+        "notes": "Exits with code 1 - found 100+ violations (mostly E501 line too long). NOT run in CI, dead config."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "kustomize build example",
+        "validated": true,
+        "notes": "Exit code 0 - SUCCESS. Produces deprecation warnings but builds all manifests successfully. This is the main CI test."
+      },
+      {
+        "command": "cd apps/pipeline/upstream/base/installs/multi-user/pipelines-profile-controller && pytest test_sync.py -v",
+        "validated": true,
+        "notes": "Exit code 0 - SUCCESS. 6 tests passed in 0.28s. These are unit tests that don't require cluster."
+      }
+    ],
+    "test_single_file": "pytest {file} -v",
+    "test_single_test": "pytest {file}::{test_name} -v",
+    "env_vars": [],
+    "notes": "Most integration tests require KinD cluster and cannot run in simple container. Only manifest build validation and some Python unit tests work standalone. Full test suite requires: KinD v0.20.0, kubectl, and component deployments (Istio, cert-manager, etc)."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y curl tar gzip ca-certificates",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "27 newly installed packages",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "curl + tar to install kustomize v5.2.1",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "kustomize version: v5.2.1",
+        "notes": "Kustomize installed and verified"
+      },
+      {
+        "step": "build",
+        "command": "kustomize build example",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "# Warning: 'vars' is deprecated...\n# Warning: 'patchesStrategicMerge' is deprecated...\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: auth",
+        "notes": "Build succeeds with deprecation warnings. Warnings are expected and not treated as errors. Produces valid Kubernetes YAML."
+      },
+      {
+        "step": "lint",
+        "command": "pip install flake8",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed flake8-7.3.0",
+        "notes": "Flake8 installed"
+      },
+      {
+        "step": "lint",
+        "command": "flake8 .",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "./apps/kfp-tekton/.../sync.py:29:80: E501 line too long (103 > 79 characters)\n./apps/kfp-tekton/.../sync.py:30:80: E501 line too long (104 > 79 characters)\n[100+ more violations]",
+        "notes": "Flake8 found many violations (mostly E501 line too long). However, this is NOT a CI failure - flake8 is not run in any workflow. Config is present but unused."
+      },
+      {
+        "step": "test",
+        "command": "pip install pytest requests",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed pytest-8.4.2 requests-2.32.5",
+        "notes": "Test dependencies installed"
+      },
+      {
+        "step": "test",
+        "command": "cd apps/pipeline/upstream/base/installs/multi-user/pipelines-profile-controller && pytest test_sync.py -v",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "test_sync.py::test_sync_server_with_pipeline_enabled[...] PASSED [ 16%]\n...\n============================== 6 passed in 0.28s ===============================",
+        "notes": "All 6 unit tests passed. These test the pipelines profile controller sync HTTP endpoint without requiring a cluster."
+      }
+    ],
+    "summary": "kustomize build OK (with deprecation warnings), flake8 finds violations but not enforced, pytest unit tests OK (6 passed), integration tests require KinD cluster"
+  },
+  "gaps": [
+    "Flake8 configured (.flake8) but never run in CI - dead configuration",
+    "No lint enforcement - Python code has 100+ flake8 violations",
+    "Most tests are integration tests requiring full KinD cluster deployment",
+    "No quick unit test suite that validates logic without infrastructure",
+    "Integration tests take 5-15 minutes each due to cluster creation",
+    "No test coverage reporting",
+    "Kustomize produces deprecation warnings (vars, patchesStrategicMerge, bases) but no plan to fix",
+    "Tests cannot run locally without KinD, kubectl, and significant resources (RAM/CPU)",
+    "No pre-commit hooks configured despite having test infrastructure"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

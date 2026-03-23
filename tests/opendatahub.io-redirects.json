@@ -1,0 +1,98 @@
+{
+  "repo": "opendatahub.io-redirects",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:51:00Z",
+  "languages": ["Ruby", "HTML", "CSS"],
+  "linting": {
+    "tools": [],
+    "notes": "No linting configuration found. This is a simple Jekyll static site with no linters configured."
+  },
+  "testing": {
+    "framework": null,
+    "test_directory": null,
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "No test suite exists. This is a static redirect site. The only validation is whether the Jekyll site builds successfully without errors."
+  },
+  "ci": {
+    "system": "GitLab CI",
+    "config_files": [".gitlab-ci.yml"],
+    "gating_checks": [
+      {
+        "name": "test",
+        "command": "bundle install && bundle exec jekyll build -d test",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "GitLab CI has two stages: 'test' (runs on all non-master branches) validates the site builds, and 'pages' (runs on master only) deploys to GitLab Pages. The test stage is the gating check - it ensures the Jekyll site can be built without errors."
+  },
+  "build": {
+    "system": "Bundler + Jekyll",
+    "install_command": "bundle install",
+    "build_command": "bundle exec jekyll build -d public",
+    "notes": "Standard Jekyll static site build. Uses Ruby 2.3.7 with Jekyll 3.8.5 and jekyll-redirect-from plugin."
+  },
+  "conventions": {
+    "test_file_pattern": null,
+    "test_naming": null,
+    "import_style": null,
+    "notes": "This is a static site repository with minimal code. No coding conventions beyond standard Jekyll project structure (_layouts, _sass, css directories)."
+  },
+  "container_recipe": {
+    "base_image": "docker.io/library/ruby:2.3",
+    "system_deps": [],
+    "setup_commands": [
+      "bundle install"
+    ],
+    "lint_commands": [],
+    "test_commands": [
+      {
+        "command": "bundle exec jekyll build -d test",
+        "validated": true,
+        "notes": "Build succeeded. Site built in 0.089 seconds without errors."
+      }
+    ],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": ["JEKYLL_ENV=production"],
+    "notes": "No system dependencies needed beyond what's in the ruby:2.3 base image. The build is fast (<1 second). The JEKYLL_ENV variable is set in CI but not required for basic validation."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "bundle install",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Fetching gem metadata from https://rubygems.org/...........\nFetching gem metadata from https://rubygems.org/.\nResolving dependencies...\n...\nBundle complete! 3 Gemfile dependencies, 27 gems now installed.\nBundled gems are installed into `/usr/local/bundle`",
+        "notes": "Successfully installed all dependencies including jekyll 3.8.5 and jekyll-redirect-from 0.15.0"
+      },
+      {
+        "step": "build",
+        "command": "bundle exec jekyll build -d test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Configuration file: /app/_config.yml\n            Source: /app\n       Destination: test\n Incremental build: disabled. Enable with --incremental\n      Generating... \n                    done in 0.089 seconds.\n Auto-regeneration: disabled. Use --watch to enable.",
+        "notes": "Jekyll site built successfully in 0.089 seconds. Generated static files to test/ directory."
+      }
+    ],
+    "summary": "install OK (27 gems), build OK (0.089s)"
+  },
+  "gaps": [
+    "No test suite - this is a static redirect site with no automated tests",
+    "No linting configuration",
+    "No GitHub Actions workflows (uses GitLab CI instead)",
+    "Very old Ruby version (2.3.7, released 2018, EOL)",
+    "The only validation available is whether the Jekyll site builds without errors"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

@@ -1,0 +1,261 @@
+{
+  "repo": "training-notebooks",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-23T00:27:52Z",
+  "languages": [
+    "Python"
+  ],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff check ci tests",
+        "fix_command": "uv run ruff check --fix ci tests",
+        "scope": "ci/ and tests/ directories only"
+      },
+      {
+        "name": "ruff-format",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff format --check ci tests",
+        "fix_command": "uv run ruff format ci tests",
+        "scope": "ci/ and tests/ directories only"
+      },
+      {
+        "name": "pyright",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run pyright",
+        "fix_command": null,
+        "scope": "ci/ and tests/ directories (configured in pyproject.toml)"
+      },
+      {
+        "name": "pre-commit",
+        "config_file": ".pre-commit-config.yaml",
+        "run_command": "uv run pre-commit run --all-files",
+        "fix_command": "uv run pre-commit run --all-files",
+        "scope": "Runs uv-lock, ruff, ruff-format, and pyright on configured paths"
+      }
+    ],
+    "notes": "Pre-commit orchestrates all linters. Ruff config in pyproject.toml enables extensive rule sets (B, C4, COM, E, W, F, FA, FLY, G, I, INP, INT, ISC, N, PERF, PGH, PIE, PL, etc). Line length is 120. Pyright has typeCheckingMode=off but checks for missing imports and unbound variables."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "tests/",
+    "run_command": "uv run pytest",
+    "run_single_file": "uv run pytest {file}",
+    "run_single_test": "uv run pytest {file}::{test_name}",
+    "setup_required": [
+      "uv sync --locked"
+    ],
+    "env_vars": [
+      "DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock (for container tests on Linux with podman)",
+      "--image <image_digest> (required for tests/containers/* tests)"
+    ],
+    "fixtures_location": "tests/conftest.py",
+    "mock_patterns": "Uses pyfakefs for filesystem mocking, testcontainers for container tests",
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Tests are categorized with pytest markers: @pytest.mark.openshift (requires OpenShift cluster), @pytest.mark.cuda (requires CUDA/GPU), @pytest.mark.rocm (requires ROCm/AMD GPU). Basic tests in tests/test_main.py and tests/pytest_tutorial/ run without infrastructure. Container tests in tests/containers/ require Docker/Podman and an --image parameter. One test (test_make_disable_pushing) requires make and a container engine."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/code-quality.yaml",
+      ".github/workflows/build-notebooks-pr.yaml",
+      ".github/workflows/build-notebooks-pr-rhel.yaml",
+      ".tekton/*.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "check-generated-code",
+        "command": "bash ci/generate_code.sh",
+        "required": true
+      },
+      {
+        "name": "pytest-tests: install deps",
+        "command": "uv sync --locked",
+        "required": true
+      },
+      {
+        "name": "pytest-tests: pre-commit",
+        "command": "uv run pre-commit run --all-files",
+        "required": true
+      },
+      {
+        "name": "pytest-tests: run tests",
+        "command": "uv run pytest",
+        "required": true
+      },
+      {
+        "name": "code-static-analysis: yamllint",
+        "command": "find . -name '*.yaml' | grep -v './.tekton/' | grep -v './.github/workflows/insta-merge.yaml' | xargs yamllint --strict --config-file ./ci/yamllint-config.yaml",
+        "required": true
+      },
+      {
+        "name": "code-static-analysis: JSON validation",
+        "command": "bash ./ci/check-json.sh",
+        "required": true
+      },
+      {
+        "name": "code-static-analysis: hadolint",
+        "command": "find . -name 'Dockerfile*' | xargs hadolint --config ./ci/hadolint-config.yaml",
+        "required": true
+      },
+      {
+        "name": "code-static-analysis: kustomize",
+        "command": "./ci/kustomize.sh",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "The code-quality.yaml workflow runs on push, pull_request, and workflow_dispatch. All three jobs (check-generated-code, pytest-tests, code-static-analysis) are gating. Tekton pipelines build notebook container images for various Python versions, CUDA variants, ROCm variants, etc. Build workflows trigger on PR and push events."
+  },
+  "build": {
+    "system": "uv (Python package manager) + Makefile (for container images)",
+    "install_command": "uv sync --locked",
+    "build_command": "make <target-name> (e.g., make jupyter-minimal-ubi9-python-3.11)",
+    "notes": "Project uses uv for Python dependency management (replaces pip/pipenv). uv.lock pins all dependencies. Makefile builds container images using podman/docker. The project is package-mode=false in pyproject.toml, meaning it's not installable as a Python package - it's a collection of notebook images."
+  },
+  "conventions": {
+    "test_file_pattern": "tests/**/test_*.py or tests/**/*_test.py",
+    "test_naming": "test_* functions, Test* classes (pytest convention)",
+    "import_style": "from __future__ import annotations at top, absolute imports preferred, grouped and sorted by ruff/isort rules",
+    "notes": "Code follows strict formatting (ruff format, line length 120). Tests use pytest markers for infrastructure requirements. Pipfile validation ensures each notebook variant declares correct Python version."
+  },
+  "container_recipe": {
+    "base_image": "python:3.12",
+    "system_deps": [
+      "git",
+      "make",
+      "curl"
+    ],
+    "setup_commands": [
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=/root/.local/bin:$PATH",
+      "uv sync --locked"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run ruff check ci tests",
+        "validated": true,
+        "notes": "Exit 0, 1 warning about invalid noqa comment (non-critical)"
+      },
+      {
+        "command": "uv run ruff format --check ci tests",
+        "validated": true,
+        "notes": "Exit 0, 38 files already formatted"
+      },
+      {
+        "command": "uv run pyright",
+        "validated": true,
+        "notes": "Exit 0, 0 errors, 0 warnings, 0 informations"
+      },
+      {
+        "command": "uv run pre-commit run --all-files",
+        "validated": true,
+        "notes": "Exit 0, all checks passed (uv-lock, ruff, ruff-format, pyright)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "uv run pytest tests/test_main.py::test_image_pipfiles tests/test_main.py::test_files_that_should_be_same_are_same",
+        "validated": true,
+        "notes": "Exit 0, 2 passed, 32 subtests passed"
+      },
+      {
+        "command": "uv run pytest tests/pytest_tutorial",
+        "validated": true,
+        "notes": "Exit 0, 4 passed"
+      },
+      {
+        "command": "uv run pytest tests/test_main.py",
+        "validated": false,
+        "notes": "Exit 1, 2 passed, 1 failed (test_make_disable_pushing requires make + podman/docker)"
+      },
+      {
+        "command": "uv run pytest",
+        "validated": false,
+        "notes": "Not fully validated - many tests require --image parameter, Docker/Podman, or infrastructure (OpenShift, GPU)"
+      }
+    ],
+    "test_single_file": "uv run pytest {file}",
+    "test_single_test": "uv run pytest {file}::{test_name}",
+    "env_vars": [
+      "PATH=/root/.local/bin:$PATH (required for uv command)"
+    ],
+    "notes": "The container validation demonstrates that basic lint and test commands work correctly. Container tests in tests/containers/ require a running Docker/Podman daemon and an --image parameter. Tests marked with @pytest.mark.openshift, @pytest.mark.cuda, or @pytest.mark.rocm require corresponding infrastructure. Basic validation tests (Pipfile checks, file consistency, tutorial tests) run successfully without external dependencies."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "uv sync --locked",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Resolved 94 packages in 0.77ms\nChecked 93 packages in 0.48ms",
+        "notes": "Dependencies installed successfully, 94 packages resolved"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff check ci tests",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "warning: Invalid rule code provided to `# ruff: noqa` at tests/containers/pydantic_schemas/podman_info.py:5: Variable\nAll checks passed!",
+        "notes": "Linter passed with 1 non-critical warning about noqa comment"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff format --check ci tests",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "38 files already formatted",
+        "notes": "Format check passed, all files properly formatted"
+      },
+      {
+        "step": "lint",
+        "command": "uv run pyright",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "0 errors, 0 warnings, 0 informations",
+        "notes": "Type checking passed with no issues"
+      },
+      {
+        "step": "lint",
+        "command": "uv run pre-commit run --all-files",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "uv-lock...Passed\nruff.....Passed\nruff-format...Passed\nRun Pyright on all files...Passed",
+        "notes": "All pre-commit hooks passed"
+      },
+      {
+        "step": "test",
+        "command": "uv run pytest tests/pytest_tutorial",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "4 passed in 0.03s",
+        "notes": "Tutorial tests passed"
+      },
+      {
+        "step": "test",
+        "command": "uv run pytest tests/test_main.py::test_image_pipfiles tests/test_main.py::test_files_that_should_be_same_are_same",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "2 passed, 32 subtests passed in 0.07s",
+        "notes": "Basic validation tests passed (Pipfile checks, file consistency)"
+      }
+    ],
+    "summary": "Install OK (94 packages), lint OK (ruff + pyright + pre-commit all passed), basic tests OK (6 passed). One test requires make+podman/docker. Container tests not validated (require infrastructure)."
+  },
+  "gaps": [
+    "Container tests in tests/containers/ require Docker or Podman daemon and an --image parameter - not validated in basic container setup",
+    "Tests marked @pytest.mark.openshift require an OpenShift cluster for execution",
+    "Tests marked @pytest.mark.cuda require CUDA-capable GPU hardware",
+    "Tests marked @pytest.mark.rocm require ROCm-capable AMD GPU hardware",
+    "One test (test_make_disable_pushing) requires both make and a container engine, fails without them",
+    "Browser tests in tests/browser/ require Playwright setup - not validated",
+    "Full CI workflow includes yamllint, JSON validation, hadolint, and kustomize checks - these require additional tools not installed in basic Python container",
+    "Makefile-based image building requires podman/docker and significant build infrastructure"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}

@@ -1,0 +1,239 @@
+{
+  "repo": "openvino_contrib",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:01:00-04:00",
+  "languages": ["C++", "Python", "Java", "TypeScript", "JavaScript"],
+  "linting": {
+    "tools": [
+      {
+        "name": "eslint",
+        "config_file": "modules/openvino_code/.eslintrc.js",
+        "run_command": "cd modules/openvino_code && npm ci && npm run lint:all",
+        "fix_command": "cd modules/openvino_code && npm run lint:fix",
+        "scope": "modules/openvino_code (TypeScript/JavaScript)"
+      },
+      {
+        "name": "ruff",
+        "config_file": "modules/openvino_code/server/pyproject.toml",
+        "run_command": "cd modules/openvino_code/server && ruff check .",
+        "fix_command": "cd modules/openvino_code/server && ruff check --fix .",
+        "scope": "modules/openvino_code/server (Python)"
+      },
+      {
+        "name": "black",
+        "config_file": "modules/openvino_code/server/pyproject.toml",
+        "run_command": "cd modules/openvino_code/server && black --check .",
+        "fix_command": "cd modules/openvino_code/server && black .",
+        "scope": "modules/openvino_code/server (Python)"
+      },
+      {
+        "name": "clang-format",
+        "config_file": "modules/nvidia_plugin/.clang-format",
+        "run_command": "cd modules/nvidia_plugin && ./utils/check.sh",
+        "fix_command": "cd modules/nvidia_plugin && ./utils/format.sh",
+        "scope": "modules/nvidia_plugin (C++/CUDA)"
+      },
+      {
+        "name": "clang-format",
+        "config_file": "modules/llama_cpp_plugin/.clang-format",
+        "run_command": null,
+        "fix_command": null,
+        "scope": "modules/llama_cpp_plugin (C++)"
+      },
+      {
+        "name": "google-java-format",
+        "config_file": null,
+        "run_command": "google-java-format --set-exit-if-changed -a -i modules/java_api/**/*.java",
+        "fix_command": "google-java-format -a -i modules/java_api/**/*.java",
+        "scope": "modules/java_api (Java)"
+      }
+    ],
+    "notes": "This is a multi-module repository. Each module has its own linting configuration. The nvidia_plugin uses git-based diff checking for clang-format. Java linting runs in CI via GitHub Actions. Python linting currently has failures (black finds formatting issues in openvino_code/server)."
+  },
+  "testing": {
+    "framework": "Multiple (pytest, gradle, gtest/CTest)",
+    "test_directory": "tests/ directories within each module",
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [
+      "Clone OpenVINO main repository",
+      "Build OpenVINO with contrib modules enabled via -DOPENVINO_EXTRA_MODULES",
+      "Install test dependencies per module"
+    ],
+    "env_vars": [
+      "CUSTOM_OP_LIB=path/to/libuser_ov_extensions.so (for custom_operations tests)",
+      "MODELS_PATH=path/to/testdata (for java_api tests)"
+    ],
+    "fixtures_location": "Module-specific",
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "Testing is per-module and requires OpenVINO to be built first. Tests cannot run standalone. Java API: 'cd modules/java_api && gradle test -Prun_tests -DMODELS_PATH=${TEST_DATA} -Ddevice=CPU'. Custom operations: 'CUSTOM_OP_LIB=<lib_path> python -m pytest modules/custom_operations/tests/run_tests.py'. Token merging: 'pip install modules/token_merging/[tests] && python -m pytest modules/token_merging/tests/'. NVIDIA plugin: requires CUDA hardware and full build. Llama CPP plugin: requires full build and model conversion."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/code_style.yml",
+      ".github/workflows/linux.yml",
+      ".github/workflows/test_cuda.yml",
+      ".github/workflows/openvino_code.yml",
+      ".github/workflows/token_merging.yml",
+      ".github/workflows/llama_cpp_plugin_build_and_test.yml",
+      ".github/workflows/mac.yml",
+      ".github/workflows/windows.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "Code Style - Java",
+        "command": "google-java-format --set-exit-if-changed -a -i modules/java_api/**/*.java",
+        "required": true
+      },
+      {
+        "name": "Linux - Build and Test",
+        "command": "Full OpenVINO build with cmake, Java tests with gradle, custom_operations pytest",
+        "required": true
+      },
+      {
+        "name": "OpenVINO Code - Extension Lint",
+        "command": "cd modules/openvino_code && npm ci && npm run lint:all",
+        "required": true
+      },
+      {
+        "name": "OpenVINO Code - Server Lint",
+        "command": "cd modules/openvino_code/server && ruff check . && black --check .",
+        "required": true
+      },
+      {
+        "name": "Token Merging - Tests",
+        "command": "pip install modules/token_merging/[tests] && python -m pytest modules/token_merging/tests/",
+        "required": true
+      },
+      {
+        "name": "Llama CPP Plugin - Build and Test",
+        "command": "cmake build with OpenVINO + llama_cpp_plugin, run llama_cpp_func_tests and llama_cpp_e2e_tests",
+        "required": true
+      }
+    ],
+    "advisory_checks": [
+      {
+        "name": "Test CUDA - nvidia_plugin",
+        "command": "Runs on custom hardware with CUDA, ./modules/nvidia_plugin/utils/check.sh for formatting",
+        "required": false
+      }
+    ],
+    "notes": "This repository uses path-based workflow triggers. Each module has its own workflow that runs only when files in that module change. The main linux.yml workflow builds OpenVINO from scratch with contrib modules enabled, then runs Java and Python tests. NVIDIA plugin tests run on custom runners with CUDA GPUs. Most tests are gating for their respective modules."
+  },
+  "build": {
+    "system": "CMake (primary), Gradle (Java), npm (TypeScript)",
+    "install_command": "Module-specific: npm ci (openvino_code), pip install . (Python modules), OpenVINO must be built first for C++ modules",
+    "build_command": "cmake -DOPENVINO_EXTRA_MODULES=<contrib>/modules <openvino_source> -B build && cmake --build build -j$(nproc)",
+    "notes": "This is NOT a standalone repository. It requires the main OpenVINO repository to be cloned and built with -DOPENVINO_EXTRA_MODULES pointing to this repo's modules directory. Individual modules: openvino_code can be built with npm/webpack; Java API requires OpenVINO build + gradle; Python modules (token_merging) can be installed with pip but need OpenVINO runtime for tests."
+  },
+  "conventions": {
+    "test_file_pattern": "Python: test_*.py, tests/run_tests.py; C++: *_test.cpp, *_tests.cpp; Java: **/*Test.java",
+    "test_naming": "Python: test_* functions, unittest.TestCase classes; C++: gtest TEST() macros; Java: JUnit @Test annotations",
+    "import_style": "Module-specific",
+    "notes": "Each module follows language conventions. Python uses pytest or unittest. C++ uses gtest. Java uses JUnit with Gradle. Modules are independent with separate conventions."
+  },
+  "container_recipe": {
+    "base_image": "node:16 (for openvino_code linting), python:3.11 (for Python linting)",
+    "system_deps": [],
+    "setup_commands": [
+      "For openvino_code TypeScript linting: npm ci in modules/openvino_code",
+      "For Python linting: pip install ruff black"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd modules/openvino_code && npm run lint:all",
+        "validated": true,
+        "notes": "Exit code 0, all checks passed"
+      },
+      {
+        "command": "cd modules/openvino_code/server && ruff check .",
+        "validated": true,
+        "notes": "Exit code 0, all checks passed"
+      },
+      {
+        "command": "cd modules/openvino_code/server && black --check .",
+        "validated": false,
+        "notes": "Exit code 1, found 3 files that need reformatting (existing code style violations)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "pip install modules/token_merging/[tests] && python -m pytest modules/token_merging/tests/",
+        "validated": false,
+        "notes": "Requires full OpenVINO installation with runtime module, not available in standard Python container"
+      },
+      {
+        "command": "CUSTOM_OP_LIB=<path> python -m pytest modules/custom_operations/tests/run_tests.py",
+        "validated": false,
+        "notes": "Requires OpenVINO to be built with custom operations library"
+      }
+    ],
+    "test_single_file": "N/A - tests require full OpenVINO build",
+    "test_single_test": "N/A - tests require full OpenVINO build",
+    "env_vars": [],
+    "notes": "Only linting can be validated in standard containers. All tests require OpenVINO to be built from source with contrib modules enabled, which is a multi-hour build process requiring the main openvino repository. NVIDIA plugin tests additionally require CUDA hardware. The black linter currently finds formatting violations in the existing code."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "lint",
+        "command": "cd modules/openvino_code && npm ci && npm run lint:all",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "> openvino-code-completion@0.2.0 lint:all\n> npm run lint && npm run lint --workspaces\n\n> openvino-code-completion@0.2.0 lint\n> eslint . --max-warnings 0\n\n> side-panel-ui@0.0.1 lint\n> eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+        "notes": "TypeScript/JavaScript linting passed completely"
+      },
+      {
+        "step": "lint",
+        "command": "cd modules/openvino_code/server && ruff check .",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "All checks passed!",
+        "notes": "Ruff linting passed"
+      },
+      {
+        "step": "lint",
+        "command": "cd modules/openvino_code/server && black --check .",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "would reformat /app/modules/openvino_code/server/main.py\nwould reformat /app/modules/openvino_code/server/src/app.py\nwould reformat /app/modules/openvino_code/server/src/generators.py\n\nOh no! 💥 💔 💥\n3 files would be reformatted, 2 files would be left unchanged.",
+        "notes": "Black found existing formatting violations (not a broken command, but existing code issues)"
+      },
+      {
+        "step": "test",
+        "command": "pip install modules/token_merging/[tests] && python -m pytest modules/token_merging/tests/",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "ImportError while importing test module '/app/modules/token_merging/tests/test_precommit.py'.\nimport openvino.runtime as ov\nE   ModuleNotFoundError: No module named 'openvino.runtime'",
+        "notes": "Requires full OpenVINO build with runtime module, not available in PyPI package"
+      },
+      {
+        "step": "test",
+        "command": "cd modules/custom_operations && python -m pytest tests/run_tests.py",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "ext_path = os.getenv('CUSTOM_OP_LIB')\ncore = Core()\ncore.add_extension(ext_path)\nE   TypeError: issubclass() arg 1 must be a class",
+        "notes": "Requires CUSTOM_OP_LIB env var pointing to built library"
+      }
+    ],
+    "summary": "Linting: TypeScript/JavaScript (✓), ruff (✓), black (✗ existing violations). Tests: All require full OpenVINO build."
+  },
+  "gaps": [
+    "No standalone test capability - all tests require OpenVINO main repository to be cloned and built",
+    "Build process is complex and takes hours (full OpenVINO + contrib modules)",
+    "NVIDIA plugin tests require CUDA hardware (not accessible in generic containers)",
+    "Llama CPP plugin tests require model conversion and external dependencies",
+    "Token merging tests require full OpenVINO runtime, not available via pip",
+    "Custom operations tests require compiled C++ library (CUSTOM_OP_LIB)",
+    "Java tests require OpenVINO build + testdata repository",
+    "Black formatter finds existing violations in openvino_code/server (code style debt)",
+    "No unified test command - each module has different test infrastructure",
+    "Repository is a collection of independent modules with different build/test requirements"
+  ],
+  "agent_readiness": "low",
+  "confidence": "high"
+}

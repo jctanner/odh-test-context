@@ -1,0 +1,210 @@
+{
+  "repo": "models-as-a-service",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T23:29:41Z",
+  "languages": ["Go"],
+  "linting": {
+    "tools": [
+      {
+        "name": "golangci-lint",
+        "version": "v2.6.2",
+        "config_file": "maas-api/.golangci.yml",
+        "run_command": "cd maas-api && make lint",
+        "fix_command": "cd maas-api && make lint LINT_FIX=true",
+        "scope": "maas-api module only (maas-controller has no .golangci.yml config)",
+        "notes": "Linter is auto-installed by Makefile. Uses 'all' linters with specific exclusions. Includes formatters: gci, gofmt, goimports."
+      }
+    ],
+    "notes": "maas-api has comprehensive golangci-lint config. maas-controller uses same tooling but no custom config file (relies on defaults). The make lint target runs both formatting and linting."
+  },
+  "testing": {
+    "framework": "Go testing (testing package)",
+    "test_directory": "Tests distributed across modules: maas-api/cmd/*_test.go, maas-api/internal/*/*_test.go, maas-controller/pkg/controller/maas/*_test.go",
+    "run_command": "cd maas-api && make test && cd ../maas-controller && make test",
+    "run_single_file": "go test -v {file}",
+    "run_single_test": "go test -v -run ^{test_name}$ {package}",
+    "setup_required": [
+      "cd maas-api && go mod download",
+      "cd maas-controller && go mod download"
+    ],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": "Tests use standard Go testing with table-driven tests. Controller tests use controller-runtime test framework.",
+    "coverage_command": "cd maas-api && go test -coverprofile=coverage.out ./cmd/... ./internal/...",
+    "coverage_threshold": null,
+    "notes": "maas-api uses -race flag and generates coverage reports (coverage.out, coverage.html). maas-controller runs simpler 'go test ./...' without coverage. Tests require no external infrastructure - all unit tests."
+  },
+  "ci": {
+    "system": "GitHub Actions + Tekton",
+    "config_files": [
+      ".github/workflows/maas-api-ci.yml",
+      ".github/workflows/build-test.yml",
+      ".tekton/odh-maas-api-pull-request.yaml",
+      ".tekton/odh-maas-api-push.yaml",
+      ".tekton/odh-maas-controller-pull-request.yaml",
+      ".tekton/odh-maas-controller-push.yaml"
+    ],
+    "gating_checks": [
+      {
+        "name": "maas-api lint",
+        "command": "cd maas-api && golangci-lint run",
+        "required": true,
+        "trigger": "pull_request with changes to maas-api/**"
+      },
+      {
+        "name": "maas-api test",
+        "command": "cd maas-api && make test",
+        "required": true,
+        "trigger": "pull_request with changes to maas-api/**"
+      },
+      {
+        "name": "maas-api build",
+        "command": "cd maas-api && make build-image",
+        "required": true,
+        "trigger": "pull_request with changes to maas-api/**"
+      },
+      {
+        "name": "verify-codegen (maas-controller)",
+        "command": "cd maas-controller && make verify-codegen",
+        "required": true,
+        "trigger": "pull_request with changes to maas-controller/api/**, deployment/base/maas-controller/crd/**"
+      },
+      {
+        "name": "validate-manifests",
+        "command": "./scripts/ci/validate-manifests.sh",
+        "required": true,
+        "trigger": "pull_request with changes to deployment/** or maas-controller/api/**"
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI uses GitHub Actions for PR validation. Tekton pipelines handle container image builds for deployment. Go version is read from go.mod. golangci-lint version is extracted from tools.mk. Tests upload coverage artifacts for maas-api."
+  },
+  "build": {
+    "system": "Make + Go + Containers",
+    "install_command": "cd maas-api && go mod download && cd ../maas-controller && go mod download",
+    "build_command": "cd maas-api && make binary && cd ../maas-controller && make build",
+    "container_build_command": "cd maas-api && make build-image && cd ../maas-controller && make build-image",
+    "notes": "Two separate Go modules. Uses Go 1.25. Container images use registry.access.redhat.com/ubi9/go-toolset:1.25 for build and ubi9/ubi-minimal for runtime. Supports FIPS via GO_STRICTFIPS=true."
+  },
+  "conventions": {
+    "test_file_pattern": "*_test.go",
+    "test_naming": "Functions named Test* for standard tests. Uses table-driven test pattern extensively.",
+    "import_style": "gci formatter enforces: standard, default, prefix(github.com/opendatahub-io/models-as-a-service/maas-api/), blank, dot",
+    "notes": "Code follows standard Go conventions. Uses controller-runtime patterns for Kubernetes controllers. API types in maas-controller/api/maas/v1alpha1."
+  },
+  "container_recipe": {
+    "base_image": "golang:1.25",
+    "system_deps": ["make", "git"],
+    "setup_commands": [
+      "cd /app/maas-api && go mod download",
+      "cd /app/maas-controller && go mod download"
+    ],
+    "lint_commands": [
+      {
+        "command": "cd /app/maas-api && make lint",
+        "validated": true,
+        "notes": "Passed with 0 issues. Auto-installs golangci-lint v2.6.2."
+      },
+      {
+        "command": "cd /app/maas-controller && make lint",
+        "validated": false,
+        "notes": "Failed with 4 lint issues: 2 staticcheck (should convert type instead of struct literal), 2 unused functions. Also has formatting issues (missing/extra newlines)."
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd /app/maas-api && make test",
+        "validated": true,
+        "notes": "Passed. All tests passed with 84.7% coverage. Generates coverage.out and coverage.html."
+      },
+      {
+        "command": "cd /app/maas-controller && make test",
+        "validated": true,
+        "notes": "Passed. Tests in pkg/controller/maas completed successfully."
+      }
+    ],
+    "test_single_file": "cd /app/{module} && go test -v {file}",
+    "test_single_test": "cd /app/{module} && go test -v -run ^{test_name}$ {package}",
+    "env_vars": [],
+    "notes": "Container needs read-write access to /app for test artifacts (coverage.out, coverage.html, bin/ directories). Both modules can be tested independently."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "cd /app/maas-api && go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - successful download)",
+        "notes": "Dependencies downloaded successfully for maas-api"
+      },
+      {
+        "step": "install",
+        "command": "cd /app/maas-controller && go mod download",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "(no output - successful download)",
+        "notes": "Dependencies downloaded successfully for maas-controller"
+      },
+      {
+        "step": "lint",
+        "command": "cd /app/maas-api && make lint",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "golangci-lint fmt\ngolangci-lint run\n0 issues.",
+        "notes": "Linting passed with 0 issues"
+      },
+      {
+        "step": "lint",
+        "command": "cd /app/maas-controller && make lint",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "golangci-lint fmt --diff\ndiff pkg/controller/maas/maasauthpolicy_controller_test.go.orig...\nmake: *** [Makefile:80: lint] Error 1",
+        "notes": "Linting found formatting issues (newlines) and 4 code issues (2 staticcheck, 2 unused functions)"
+      },
+      {
+        "step": "test",
+        "command": "cd /app/maas-api && make test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go test -v -race -coverprofile=coverage.out /app/maas-api/cmd/... /app/maas-api/internal/...\n...\nPASS\ncoverage: 84.7% of statements",
+        "notes": "All tests passed with 84.7% coverage"
+      },
+      {
+        "step": "test",
+        "command": "cd /app/maas-controller && make test",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "go test ./...\nok  \tgithub.com/opendatahub-io/models-as-a-service/maas-controller/pkg/controller/maas\t0.038s",
+        "notes": "All tests passed"
+      },
+      {
+        "step": "build",
+        "command": "cd /app/maas-api && make binary",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags \"-s -w -X main.version=latest -X main.commit=17deedb -X main.buildTime=2026-03-22_23:28:09\" -o /app/maas-api/bin/maas-api ./cmd/",
+        "notes": "Binary built successfully"
+      },
+      {
+        "step": "build",
+        "command": "cd /app/maas-controller && make build",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o /app/maas-controller/bin/manager ./cmd/manager",
+        "notes": "Binary built successfully"
+      }
+    ],
+    "summary": "install OK (both modules), lint OK (maas-api), lint FAILED (maas-controller: 4 issues + formatting), tests OK (both modules), build OK (both modules)"
+  },
+  "gaps": [
+    "maas-controller has no .golangci.yml config file - lint target uses golangci-lint without custom configuration",
+    "maas-controller lint currently fails with 4 issues (2 staticcheck, 2 unused functions) and formatting violations",
+    "maas-controller does not generate test coverage reports (unlike maas-api)",
+    "No integration tests found - all tests are unit tests",
+    "Tests do not require external services (PostgreSQL, Kubernetes cluster) - good for CI but may not catch integration issues"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high",
+  "agent_readiness_rationale": "maas-api is ready for automated validation: lint and tests both pass. maas-controller has lint failures that need fixing before it can be used for automated validation. However, tests pass for both modules, so partial validation is possible."
+}

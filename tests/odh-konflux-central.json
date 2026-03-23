@@ -1,0 +1,152 @@
+{
+  "repo": "odh-konflux-central",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T19:39:26-04:00",
+  "languages": [
+    "YAML"
+  ],
+  "linting": {
+    "tools": [
+      {
+        "name": "yamllint",
+        "version": "1.38.0",
+        "config_file": ".yamllint",
+        "run_command": "yamllint --strict -c .yamllint .",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "kubeconform",
+        "version": "v0.6.7",
+        "config_file": null,
+        "run_command": "kubeconform -summary -output text -ignore-missing-schemas -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' pipelineruns/ pipeline/ gitops/ integration-tests/",
+        "fix_command": null,
+        "scope": "Kubernetes manifests in pipelineruns/, pipeline/, gitops/, integration-tests/"
+      }
+    ],
+    "notes": "yamllint validates YAML syntax and style. kubeconform validates Kubernetes resource schemas. Current codebase has yamllint errors (trailing spaces in odh-konflux-onboarder.yml)."
+  },
+  "testing": {
+    "framework": "Tekton Pipelines",
+    "test_directory": "integration-tests/",
+    "run_command": null,
+    "run_single_file": null,
+    "run_single_test": null,
+    "setup_required": [],
+    "env_vars": [],
+    "fixtures_location": null,
+    "mock_patterns": null,
+    "coverage_command": null,
+    "coverage_threshold": null,
+    "notes": "This repository contains Tekton pipeline definitions for integration tests, not executable test code. Integration tests are PipelineRuns that provision ephemeral Hypershift/Kubernetes clusters and require Konflux infrastructure. They cannot be run locally."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/yaml-lint.yaml",
+      ".github/workflows/build-integration-images.yml",
+      ".github/workflows/odh-konflux-onboarder.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "YAML Lint / yamllint",
+        "command": "yamllint --strict -c .yamllint .",
+        "required": true
+      },
+      {
+        "name": "YAML Lint / kubeconform",
+        "command": "kubeconform -summary -output text -ignore-missing-schemas -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' pipelineruns/ pipeline/ gitops/ integration-tests/",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "yaml-lint.yaml runs on all PRs and pushes to main. build-integration-images.yml runs on pushes that modify integration-tests/** files. odh-konflux-onboarder.yml is a manual workflow_dispatch for component onboarding."
+  },
+  "build": {
+    "system": "none",
+    "install_command": null,
+    "build_command": null,
+    "notes": "This is a configuration repository containing YAML manifests. No build process required. Docker images are built from integration-tests/*/Dockerfile.* files when changed."
+  },
+  "conventions": {
+    "test_file_pattern": "integration-tests/*/*.yaml (Tekton PipelineRuns)",
+    "test_naming": "Tekton PipelineRun manifests with descriptive names (e.g., e2e-test.yaml, pr-test-pipelinerun.yaml)",
+    "import_style": "N/A (YAML configuration)",
+    "notes": "Repository follows .yamllint rules. Tekton pipelines stored in pipeline/, PipelineRuns in pipelineruns/ and integration-tests/. GitOps manifests in gitops/. Integration test Dockerfiles use Dockerfile.<tag> naming pattern."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11",
+    "system_deps": [
+      "curl",
+      "git"
+    ],
+    "setup_commands": [
+      "pip install yamllint==1.38.0",
+      "curl -sSL \"https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz\" | tar xz && mv kubeconform /usr/local/bin/"
+    ],
+    "lint_commands": [
+      {
+        "command": "yamllint --strict -c .yamllint .",
+        "validated": true,
+        "notes": "Exit code 1 - found lint errors (trailing spaces in odh-konflux-onboarder.yml). Command works correctly."
+      },
+      {
+        "command": "kubeconform -summary -output text -ignore-missing-schemas -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' pipelineruns/ pipeline/ gitops/ integration-tests/",
+        "validated": true,
+        "notes": "Exit code 0 - schema validation passed. 398 resources skipped (custom CRDs not in public schema catalog)."
+      }
+    ],
+    "test_commands": [],
+    "test_single_file": null,
+    "test_single_test": null,
+    "env_vars": [],
+    "notes": "No unit tests exist. Integration tests are Tekton pipelines requiring Kubernetes cluster infrastructure."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "pip install yamllint==1.38.0",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Successfully installed pathspec-1.0.4 pyyaml-6.0.3 yamllint-1.38.0",
+        "notes": "yamllint installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "curl -sSL \"https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz\" | tar xz && mv kubeconform /usr/local/bin/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "v0.6.7",
+        "notes": "kubeconform v0.6.7 installed successfully"
+      },
+      {
+        "step": "lint",
+        "command": "yamllint --strict -c .yamllint .",
+        "exit_code": 1,
+        "success": true,
+        "output_snippet": "./.github/workflows/odh-konflux-onboarder.yml\n  71:1      error    trailing spaces  (trailing-spaces)\n  79:1      error    trailing spaces  (trailing-spaces)\n  84:1      error    trailing spaces  (trailing-spaces)",
+        "notes": "yamllint works correctly. Exit code 1 indicates lint violations found (trailing spaces), not a broken command. Found errors in odh-konflux-onboarder.yml."
+      },
+      {
+        "step": "lint",
+        "command": "kubeconform -summary -output text -ignore-missing-schemas -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' pipelineruns/ pipeline/ gitops/ integration-tests/",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Summary: 398 resources found in 212 files - Valid: 0, Invalid: 0, Errors: 0, Skipped: 398",
+        "notes": "kubeconform validated successfully. All 398 resources were skipped (custom Tekton/Konflux CRDs not in public schema catalogs), but no structural errors found."
+      }
+    ],
+    "summary": "Both lint tools validated successfully. yamllint found style violations (trailing spaces). kubeconform validated schema structure (398 resources skipped as custom CRDs). No tests exist."
+  },
+  "gaps": [
+    "No unit tests - repository contains only YAML configuration files",
+    "Integration tests are Tekton PipelineRuns requiring Kubernetes/Hypershift cluster infrastructure - cannot be run locally",
+    "yamllint errors exist in current codebase (trailing spaces in odh-konflux-onboarder.yml)",
+    "kubeconform skips all resources due to custom CRDs (Tekton, Konflux) not being in public schema catalogs",
+    "No automated testing of pipeline logic - only YAML syntax/schema validation",
+    "No way to validate Tekton pipeline correctness without running them on a cluster"
+  ],
+  "agent_readiness": "medium",
+  "confidence": "high"
+}

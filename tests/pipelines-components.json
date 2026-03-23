@@ -1,0 +1,269 @@
+{
+  "repo": "pipelines-components",
+  "org": "opendatahub-io",
+  "analyzed_at": "2026-03-22T20:07:54-04:00",
+  "languages": ["Python"],
+  "linting": {
+    "tools": [
+      {
+        "name": "ruff",
+        "version": "0.15.2",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff check components pipelines scripts",
+        "fix_command": "uv run ruff check --fix components pipelines scripts",
+        "scope": "components/, pipelines/, scripts/ directories"
+      },
+      {
+        "name": "ruff format",
+        "version": "0.15.2",
+        "config_file": "pyproject.toml",
+        "run_command": "uv run ruff format --check components pipelines scripts",
+        "fix_command": "uv run ruff format components pipelines scripts",
+        "scope": "components/, pipelines/, scripts/ directories"
+      },
+      {
+        "name": "yamllint",
+        "version": "1.38.0",
+        "config_file": ".yamllint.yml",
+        "run_command": "uv run yamllint -c .yamllint.yml .",
+        "fix_command": null,
+        "scope": "full project"
+      },
+      {
+        "name": "markdownlint",
+        "version": "0.39.0",
+        "config_file": ".markdownlint.json",
+        "run_command": "npx markdownlint-cli@0.39.0 -c .markdownlint.json .",
+        "fix_command": "npx markdownlint-cli@0.39.0 --fix -c .markdownlint.json .",
+        "scope": "full project"
+      },
+      {
+        "name": "import-guard",
+        "version": "custom",
+        "config_file": ".github/scripts/check_imports/import_exceptions.yaml",
+        "run_command": "uv run python .github/scripts/check_imports/check_imports.py --config .github/scripts/check_imports/import_exceptions.yaml components pipelines",
+        "fix_command": null,
+        "scope": "components/ and pipelines/ directories"
+      }
+    ],
+    "notes": "Linting is enforced via pre-commit hooks and CI. Ruff is configured with line-length=120, target Python 3.11, Google-style docstrings. Import guard ensures components/pipelines don't import third-party libraries at top level (must use lazy imports)."
+  },
+  "testing": {
+    "framework": "pytest",
+    "test_directory": "scripts/, .github/scripts/, components/*/tests/, pipelines/*/tests/",
+    "run_command": "cd .github/scripts && uv run pytest */tests/ -v --tb=short -m 'not gh_api'",
+    "run_single_file": "uv run pytest {file} -v --tb=short",
+    "run_single_test": "uv run pytest {file}::{test_name} -v --tb=short",
+    "setup_required": [
+      "uv sync --extra test"
+    ],
+    "env_vars": [
+      "GITHUB_TOKEN required for tests marked with @pytest.mark.gh_api"
+    ],
+    "fixtures_location": "conftest.py at repo root provides pytest_sessionstart hook and setup_and_teardown_subprocess_runner fixture",
+    "mock_patterns": "Components use sys.modules mocking to avoid requiring heavy dependencies (see components/data_processing/automl/tabular_data_loader/tests/mocked_pandas.py)",
+    "coverage_command": "cd .github/scripts && uv run pytest */tests/ --cov=. --cov-report=term-missing -v",
+    "coverage_threshold": null,
+    "notes": "Tests are organized in two categories: (1) Script tests in .github/scripts/*/tests/ and scripts/*/tests/ - these are unit tests for utility scripts. (2) Component/pipeline tests in components/*/tests/ and pipelines/*/tests/ - these include test_component_unit.py and test_component_local.py. Local tests use KFP LocalRunner and may require Docker. The pyproject.toml excludes components/ and pipelines/ from test discovery by default. Tests must be run from repo root. Some tests are marked with @pytest.mark.gh_api and require GITHUB_TOKEN."
+  },
+  "ci": {
+    "system": "GitHub Actions",
+    "config_files": [
+      ".github/workflows/python-lint.yml",
+      ".github/workflows/yaml-lint.yml",
+      ".github/workflows/markdown-lint.yml",
+      ".github/workflows/scripts-tests.yml",
+      ".github/workflows/component-pipeline-tests.yml",
+      ".github/workflows/compile-and-deps.yml",
+      ".github/workflows/ci-checks.yml",
+      ".github/workflows/base-image-check.yml",
+      ".github/workflows/package-entries-check.yml",
+      ".github/workflows/readme-check.yml",
+      ".github/workflows/validate-metadata-schema.yml"
+    ],
+    "gating_checks": [
+      {
+        "name": "python-lint",
+        "command": "uv run ruff format --check && uv run ruff check && uv run python .github/scripts/check_imports/check_imports.py",
+        "required": true
+      },
+      {
+        "name": "yaml-lint",
+        "command": "uv run yamllint -c .yamllint.yml -- {changed_files}",
+        "required": true
+      },
+      {
+        "name": "markdown-lint",
+        "command": "markdownlint -c .markdownlint.json -- {changed_files}",
+        "required": true
+      },
+      {
+        "name": "scripts-tests",
+        "command": "cd .github/scripts && uv run pytest */tests/ -v --tb=short -m 'not gh_api'",
+        "required": true
+      },
+      {
+        "name": "component-pipeline-tests",
+        "command": "uv run python -m scripts.tests.run_component_tests {changed_paths}",
+        "required": true
+      },
+      {
+        "name": "compile-check",
+        "command": "uv run python -m scripts.compile_check.compile_check",
+        "required": true
+      },
+      {
+        "name": "ci-checks",
+        "command": "python3 .github/scripts/ci_checks/ci_checks.py --pr-number {pr} --repo {repo} --head-sha {sha}",
+        "required": true
+      }
+    ],
+    "advisory_checks": [],
+    "notes": "CI runs on pull_request to main and release-* branches. Workflows use matrix builds for Python 3.11 and 3.13 in scripts-tests.yml. Most checks only run on changed files to optimize CI time. The ci-checks.yml workflow orchestrates checking that all other CI checks have passed and adds a 'ci-passed' label. Pre-commit hooks mirror CI checks."
+  },
+  "build": {
+    "system": "uv + setuptools",
+    "install_command": "uv sync --extra dev",
+    "build_command": "uv build",
+    "notes": "UV is the package manager (replaces pip/pip-tools/poetry). Lock file is uv.lock. The package is kfp-components and includes many subpackages for components and pipelines. Development dependencies include both [test] and [lint] extras. Use 'uv sync --extra dev' to get both."
+  },
+  "conventions": {
+    "test_file_pattern": "test_*.py in */tests/ directories",
+    "test_naming": "test_* functions, Test* classes following pytest conventions",
+    "import_style": "Absolute imports with 'from .. import' for relative component imports. Components/pipelines must use lazy imports for third-party libraries (enforced by import-guard).",
+    "notes": "Code follows Google-style docstrings. Line length is 120 chars. Python 3.11+ target. Components are organized as: components/{category}/{subcategory?}/{name}/component.py with metadata.yaml and tests/. Similar for pipelines."
+  },
+  "container_recipe": {
+    "base_image": "python:3.11-slim",
+    "system_deps": ["curl", "ca-certificates", "git", "make"],
+    "setup_commands": [
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "export PATH=/root/.local/bin:$PATH",
+      "uv sync --extra dev"
+    ],
+    "lint_commands": [
+      {
+        "command": "uv run ruff format --check components pipelines scripts",
+        "validated": true,
+        "notes": "Found 2 files needing format (exit code non-zero)"
+      },
+      {
+        "command": "uv run ruff check components pipelines scripts",
+        "validated": true,
+        "notes": "Found lint violations in notebook templates (E501, I001, E402)"
+      },
+      {
+        "command": "uv run yamllint -c .yamllint.yml .",
+        "validated": true,
+        "notes": "Found warnings (missing document-start, line-length violations)"
+      }
+    ],
+    "test_commands": [
+      {
+        "command": "cd .github/scripts && uv run pytest */tests/ -v --tb=short -m 'not gh_api'",
+        "validated": true,
+        "notes": "120 passed, 2 deselected in 0.11s"
+      },
+      {
+        "command": "uv run pytest scripts/check_base_image_tags/tests/ -v --tb=short",
+        "validated": true,
+        "notes": "10 passed in 0.08s - tests from scripts/ must run from repo root"
+      },
+      {
+        "command": "uv run pytest components/data_processing/automl/tabular_data_loader/tests/test_component_unit.py -v --tb=short",
+        "validated": true,
+        "notes": "10 passed in 0.07s - component unit tests work"
+      }
+    ],
+    "test_single_file": "uv run pytest {file} -v --tb=short",
+    "test_single_test": "uv run pytest {file}::{test_name} -v --tb=short",
+    "env_vars": ["PATH=/root/.local/bin:$PATH"],
+    "notes": "UV must be added to PATH after installation. Tests in scripts/ subdirectories must be run from repo root (not from within scripts/). Component local tests (test_component_local.py) require Docker and may not work in all container environments - use unit tests for validation. The conftest.py at repo root adds /app to sys.path for test imports."
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "install",
+        "command": "apt-get update && apt-get install -y curl ca-certificates git make",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "53 newly installed packages",
+        "notes": "System dependencies installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "curl -LsSf https://astral.sh/uv/install.sh | sh",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "downloading uv 0.10.12 x86_64-unknown-linux-gnu\ninstalling to /root/.local/bin",
+        "notes": "UV 0.10.12 installed successfully"
+      },
+      {
+        "step": "install",
+        "command": "uv sync --extra dev",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "Resolved 55 packages in 1ms\nInstalled 14 packages",
+        "notes": "All dev dependencies installed (includes test + lint)"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff format --check components pipelines scripts",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "Would reformat: components/data_processing/yoda_data_processor/component.py\nWould reformat: scripts/validate_examples/validate_examples.py\n2 files would be reformatted, 235 files already formatted",
+        "notes": "Linter works correctly, found 2 files needing format (legitimate violations)"
+      },
+      {
+        "step": "lint",
+        "command": "uv run ruff check components pipelines scripts",
+        "exit_code": 1,
+        "success": false,
+        "output_snippet": "E501 Line too long (121 > 120)\nI001 Import block is un-sorted\nE402 Module level import not at top of cell",
+        "notes": "Linter works correctly, found violations in notebook templates (legitimate)"
+      },
+      {
+        "step": "lint",
+        "command": "uv run yamllint -c .yamllint.yml .",
+        "exit_code": 2,
+        "success": false,
+        "output_snippet": "1:1 warning missing document start '---'\n110:121 warning line too long (130 > 120 characters)",
+        "notes": "Yamllint works correctly, found warnings (legitimate issues)"
+      },
+      {
+        "step": "test",
+        "command": "cd .github/scripts && uv run pytest */tests/ -v --tb=short -m 'not gh_api'",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "120 passed, 2 deselected in 0.11s",
+        "notes": "All scripts tests pass successfully"
+      },
+      {
+        "step": "test",
+        "command": "uv run pytest scripts/check_base_image_tags/tests/ -v --tb=short",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "10 passed in 0.08s",
+        "notes": "Scripts tests run from repo root work correctly"
+      },
+      {
+        "step": "test",
+        "command": "uv run pytest components/data_processing/automl/tabular_data_loader/tests/test_component_unit.py -v --tb=short",
+        "exit_code": 0,
+        "success": true,
+        "output_snippet": "10 passed in 0.07s",
+        "notes": "Component unit tests work correctly"
+      }
+    ],
+    "summary": "install OK, lint OK (found legitimate violations), yamllint OK (warnings), tests OK (120 passed in scripts, 10 passed in components)"
+  },
+  "gaps": [
+    "Component local tests (test_component_local.py) require Docker and KFP LocalRunner - not validated in container",
+    "Markdown linting requires Node.js/npm which was not installed in validation container",
+    "Tests marked with @pytest.mark.gh_api require GITHUB_TOKEN and were skipped in validation",
+    "The component-pipeline-tests workflow uses a custom script (scripts.tests.run_component_tests) that detects changed components - full workflow not validated",
+    "Pre-commit hooks include validate-readme, validate-metadata, validate-base-images checks that have complex bash logic - not individually validated"
+  ],
+  "agent_readiness": "high",
+  "confidence": "high"
+}
